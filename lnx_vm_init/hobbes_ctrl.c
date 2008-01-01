@@ -1,4 +1,4 @@
-
+	
 /* Hobbes Enclave Commands 
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
@@ -16,7 +16,7 @@
 
 #include "init.h"
 #include "hobbes_ctrl.h"
-
+#include "app_launch.h"
 
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
@@ -128,9 +128,10 @@ __launch_app(hcq_handle_t hcq,
     /* ensure null termination */
     xml_str[data_size] = '\0';
 
-/*
- *    ret = launch_hobbes_lwk_app(xml_str);
- */
+
+    ret = launch_hobbes_lnx_app(xml_str);
+
+    printf("Returning from app launch\n");
 out:
     hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;

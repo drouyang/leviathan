@@ -38,13 +38,26 @@ launch_lnx_app(char        * name,
 	       char        * envp)
 {
     char * cmd_line = NULL;
-    
+    FILE * app_fp = NULL;
+/*
+    char * out_data = NULL;    
+    size_t line_size = 0;
+*/
     asprintf(&cmd_line, "%s %s %s", envp, exe_path, argv); 
 
+	printf("Launching app: %s\n", cmd_line);
 
-    popen(cmd_line, "r");
-
+    app_fp = popen(cmd_line, "r");
     free(cmd_line);
+  
+/*
+    while (getline(&out_data, &line_size, app_fp) != -1) {
+	printf(">%s\n", out_data);	
+    }
+
+    free(out_data);
+*/ 
+   pclose(app_fp);
 
     return 0;
 }
