@@ -1,0 +1,175 @@
+WhiteDB Installation
+====================
+
+
+Introduction
+------------
+
+There are two primary ways you can use the distribution package:
+
+- compile the database library ('libwgdb.so' under Linux, 'wgdb.dll' under
+Windows) and link your application against that
+
+- compile your application program by including the database files directly
+
+In both of  these cases your application using WhiteDB calls should
+include the API header file: 'dbapi.h'
+
+In addition, you may want to compile the included utility program (`wgdb`)
+to manage the database.
+
+If you're installing from a source package, see the "Quick-start instructions"
+immediately below. If you grabbed the source code from the source repository,
+please read "Building the repository version" first. If you have a binary
+package for your system, follow the instructions for installing packages
+on your system instead.
+
+Quick-start instructions
+------------------------
+
+These instructions assume you're installing from a distribution source package.
+
+Under Linux, type
+
+  ./configure
+  make
+  make install
+
+This produces the database utilities, the library and installs the
+them together with the database header files.
+
+NOTE: on Debian and Ubuntu, you may need to additionally run `ldconfig`
+as root.
+
+Under Windows, check that you have MSVC installed. Open the command
+prompt with the Visual C environment configured and type:
+
+  compile.bat
+
+This produces the database utilities, 'wgdb.lib' and 'wgdb.dll'.
+
+The shared memory
+-----------------
+
+Under Linux, the default memory settings are sufficient for testing
+and initial evaluation. For increasing the maximum amount of shared
+memory, type:
+
+  sysctl kernel.shmmax=100000000
+
+This example sets the available shared memory to 100M bytes. Under Mac OS X
+you need to set a kern.sysv.shmmax and kern.sysv.shmall, type:
+
+  sudo sysctl -w kern.sysv.shmmax=1073741824
+  sudo sysctl -w kern.sysv.shmall=262144
+
+You can add these settings to '/etc/sysctl.conf' to make it permanent.
+
+Under Windows, the shared memory is not persistent. To maintain a
+persistent database, use
+
+  wgdb server 100000000
+
+This example creates a shared memory database of 100M bytes. Once
+this process is terminated, the shared memory is destroyed.
+
+The configure script
+--------------------
+
+Some more relevant options to the configure script are:
+
+'--prefix=PREFIX'  specifies the directory the program is
+installed under. The binaries go in 'PREFIX/bin', the header files
+in 'PREFIX/include/whitedb' and the libraries in 'PREFIX/lib'.
+The Python modules, if compiled, will be placed in
+'PREFIX/lib/pythonX.Y/site-packages', where X.Y is the Python version
+
+'--with-python'  compiles the Python bindings. By default, the configure
+script attempts to automatically locate a suitable version of Python. Use
+'--with-python=/usr/bin/pythonX.Y' to point to a specific version
+of Python.
+
+'--enable-locking'  changes the locking protocol. The available options
+are: 'rpspin' (a reader preference spinlock), 'wpspin' (a writer preference
+spinlock), 'tfqueue' (task-fair queue, no preference) and 'no' (locking
+is disabled). The default value is 'tfqueue' which performs best under heavy
+workload. For simple applications 'rpspin' may be preferrable, as it has
+lower overhead.
+
+'--enable-logging'  enables the journal log of the database. Still
+somewhat experimental; off by default.
+
+'--enable-reasoner'  enables the Gandalf reasoner. Disabled by default.
+
+'--disable-backlink'  disables references between records. May be used
+to increase performance if the database records never contain any
+links to other records.
+
+'--disable-checking'  disables sanity checking in many internal
+database operations. Increases performance by a small percentage.
+
+`./configure --help` will provide the full list of available options.
+
+Building the repository version
+-------------------------------
+
+The github repository (https://github.com/priitj/whitedb) does not
+contain a pre-generated configure script. You'll need the autoconf,
+automake and libtool packages. If you have those installed, run:
+
+  ./Bootstrap
+
+This generates the `configure` script and other scripts used by the
+autotools build. Then you can continue with the normal installation
+process.
+
+Keep in mind that the repository version is a work in progress and may
+therefore be unstable and contain undocumented and incomplete features.
+
+Building the utilities without configure and GNU make
+-----------------------------------------------------
+
+The `compile.sh` script is provided to allow compiling the utilities
+with the C compiler. This is intended to simplify building in
+cross-target or embedded environments. It is assumed that the
+GNU C Compiler (`gcc`) or the CLang Compiler (`clang`) is used.
+
+When the script is executed with 'gcc' as first parameter or without
+parameters, GNU C Compiler is used. You can use CLang compiler using
+'clang' as first parameter for this script.
+
+When the script is executed the first time, it copies 'config-gcc.h'
+to 'config.h', unless that file is already present. Edit 'config.h' to
+change database options. Note that if your system generates 64-bit
+binaries, then the macro `HAVE_64BIT_GINT` needs to be enabled explicitly.
+Uncomment the compilation of `selftest` in the compilation script and
+run it, if in doubt about whether the configuration is correct.
+
+Under Windows, `compile.bat` serves a similar function. To change the
+database options, edit the 'config-w32.h' file.
+
+Note that in both cases, the config file for building the `wgdb` utility
+should match the config file for building your database application.
+
+Not building anything
+---------------------
+
+Building the database library and the utilities is not strictly necessary.
+Alternatively you may compile the database sources directly into your
+program.
+
+An effective way of doing this is executing the shell script `unite.sh` which
+will produce an amalgamation of header files, and an amalgamation of source
+files.  The end result is two files: 'whitedb.h', and 'whitedb.c'. These can
+easily be included in your repository, or code base, and compiled directly in,
+while conforming to the license terms.
+
+NOTE: The 'whitedb.h' header produced this way is not the same as the standard
+API header. For better compatibility, consider including the 'Db/dbapi.h'
+header in your own sources, as documented elsewhere.
+
+See 'Examples/compile_demo.sh' ('Examples\compile_demo.bat' under
+Windows). This compiles the demo program 'demo.c' with the WhiteDB source
+files. These programs and scripts may be used as templates for creating
+database applications.
+

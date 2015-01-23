@@ -1,0 +1,27 @@
+MANIFEST
+========
+
+This is the top folder of the WhiteDB system.
+
+FOLDERS
+-------
+
+Main components:
+
+   Doc      : plain text documentation 
+   Main     : top level source, main compiled binaries          
+   Db       : WhiteDB core source; start here
+   json     : json handling
+   Python   : Python bindings
+   java     : java bindings
+
+   
+Under development:
+
+   Reasoner : reasoner core
+   Parser   : parsers for various input languages: used by reasoner
+   Printer    : printing and other output functions: used by reasoner   
+   Rexamples: reasoner examples
+
+    
+		     
