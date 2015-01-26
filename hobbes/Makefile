@@ -1,17 +1,29 @@
 WHITEDB_PATH = ../whitedb-0.7.3
 XPMEM_PATH   = ../xpmem
+PISCES_PATH  = $(HOME)/pisces/pisces/linux_usr
+PETLIB_PATH  = $(HOME)/pisces/petlib
 
-CFLAGS = -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH) -static  
+CFLAGS = -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH) -I$(PISCES_PATH) -I$(PETLIB_PATH) -static  
 
 
 CC = gcc
 AR = ar
 
 libs := 	$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
-		$(XPMEM_PATH)/libxpmem.a
+		$(XPMEM_PATH)/libxpmem.a \
+		$(PISCES_PATH)/libpisces.a \
+		$(PETLIB_PATH)/petlib.a
+
+
 
 execs :=    	master \
-		client
+		client \
+		hobbes \
+
+
+hobbes_objs :=  hobbes.o  \
+		ezxml.o   \
+		enclave.o \
 
 
 build = \
@@ -25,7 +37,6 @@ build = \
 
 
 
-all: $(execs) $(libs)
 
 
 % : %.c $(libs)
@@ -37,9 +48,13 @@ all: $(execs) $(libs)
 %.a : %.o
 	$(call build,AR,$(AR) rcs $@ $^)
 
+hobbes: $(hobbes_objs)
+	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
+
+all: $(execs) $(libs)
 
 
 
 
 clean:
-	rm -f $(wildcard  $(execs))
+	rm -f $(wildcard  $(execs)) *.o
