@@ -7,10 +7,32 @@
 #include <string.h>
 
 #include "ezxml.h"
+#include "hobbes_types.h"
 
 #include <pisces.h>
 #include <pet_mem.h>
 
+
+static int
+smart_atoi(int dflt, char * str) 
+{
+    char * end = NULL;
+    int    tmp = 0;
+    
+    if ((str == NULL) || (*str == '\0')) {
+	/*  String was either NULL or empty */
+	return dflt;
+    }
+
+    tmp = strtol(str, &end, 10);
+
+    if (*end) {
+	/* String contained non-numerics */
+	return dflt;
+    }
+    
+    return tmp;
+}
 
 static ezxml_t 
 open_xml_file(char * filename) 
@@ -105,21 +127,67 @@ add_cpus_to_pisces(int pisces_id,
 		   int num_cpus, 
 		   int numa_zone)
 {
+    int ret = -1;
+    
+    ret = pisces_add_cpus(pisces_id, num_cpus, numa_zone);
 
-
-    return -1;
+    return ret;
 }
 
 static int 
 add_cpu_to_pisces(int pisces_id, 
-		  u64 cpu_id)
+		  int cpu_id)
 {
+    int ret = -1;
 
+    ret = pisces_add_cpu(pisces_id, cpu_id);
 
-
-    return -1;
+    return ret;
 }
 
+static int
+add_mem_node_to_pisces(int pisces_id, 
+		       int numa_node)
+{
+    int ret = -1;
+    
+    ret = pisces_add_mem_node(pisces_id, numa_node);
+
+    return ret;
+}
+
+static int 
+add_mem_block_to_pisces(int pisces_id, 
+			int block_id)
+{
+    int ret = -1;
+
+    ret = pisces_add_mem_explicit(pisces_id, block_id);
+
+    return ret;
+}
+
+static int 
+add_mem_blocks_to_pisces(int pisces_id, 
+			 int numa_node, 
+			 int num_blocks, 
+			 int contig)
+{
+    int ret = -1;
+
+    if (contig == 0) {
+	ret = pisces_add_mem(pisces_id, num_blocks, numa_node);
+    } else {
+	fprintf(stderr, "ERROR: contiguous block allocations not yet supported\n");
+	return -1;
+    }
+
+
+    return ret;
+}
+
+
+	   
 
 
 static int 
@@ -128,7 +196,7 @@ create_pisces_enclave(ezxml_t xml)
     int pisces_id = -1;
 
     /* Load Enclave OS files */
-    if (0) {
+    {
 	char * kern    = get_val(xml, "kernel");
 	char * initrd  = get_val(xml, "init_task");
 	char * cmdline = get_val(xml, "cmd_line");
@@ -153,7 +221,7 @@ create_pisces_enclave(ezxml_t xml)
 
     /* Boot the enclave with boot_env (if specified) */
 
-    if (0) {
+    {
 	int boot_cpu   = -1;
 	int numa_zone  = -1;
 	int block_id   = -1;
@@ -167,17 +235,25 @@ create_pisces_enclave(ezxml_t xml)
 	    char    * cpu      = get_val(boot_env_tree, "cpu");
 	    char    * mem_blk  = get_val(boot_env_tree, "memory");
 
-	    if (numa)    { numa_zone = atoi(numa);    }
-	    if (cpu)     { boot_cpu  = atoi(cpu);     }
-	    if (mem_blk) { block_id  = atoi(mem_blk); }
+	   numa_zone = smart_atoi(numa_zone, numa);
+	   boot_cpu  = smart_atoi(boot_cpu,  cpu);
+	   block_id  = smart_atoi(block_id,  mem_blk);
 
 	    if (mem_tree) {
 		char * mem_size = get_val(mem_tree, "size");
 
 		if (mem_size) {
-		    int size_in_MB = atoi(mem_size);
+		    int dflt_size_in_MB = pet_block_size() / (1024 * 1024);
+		    int size_in_MB      = 0;
 
-		    num_blocks = (size_in_MB * 1024 * 1024)  / pet_block_size();
+		    size_in_MB = smart_atoi(dflt_size_in_MB, mem_size);
+		    
+		    if (size_in_MB % dflt_size_in_MB) {
+			fprintf(stderr, "WARNING: Memory size is not a multiple of the HW block size [%d].\n", pet_block_size());
+			fprintf(stderr, "WARNING: Memory size will be truncated.\n");
+		    }
+
+		    num_blocks = size_in_MB / dflt_size_in_MB;
 		}
 	    }
 	}
@@ -200,24 +276,63 @@ create_pisces_enclave(ezxml_t xml)
 	    ezxml_t node_tree   = get_subtree(memory_tree, "node");
 
 	    while (block_tree) {
-		printf("%s\n", ezxml_txt(block_tree));
+		int block_id = -1;
+		
+		block_id = smart_atoi(block_id, ezxml_txt(block_tree));
+
+		if (block_id != -1) {
+		    if (add_mem_block_to_pisces(pisces_id, block_id) != 0) {
+			fprintf(stderr, "Error: Could not add memory block <%d> to enclave (%d), continuing...\n", 
+				block_id, pisces_id);
+		    }
+		} else {
+		    fprintf(stderr, "Error: Invalid Block ID (%s) in memory configuration for enclave (%d), continuing...\n",
+			    ezxml_txt(block_tree), pisces_id);
+		}
+		    
+			   
+
 		block_tree = ezxml_next(block_tree);
 	    }
 	    
 	    while (node_tree) {
-		printf("%s\n", ezxml_txt(node_tree));
+		int numa_node = -1;
+		
+		numa_node = smart_atoi(numa_node, ezxml_txt(node_tree));
+
+		if (numa_node != -1) {
+		    if (add_mem_node_to_pisces(pisces_id, numa_node) != 0) {
+			fprintf(stderr, "Error: Could not add NUMA node <%d> to enclave (%d), continuing...\n", 
+			       numa_node, pisces_id);
+		    } 
+		} else {
+		    fprintf(stderr, "Error: Invalid NUMA node (%s) in memory configuration for enclave (%d), continuing...\n",
+			    ezxml_txt(node_tree), pisces_id);
+		}
+
 		node_tree = ezxml_next(node_tree);
 	    }
 
 	    
 	    while (blocks_tree) {
-		char * numa_node  = get_val(blocks_tree, "numa");
-		char * contig     = get_val(blocks_tree, "contig");
-		char * target     = get_val(blocks_tree, "target");
-		char * num_blocks = ezxml_txt(blocks_tree);
+		int numa_node  = -1;
+		int num_blocks =  0;
+		int contig     =  0;
 
+		numa_node  = smart_atoi(numa_node,  get_val(blocks_tree, "numa"));
+		contig     = smart_atoi(contig,     get_val(blocks_tree, "contig"));
+		num_blocks = smart_atoi(num_blocks, ezxml_txt(blocks_tree));		
 		
-
+		if (num_blocks > 0) {
+		    if (add_mem_blocks_to_pisces(pisces_id, numa_node, num_blocks, contig) != 0) {
+			fprintf(stderr, "Error: Could not add memory blocks (%d) to enclave (%d), continuing...\n", 
+			       num_blocks, pisces_id);
+		    }
+		} else {
+		    fprintf(stderr, "Error: Invalid number of blocks (%s) in enclave configuration. Ignoring...\n", 
+			    ezxml_txt(blocks_tree));
+		}
+		
 
 		blocks_tree = ezxml_next(blocks_tree);
 	    }
@@ -236,14 +351,39 @@ create_pisces_enclave(ezxml_t xml)
 	    
 
 	    while (core_tree) {
-		char * target = ezxml_txt(core_tree);
+		int target = -1;
+
+		target = smart_atoi(target, ezxml_txt(core_tree));
+		
+		if (target >= 0) {
+		    if (add_cpu_to_pisces(pisces_id, target) != 0) {
+			fprintf(stderr, "Error: Could not add CPU (%d) to enclave (%d), continuing...\n", 
+			       target, pisces_id);
+		    }
+		} else {
+		    fprintf(stderr, "Error: Invalid CPU index (%s) in enclave configuration. Ignoring...\n", 
+			    ezxml_txt(core_tree));
+		}
 
 		core_tree = ezxml_next(core_tree);
 	    } 
 
 	    while (cores_tree) {
-		char * numa  = get_val(core_tree, "numa");
-		char * count = ezxml_txt(core_tree);
+		int numa_node  = -1;
+		int core_count = -1;
+
+		numa_node  = smart_atoi(numa_node,  get_val(cores_tree, "numa"));
+		core_count = smart_atoi(core_count, ezxml_txt(cores_tree));
+
+		if (core_count > 0) {
+		    if (add_cpus_to_pisces(pisces_id, core_count, numa_node) != 0) {
+			fprintf(stderr, "Error: Could not add CPUs (%d) to enclave (%d), continuing...\n", 
+			       core_count, pisces_id);
+		    }
+		} else {
+		    fprintf(stderr, "Error: Invalid CPU core count (%s) in enclave configuration. Ignoring...\n", 
+			    ezxml_txt(cores_tree));
+		}
 
 		cores_tree = ezxml_next(cores_tree);
 	    }
