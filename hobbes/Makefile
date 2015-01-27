@@ -24,7 +24,11 @@ execs :=    	master \
 hobbes_objs :=  hobbes.o  \
 		ezxml.o   \
 		enclave.o \
+		hobbes_db.o
 
+
+master_objs := 	master.o    \
+		hobbes_db.o \
 
 build = \
 	@if [ -z "$V" ]; then \
@@ -48,10 +52,17 @@ build = \
 %.a : %.o
 	$(call build,AR,$(AR) rcs $@ $^)
 
+
+all: $(execs) $(libs)
+
+master: $(master_objs)
+	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
+
 hobbes: $(hobbes_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
 
-all: $(execs) $(libs)
+
+
 
 
 

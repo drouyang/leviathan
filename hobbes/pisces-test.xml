@@ -1,0 +1,35 @@
+<enclave type="pisces">
+    <kernel>/home/jarusl/pisces/kitten/vmlwk.bin</kernel>
+    <init_task>/home/jarusl/pisces/kitten/user/pisces/pisces</init_task>
+    <cmd_line>console=pisces</cmd_line>
+    
+    <boot_env>
+<!--       <cpu>2</cpu> -->
+<!--       <memory size="512"></memory> -->
+    </boot_env>
+   
+    <memory>
+        <blocks contig="0">2</blocks>
+        <block>4</block>
+        <block>2</block>
+    </memory>
+    
+    <cpus>
+        <cores>1</cores>
+    </cpus>
+
+
+<!--
+    <files>
+
+    </files>
+-->
+
+
+    <devices>
+      <vpci name="nic_1" bus="0" dev="1" fn="0" />
+
+    </devices>
+
+
+</enclave>

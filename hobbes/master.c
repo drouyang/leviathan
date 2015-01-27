@@ -11,28 +11,17 @@
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
-#define DB_SIZE  (PAGE_SIZE * 100)
+
+
 
 
 void * 
 create_master_db(unsigned int size) 
 {
-    void * db_addr = NULL;
-    void * db      = NULL;
-    
+
     xpmem_segid_t segid;
-
-    if (size % PAGE_SIZE) {
-	printf("Error: Database must be integral number of pages\n");
-	return NULL;
-    }
-
-    db = wg_attach_local_database(size);
-
-    if (db == NULL) {
-	printf("Could not create database\n");
-	return NULL;
-    }
+    void *   db_addr = NULL;
+    hdb_db_t db      = hdb_create(size);
 
 
     /* Initialize Master DB State */
@@ -49,16 +38,13 @@ create_master_db(unsigned int size)
 
 
 	/* Create Master enclave */
+	hdb_create_enclave(db, "master", 0, MASTER_ENCLAVE, 0);
 
 	/* Create Master Process */
 	
     }
 
-#ifdef USE_DATABASE_HANDLE
-    db_addr = ((db_handle *)db)->db;
-#else
-    db_addr = db;
-#endif
+    db_addr = hdb_get_db_addr(db);
 
     segid = xpmem_make(db_addr, size, XPMEM_PERMIT_MODE, (void *)0600);
 
@@ -79,13 +65,14 @@ int main(int argc, char ** argv) {
     
     void * db = NULL;
 
-    db = create_master_db(DB_SIZE);
+    db = create_master_db(MASTER_DB_SIZE);
 
-    void * rec = wg_create_record(db, 10);
-    wg_int enc = wg_encode_str(db, "Hello DB", NULL);
+    if (db == NULL) {
+	printf("Error creating master database\n");
+	return -1;
+    }
 
-    wg_set_field(db, rec, 0, enc);
-
+    wg_print_db(db);
     
 
     while (1) {sleep(1);}
