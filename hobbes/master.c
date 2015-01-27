@@ -48,7 +48,7 @@ create_master_db(unsigned int size)
 	wg_set_field(db, rec, 1, wg_encode_int(db, 0));
 
 
-	/* Create MAster enclave */
+	/* Create Master enclave */
 
 	/* Create Master Process */
 	

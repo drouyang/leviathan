@@ -37,6 +37,18 @@ create_enclave_handler(int argc, char ** argv)
 }
 
 
+static int 
+destroy_enclave_handler(int argc, char ** argv)
+{
+    return -1;
+}
+
+static int
+launch_job_handler(int argc, char ** argv)
+{
+    return -1;
+}
+
 struct hobbes_cmd {
     char * name;
     int (*handler)(int argc, char ** argv);   
@@ -44,7 +56,9 @@ struct hobbes_cmd {
 };
 
 static struct hobbes_cmd cmds[] = {
-    {"create_enclave", create_enclave_handler, "Create enclave"},
+    {"create_enclave",  create_enclave_handler,  "Create enclave"},
+    {"destroy_enclave", destroy_enclave_handler, "Destroy enclave"},
+    {"launch_job",      launch_job_handler,      "Launch a job in an enclave"},
     {0, 0, 0}
 };
 
@@ -59,8 +73,7 @@ usage()
     printf("Commands:\n");
 
     while (cmds[i].name) {
-	printf("\t%s -- %s\n", cmds[i].name, cmds[i].desc);
-	
+	printf("\t%-17s -- %s\n", cmds[i].name, cmds[i].desc);
 	i++;
     }
 
@@ -71,7 +84,7 @@ usage()
 int 
 main(int argc, char ** argv) 
 {
-    int    i   = 0;
+    int i = 0;
 
     if (argc < 2) {
 	usage();
