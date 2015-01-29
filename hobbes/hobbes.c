@@ -72,9 +72,9 @@ list_enclaves_handler(int argc, char ** argv)
     printf("%d Active Enclaves:\n", num_enclaves);
  
     for (i = 0; i < num_enclaves; i++) {
-	printf("%lu:[%s] %s\n", list[i].enclave_id,
-	       enclave_type_to_str(list[i].type),
-	       list[i].name);
+	printf("%lu: %-35s [%s]\n", list[i].enclave_id,
+	       list[i].name,
+	       enclave_type_to_str(list[i].type));
 
     }
 

@@ -58,8 +58,8 @@ hdb_detach(hdb_db_t db)
 
 
 static int
-deserialize_enclave(hdb_db_t             db,
-		    void               * enclave_rec,
+deserialize_enclave(hdb_db_t                db,
+		    void                  * enclave_rec,
 		    struct hobbes_enclave * enclave)
 {
     enclave->enclave_id  = wg_decode_int(db, wg_get_field(db, enclave_rec, 1));
@@ -123,7 +123,6 @@ get_enclave_by_name(hdb_db_t                db,
   
     wg_query_arg arglist[2];    
  
-
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
     arglist[0].value  = wg_encode_query_param_int(db, HDB_ENCLAVE);    
@@ -162,7 +161,6 @@ insert_enclave(hdb_db_t         db,
 	       enclave_type_t   type, 
 	       u64              parent)
 {
-    
     void * rec           = NULL;
     void * hdr_rec       = NULL;
     u64    enclave_id    = 0;
@@ -214,7 +212,6 @@ delete_enclave(hdb_db_t db,
     wg_query    * query = NULL;
     wg_query_arg  arglist[2];
 
-
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
     
     if (!hdr_rec) {
@@ -248,19 +245,16 @@ delete_enclave(hdb_db_t db,
 	return -1;
     }
 
-
     enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
     wg_set_field(db, hdr_rec, 2, wg_encode_int(db, enclave_cnt - 1));
 
-
     return 0;
-
 }
 
 
 int 
-hdb_get_enclave_by_name(hdb_db_t             db, 
-			char               * name,
+hdb_get_enclave_by_name(hdb_db_t                db, 
+			char                  * name,
 			struct hobbes_enclave * enclave)
 {
     wg_int lock_id;
