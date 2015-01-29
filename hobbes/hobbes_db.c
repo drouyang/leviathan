@@ -114,14 +114,13 @@ get_enclave_list(hdb_db_t   db,
 
 
 static int 
-get_enclave_by_name(hdb_db_t             db, 
-		    char               * name,
+get_enclave_by_name(hdb_db_t                db, 
+		    char                  * name,
 		    struct hobbes_enclave * enclave)
 {
     void     * enclave_rec = NULL;
     wg_query * query       = NULL;
-    int        ret         = 0;
-
+  
     wg_query_arg arglist[2];    
  
 
@@ -141,6 +140,7 @@ get_enclave_by_name(hdb_db_t             db,
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
+
     if (enclave_rec) {
 
 	if (enclave) {
@@ -149,7 +149,7 @@ get_enclave_by_name(hdb_db_t             db,
 
 	return 1;	
     } 
-	
+
     return 0;
 }
 
@@ -203,15 +203,58 @@ insert_enclave(hdb_db_t         db,
 }
 
 
-
-
-int 
-hdb_get_enclave_by_id(u64                  enclave_id,
-		      struct hobbes_enclave * endlave)
+static int
+delete_enclave(hdb_db_t db,
+	       u64      enclave_id)
 {
+    void * rec          = NULL;
+    void * hdr_rec      = NULL;
+    u32    enclave_cnt  = 0;
+
+    wg_query    * query = NULL;
+    wg_query_arg  arglist[2];
 
 
-    return -1;
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
+    
+    if (!hdr_rec) {
+	printf("Error: malformed database. Missing enclave hEader\n");
+	return -1;
+    }
+
+    arglist[0].column = 0;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_ENCLAVE);    
+
+    arglist[1].column = 1;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, enclave_id);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    rec = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    if (!rec) {
+	fprintf(stderr, "Error: Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    if (wg_delete_record(db, rec) != 0) {
+	fprintf(stderr, "Error: Could not delete enclave from database\n");
+	return -1;
+    }
+
+
+    enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
+    wg_set_field(db, hdr_rec, 2, wg_encode_int(db, enclave_cnt - 1));
+
+
+    return 0;
+
 }
 
 
@@ -271,13 +314,29 @@ hdb_insert_enclave(hdb_db_t         db,
 
 
 int 
-hdb_delete_enclave(u64 enclave_id)
+hdb_delete_enclave(hdb_db_t db,
+		   u64      enclave_id)
 {
+    wg_int lock_id;
+    int    ret = 0;
 
+    lock_id = wg_start_write(db);
 
+    if (!lock_id) {
+	printf("Error: Could not lock database\n");
+	return -1;
+    }
 
-    return -1;
-}
+    ret = delete_enclave(db, enclave_id);
+    
+    if (!wg_end_write(db, lock_id)) {
+	printf("Error: Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return ret;
+ }
 
 
 

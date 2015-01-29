@@ -54,7 +54,8 @@ int hdb_get_enclave_by_name(hdb_db_t                db,
 			    char                  * name, 
 			    struct hobbes_enclave * enclave);
 
-int hdb_delete_enclave(u64 enclave_id);
+int hdb_delete_enclave(hdb_db_t db,
+		       u64      enclave_id);
 
 struct hobbes_enclave * hdb_get_enclave_list(hdb_db_t db, int * num_enclaves);
 void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);

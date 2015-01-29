@@ -46,9 +46,7 @@ destroy_enclave_handler(int argc, char ** argv)
 	return -1;
     }
 
-    destroy_enclave(argv[1]);
-    
-    return 0;
+    return destroy_enclave(argv[1]);
 }
 
 static int

@@ -188,6 +188,8 @@ add_mem_blocks_to_pisces(int pisces_id,
 }
 
 
+
+
 	   
 
 
@@ -419,6 +421,25 @@ create_pisces_enclave(ezxml_t   xml,
     return -1;
 }
 
+
+static int
+destroy_pisces_enclave(struct hobbes_enclave * enclave)
+{
+    if (pisces_teardown(enclave->mgmt_dev_id) != 0) {
+	fprintf(stderr, "Error: Could not teardown pisces enclave (%s)\n", enclave->name);
+	return -1;
+    }
+
+    if (hdb_delete_enclave(hobbes_master_db, enclave->enclave_id) != 0) {
+	fprintf(stderr, "Error: Could not delete enclave from database\n");
+	return -1;
+    }
+
+    return 0;
+}
+
+
+
 int 
 create_enclave(char * cfg_file_name, 
 	       char * name)
@@ -470,10 +491,22 @@ create_enclave(char * cfg_file_name,
 int 
 destroy_enclave(char * enclave_name)
 {
-    
-    
+    struct hobbes_enclave enclave;
 
+    if (hdb_get_enclave_by_name(hobbes_master_db, enclave_name, &enclave) != 1) {
+	printf("Error: Could not find enclave (%s)\n", enclave_name);
+	return -1;
+    }
+    
+    if (enclave.type == PISCES_ENCLAVE) {
+	return destroy_pisces_enclave(&enclave);
+    } else {
+	printf("Error: Invalid Enclave Type (%d)\n", enclave.type);
+	return -1;
+    }
 
+    return 0;
+    
 }
 
 
