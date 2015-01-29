@@ -17,18 +17,23 @@ libs := 	$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
 
 
 execs :=    	master \
-		client \
+		libclient.a \
 		hobbes \
 
 
-hobbes_objs :=  hobbes.o  \
-		ezxml.o   \
-		enclave.o \
-		hobbes_db.o
+hobbes_objs := 		hobbes.o  \
+			ezxml.o   \
+			enclave.o \
+			hobbes_db.o \
+			client.o
 
 
-master_objs := 	master.o    \
-		hobbes_db.o \
+master_objs := 		master.o    \
+			hobbes_db.o \
+
+
+libclient_objs := 	client.o \
+			hobbes_db.o
 
 build = \
 	@if [ -z "$V" ]; then \
@@ -60,6 +65,9 @@ master: $(master_objs)
 
 hobbes: $(hobbes_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
+
+libclient.a: $(libclient_objs)
+	$(call build,AR,$(AR) rcs $@ $^)
 
 
 

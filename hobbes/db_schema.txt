@@ -4,7 +4,7 @@ The first field of every record is an integer, that encodes the record type:
    0: HDB_ENCLAVE      
    1: HDB_PROCESS      
    2: HDB_SEGMENT     
-   3: HDB_NEXT_ENCLAVE
+   3: HDB_ENCLAVE_HDR
    4: HDB_NEXT_PROCESS 
 
 
@@ -22,16 +22,17 @@ Column 2: [int] enclave type
     LINUX_VM_ENCLAVE  = 4
 Column 3: [int] parent enclave          - enclave ID of host enclave for VMs
 Column 4: [int] management device ID    - local device interface ID for ioctls
-Column 5: [char[32]] name               - name of enclave 
+Column 5: [string] name                 - name of enclave 
   
 
 -------------------------------------------------------------------------------------
-Next Enclave : auto-incrementing field to assign enclave IDs
+Enclave Header: Global information about enclaves in the system
 -------------------------------------------------------------------------------------
 Enclave 0 is always the master enclave
 
-Column 0: [int: value = HDB_NEXT_ENCLAVE] type 
+Column 0: [int: value = HDB_ENCLAVE_INFO] type 
 Column 1: [int] next available enclave ID 
+Column 2: [int] total number of enclaves in the system
 
 
 

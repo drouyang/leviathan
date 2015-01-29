@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "enclave.h"
+#include "client.h"
 
 const char * hobbes_prog_version = "Hobbes 0.1";
 const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
@@ -33,7 +34,7 @@ create_enclave_handler(int argc, char ** argv)
 
     cfg_file = argv[1];
 
-    return create_enclave(cfg_file);
+    return create_enclave(cfg_file, NULL);
 }
 
 
@@ -49,6 +50,36 @@ launch_job_handler(int argc, char ** argv)
     return -1;
 }
 
+static int
+list_enclaves_handler(int argc, char ** argv)
+{
+    struct hobbes_enclave * list = NULL;
+    int num_enclaves = -1;
+    int i = 0;
+
+    list = hdb_get_enclave_list(hobbes_master_db, &num_enclaves);
+
+    if (!list) {
+	printf("Error: Could not retrieve enclave list\n");
+	return -1;
+    }
+	
+    printf("%d Active Enclaves:\n", num_enclaves);
+ 
+    for (i = 0; i < num_enclaves; i++) {
+	printf("%lu:[%s] %s\n", list[i].enclave_id,
+	       enclave_type_to_str(list[i].type),
+	       list[i].name);
+
+    }
+
+
+    hdb_free_enclave_list(list);
+
+    return 0;
+}
+
+
 struct hobbes_cmd {
     char * name;
     int (*handler)(int argc, char ** argv);   
@@ -58,6 +89,7 @@ struct hobbes_cmd {
 static struct hobbes_cmd cmds[] = {
     {"create_enclave",  create_enclave_handler,  "Create enclave"},
     {"destroy_enclave", destroy_enclave_handler, "Destroy enclave"},
+    {"list_enclaves",   list_enclaves_handler,   "List all running enclaves"},
     {"launch_job",      launch_job_handler,      "Launch a job in an enclave"},
     {0, 0, 0}
 };
@@ -91,6 +123,7 @@ main(int argc, char ** argv)
 	exit(-1);
     }
 
+    hobbes_client_init();
 
     while (cmds[i].name) {
 

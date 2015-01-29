@@ -8,43 +8,28 @@
 #include <xpmem.h>
 
 #include "hobbes_types.h"
-
+#include "enclave.h"
 
 /* set master db size to 64MB for now */
-#define MASTER_DB_SIZE (64 * 1024 * 1024) 
+#define HDB_MASTER_DB_SIZE  (64 * 1024 * 1024) 
+#define HDB_MASTER_DB_SEGID (1)
+
+
 
 typedef void * hdb_db_t;
 
 #define HDB_ENCLAVE      0
 #define HDB_PROCESS      1
 #define HDB_SEGMENT      2
-#define HDB_NEXT_ENCLAVE 3
+#define HDB_ENCLAVE_HDR  3
 #define HDB_NEXT_PROCESS 4
 
 
-typedef enum {
-    INVALID_ENCLAVE   = 0,
-    MASTER_ENCLAVE    = 1,
-    PISCES_ENCLAVE    = 2,
-    PISCES_VM_ENCLAVE = 3,
-    LINUX_VM_ENCLAVE  = 4
-} enclave_type_t;
-
-struct hdb_enclave {
-    char name[32];
-
-    u64 enclave_id;
-    u64 parent_enclave_id;
-
-    int mgmt_dev_id;
-    
-    enclave_type_t type;
-};
 
 
 
 hdb_db_t
-hdb_attach(xpmem_segid_t segid, u64 size);
+hdb_attach(void * db_addr);
 
 hdb_db_t
 hdb_create(u64 size);
@@ -62,10 +47,14 @@ static inline void * hdb_get_db_addr(hdb_db_t db) {
 
 
 int 
-hdb_create_enclave(hdb_db_t db, char * name, int mgmt_dev_id, enclave_type_t type, u64 parent);
+hdb_insert_enclave(hdb_db_t db, char * name, int mgmt_dev_id, enclave_type_t type, u64 parent);
 
+int 
+hdb_get_enclave_by_name(hdb_db_t db, char * name, struct hobbes_enclave * enclave);
 
+int hdb_delete_enclave(u64 enclave_id);
 
-
+struct hobbes_enclave * hdb_get_enclave_list(hdb_db_t db, int * num_enclaves);
+void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);
 
 #endif

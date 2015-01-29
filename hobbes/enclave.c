@@ -8,6 +8,7 @@
 
 #include "ezxml.h"
 #include "hobbes_types.h"
+#include "client.h"
 
 #include <pisces.h>
 #include <pet_mem.h>
@@ -191,7 +192,8 @@ add_mem_blocks_to_pisces(int pisces_id,
 
 
 static int 
-create_pisces_enclave(ezxml_t xml)
+create_pisces_enclave(ezxml_t   xml, 
+		      char    * name)
 {
     int pisces_id = -1;
 
@@ -265,6 +267,19 @@ create_pisces_enclave(ezxml_t xml)
 	    return -1;
 	}
     }
+
+    /* Add enclave to the Master DB */
+    {
+	char * enclave_name = name; 
+
+	if (enclave_name == NULL) {
+	    enclave_name = get_val(xml, "name");
+	}
+
+	hdb_insert_enclave(hobbes_master_db, enclave_name, pisces_id, PISCES_ENCLAVE, 0);
+
+    }
+    
 
     /* Dynamically add additional memory (if requested) */
     {
@@ -405,7 +420,8 @@ create_pisces_enclave(ezxml_t xml)
 }
 
 int 
-create_enclave(char * cfg_file_name)
+create_enclave(char * cfg_file_name, 
+	       char * name)
 {
     ezxml_t   xml  = NULL;
     char    * type = NULL; 
@@ -434,7 +450,7 @@ create_enclave(char * cfg_file_name)
     if (strncasecmp(type, "pisces", strlen("pisces")) == 0) {
 
 	printf("Creating Pisces Enclave\n");
-	return create_pisces_enclave(xml);
+	return create_pisces_enclave(xml, name);
 
     } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
 
@@ -447,4 +463,36 @@ create_enclave(char * cfg_file_name)
 
     return 0;
 
+}
+
+
+
+int 
+destroy_enclave(u64 enclave_id)
+{
+
+
+
+
+}
+
+
+
+
+
+
+const char * 
+enclave_type_to_str(enclave_type_t type) 
+{
+    switch (type) {
+	case INVALID_ENCLAVE:   return "INVALID_ENCLAVE";
+	case MASTER_ENCLAVE:    return "MASTER_ENCLAVE";
+	case PISCES_ENCLAVE:    return "PISCES_ENCLAVE";
+	case PISCES_VM_ENCLAVE: return "PISCES_VM_ENCLAVE";
+	case LINUX_VM_ENCLAVE:  return "LINUX_VM_ENCLAVE";
+
+	default : return NULL;
+    }
+
+    return NULL;
 }
