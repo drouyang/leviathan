@@ -28,11 +28,9 @@ typedef void * hdb_db_t;
 
 
 
-hdb_db_t
-hdb_attach(void * db_addr);
-
-hdb_db_t
-hdb_create(u64 size);
+hdb_db_t hdb_create(u64 size);
+hdb_db_t hdb_attach(void * db_addr);
+void hdb_detach(hdb_db_t db);
 
 
 static inline void * hdb_get_db_addr(hdb_db_t db) {
@@ -46,11 +44,15 @@ static inline void * hdb_get_db_addr(hdb_db_t db) {
 
 
 
-int 
-hdb_insert_enclave(hdb_db_t db, char * name, int mgmt_dev_id, enclave_type_t type, u64 parent);
+int hdb_insert_enclave(hdb_db_t       db, 
+		       char         * name, 
+		       int            mgmt_dev_id, 
+		       enclave_type_t type, 
+		       u64            parent);
 
-int 
-hdb_get_enclave_by_name(hdb_db_t db, char * name, struct hobbes_enclave * enclave);
+int hdb_get_enclave_by_name(hdb_db_t                db, 
+			    char                  * name, 
+			    struct hobbes_enclave * enclave);
 
 int hdb_delete_enclave(u64 enclave_id);
 

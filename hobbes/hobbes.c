@@ -41,6 +41,8 @@ create_enclave_handler(int argc, char ** argv)
 static int 
 destroy_enclave_handler(int argc, char ** argv)
 {
+    
+    
     return -1;
 }
 
