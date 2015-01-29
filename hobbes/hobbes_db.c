@@ -10,6 +10,8 @@
 #include <dbapi.h>
 #include <dballoc.h>
 
+#include <pet_log.h>
+
 #include <xpmem.h>
 
 #include "hobbes_db.h"
@@ -24,14 +26,14 @@ hdb_create(u64 size)
     void * db      = NULL;
 
     if (size % PAGE_SIZE) {
-	printf("Error: Database must be integral number of pages\n");
+	ERROR("Database must be integral number of pages\n");
 	return NULL;
     }
 
     db = wg_attach_local_database(size);
 
     if (db == NULL) {
-	printf("Could not create database\n");
+	ERROR("Could not create database\n");
 	return NULL;
     }
 
@@ -87,7 +89,7 @@ get_enclave_list(hdb_db_t   db,
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);    
 
     if (!hdr_rec) {
-	printf("Error: malformed database. Missing enclave Header\n");
+	ERROR("Malformed database. Missing enclave Header\n");
 	return NULL;
     }
 
@@ -101,7 +103,7 @@ get_enclave_list(hdb_db_t   db,
 	db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE, db_rec);
 	
 	if (!db_rec) {
-	    printf("ERROR: Enclave Header state mismatch\n");
+	    ERROR("Enclave Header state mismatch\n");
 	    *num_enclaves = i;
 	    break;
 	}
@@ -171,7 +173,7 @@ insert_enclave(hdb_db_t         db,
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
     
     if (!hdr_rec) {
-	printf("Error: malformed database. Missing enclave hEader\n");
+	ERROR("malformed database. Missing enclave Header\n");
 	return -1;
     }
     
@@ -215,7 +217,7 @@ delete_enclave(hdb_db_t db,
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
     
     if (!hdr_rec) {
-	printf("Error: malformed database. Missing enclave hEader\n");
+	ERROR("Malformed database. Missing enclave Header\n");
 	return -1;
     }
 
@@ -236,12 +238,12 @@ delete_enclave(hdb_db_t db,
     wg_free_query_param(db, arglist[1].value);
 
     if (!rec) {
-	fprintf(stderr, "Error: Could not find enclave (id: %d)\n", enclave_id);
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
 	return -1;
     }
 
     if (wg_delete_record(db, rec) != 0) {
-	fprintf(stderr, "Error: Could not delete enclave from database\n");
+	ERROR("Could not delete enclave from database\n");
 	return -1;
     }
 
@@ -263,14 +265,14 @@ hdb_get_enclave_by_name(hdb_db_t                db,
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
-	printf("Error: Could not lock database\n");
+	ERROR("Could not lock database\n");
 	return -1;
     }
 
     ret = get_enclave_by_name(db, name, enclave);
 
     if (!wg_end_read(db, lock_id)) {
-	printf("Catastrophic database locking error\n");
+	ERROR("Catastrophic database locking error\n");
 	return -1;
     }
 
@@ -291,14 +293,14 @@ hdb_insert_enclave(hdb_db_t         db,
     lock_id = wg_start_write(db);
 
     if (!lock_id) {
-	printf("Error: Could not lock database\n");
+	ERROR("Could not lock database\n");
 	return -1;
     }
 
     ret = insert_enclave(db, name, mgmt_dev_id, type, parent);
     
     if (!wg_end_write(db, lock_id)) {
-	printf("Error: Apparently this is catastrophic...\n");
+	ERROR("Apparently this is catastrophic...\n");
 	return -1;
     }
     
@@ -317,14 +319,14 @@ hdb_delete_enclave(hdb_db_t db,
     lock_id = wg_start_write(db);
 
     if (!lock_id) {
-	printf("Error: Could not lock database\n");
+	ERROR("Could not lock database\n");
 	return -1;
     }
 
     ret = delete_enclave(db, enclave_id);
     
     if (!wg_end_write(db, lock_id)) {
-	printf("Error: Apparently this is catastrophic...\n");
+	ERROR("Apparently this is catastrophic...\n");
 	return -1;
     }
     
@@ -349,14 +351,14 @@ hdb_get_enclave_list(hdb_db_t   db,
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
-	printf("Error: Could not lock database\n");
+	ERROR("Could not lock database\n");
 	return NULL;
     }
 
     list = get_enclave_list(db, num_enclaves);
 
     if (!wg_end_read(db, lock_id)) {
-	printf("Catastrophic database locking error\n");
+	ERROR("Catastrophic database locking error\n");
 	return NULL;
     }
 

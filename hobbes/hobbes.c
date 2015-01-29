@@ -9,6 +9,8 @@
 #include "enclave.h"
 #include "client.h"
 
+#include <pet_log.h>
+
 const char * hobbes_prog_version = "Hobbes 0.1";
 const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
 
@@ -65,7 +67,7 @@ list_enclaves_handler(int argc, char ** argv)
     list = hdb_get_enclave_list(hobbes_master_db, &num_enclaves);
 
     if (!list) {
-	printf("Error: Could not retrieve enclave list\n");
+	ERROR("Could not retrieve enclave list\n");
 	return -1;
     }
 	

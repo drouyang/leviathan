@@ -12,6 +12,7 @@
 
 #include <pisces.h>
 #include <pet_mem.h>
+#include <pet_log.h>
 
 
 static int
@@ -41,10 +42,10 @@ open_xml_file(char * filename)
     ezxml_t xml_input = ezxml_parse_file(filename);
     
     if (xml_input == NULL) {
-	printf("Error: Could not open XML input file (%s)\n", filename);
+	ERROR("Could not open XML input file (%s)\n", filename);
 	return NULL;
     } else if (strcmp("", ezxml_error(xml_input)) != 0) {
-	printf("%s\n", ezxml_error(xml_input));
+	ERROR("%s\n", ezxml_error(xml_input));
 	return NULL;
     }
 
@@ -62,7 +63,7 @@ get_val(ezxml_t   cfg,
     char   * val    = NULL;
 
     if ((txt != NULL) && (attrib != NULL)) {
-	printf("Invalid Cfg file: Duplicate value for %s (attr=%s, txt=%s)\n", 
+	ERROR("Invalid Cfg file: Duplicate value for %s (attr=%s, txt=%s)\n", 
 	       tag, attrib, ezxml_txt(txt));
 	return NULL;
     }
@@ -179,7 +180,7 @@ add_mem_blocks_to_pisces(int pisces_id,
     if (contig == 0) {
 	ret = pisces_add_mem(pisces_id, num_blocks, numa_node);
     } else {
-	fprintf(stderr, "ERROR: contiguous block allocations not yet supported\n");
+	ERROR("Contiguous block allocations not yet supported\n");
 	return -1;
     }
 
@@ -207,17 +208,17 @@ create_pisces_enclave(ezxml_t   xml,
 
 	
 	if ( (kern == NULL) || (initrd == NULL) ) {
-	    fprintf(stderr, "Error: Must specify a kernel and init_task for a pisces_enclave\n");
+	    ERROR("Must specify a kernel and init_task for a pisces_enclave\n");
 	    return -1;
 	} 
 	
 	pisces_id = pisces_load(kern, initrd, cmdline);
 
 	if (pisces_id < 0) {
-	    fprintf(stderr, "Error: Could not load Pisces Enclave\n");
-	    fprintf(stderr, "\tkernel  = %s\n", kern);
-	    fprintf(stderr, "\tinitrd  = %s\n", initrd);
-	    fprintf(stderr, "\tcmdline = %s\n", cmdline);
+	    ERROR("Could not load Pisces Enclave\n");
+	    ERROR("\tkernel  = %s\n", kern);
+	    ERROR("\tinitrd  = %s\n", initrd);
+	    ERROR("\tcmdline = %s\n", cmdline);
 	    return -1;
 	}
     }
@@ -253,8 +254,8 @@ create_pisces_enclave(ezxml_t   xml,
 		    size_in_MB = smart_atoi(dflt_size_in_MB, mem_size);
 		    
 		    if (size_in_MB % dflt_size_in_MB) {
-			fprintf(stderr, "WARNING: Memory size is not a multiple of the HW block size [%d].\n", pet_block_size());
-			fprintf(stderr, "WARNING: Memory size will be truncated.\n");
+			WARN("Memory size is not a multiple of the HW block size [%d].\n", pet_block_size());
+			WARN("Memory size will be truncated.\n");
 		    }
 
 		    num_blocks = size_in_MB / dflt_size_in_MB;
@@ -264,8 +265,8 @@ create_pisces_enclave(ezxml_t   xml,
 
 	
 	if (pisces_launch(pisces_id, boot_cpu, numa_zone, block_id, num_blocks) != 0) {
-	    fprintf(stderr, "Error: could not launch pisces enclave (%d)\n", pisces_id);
-	    fprintf(stderr, "ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
+	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);
+	    ERROR("ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
 	    return -1;
 	}
     }
@@ -299,12 +300,12 @@ create_pisces_enclave(ezxml_t   xml,
 
 		if (block_id != -1) {
 		    if (add_mem_block_to_pisces(pisces_id, block_id) != 0) {
-			fprintf(stderr, "Error: Could not add memory block <%d> to enclave (%d), continuing...\n", 
-				block_id, pisces_id);
+			WARN("Could not add memory block <%d> to enclave (%d), continuing...\n", 
+			     block_id, pisces_id);
 		    }
 		} else {
-		    fprintf(stderr, "Error: Invalid Block ID (%s) in memory configuration for enclave (%d), continuing...\n",
-			    ezxml_txt(block_tree), pisces_id);
+		    WARN("Invalid Block ID (%s) in memory configuration for enclave (%d), continuing...\n",
+			 ezxml_txt(block_tree), pisces_id);
 		}
 		    
 			   
@@ -319,12 +320,12 @@ create_pisces_enclave(ezxml_t   xml,
 
 		if (numa_node != -1) {
 		    if (add_mem_node_to_pisces(pisces_id, numa_node) != 0) {
-			fprintf(stderr, "Error: Could not add NUMA node <%d> to enclave (%d), continuing...\n", 
-			       numa_node, pisces_id);
+			WARN("Could not add NUMA node <%d> to enclave (%d), continuing...\n", 
+			     numa_node, pisces_id);
 		    } 
 		} else {
-		    fprintf(stderr, "Error: Invalid NUMA node (%s) in memory configuration for enclave (%d), continuing...\n",
-			    ezxml_txt(node_tree), pisces_id);
+		    WARN("Invalid NUMA node (%s) in memory configuration for enclave (%d), continuing...\n",
+			 ezxml_txt(node_tree), pisces_id);
 		}
 
 		node_tree = ezxml_next(node_tree);
@@ -342,12 +343,12 @@ create_pisces_enclave(ezxml_t   xml,
 		
 		if (num_blocks > 0) {
 		    if (add_mem_blocks_to_pisces(pisces_id, numa_node, num_blocks, contig) != 0) {
-			fprintf(stderr, "Error: Could not add memory blocks (%d) to enclave (%d), continuing...\n", 
-			       num_blocks, pisces_id);
+			WARN("Could not add memory blocks (%d) to enclave (%d), continuing...\n", 
+			     num_blocks, pisces_id);
 		    }
 		} else {
-		    fprintf(stderr, "Error: Invalid number of blocks (%s) in enclave configuration. Ignoring...\n", 
-			    ezxml_txt(blocks_tree));
+		    WARN("Invalid number of blocks (%s) in enclave configuration. Ignoring...\n", 
+			 ezxml_txt(blocks_tree));
 		}
 		
 
@@ -374,12 +375,12 @@ create_pisces_enclave(ezxml_t   xml,
 		
 		if (target >= 0) {
 		    if (add_cpu_to_pisces(pisces_id, target) != 0) {
-			fprintf(stderr, "Error: Could not add CPU (%d) to enclave (%d), continuing...\n", 
-			       target, pisces_id);
+			WARN("Could not add CPU (%d) to enclave (%d), continuing...\n", 
+			     target, pisces_id);
 		    }
 		} else {
-		    fprintf(stderr, "Error: Invalid CPU index (%s) in enclave configuration. Ignoring...\n", 
-			    ezxml_txt(core_tree));
+		    WARN("Invalid CPU index (%s) in enclave configuration. Ignoring...\n", 
+			 ezxml_txt(core_tree));
 		}
 
 		core_tree = ezxml_next(core_tree);
@@ -394,12 +395,12 @@ create_pisces_enclave(ezxml_t   xml,
 
 		if (core_count > 0) {
 		    if (add_cpus_to_pisces(pisces_id, core_count, numa_node) != 0) {
-			fprintf(stderr, "Error: Could not add CPUs (%d) to enclave (%d), continuing...\n", 
-			       core_count, pisces_id);
+			WARN("Could not add CPUs (%d) to enclave (%d), continuing...\n", 
+			     core_count, pisces_id);
 		    }
 		} else {
-		    fprintf(stderr, "Error: Invalid CPU core count (%s) in enclave configuration. Ignoring...\n", 
-			    ezxml_txt(cores_tree));
+		    WARN("Invalid CPU core count (%s) in enclave configuration. Ignoring...\n", 
+			 ezxml_txt(cores_tree));
 		}
 
 		cores_tree = ezxml_next(cores_tree);
@@ -426,12 +427,12 @@ static int
 destroy_pisces_enclave(struct hobbes_enclave * enclave)
 {
     if (pisces_teardown(enclave->mgmt_dev_id) != 0) {
-	fprintf(stderr, "Error: Could not teardown pisces enclave (%s)\n", enclave->name);
+	ERROR("Could not teardown pisces enclave (%s)\n", enclave->name);
 	return -1;
     }
 
     if (hdb_delete_enclave(hobbes_master_db, enclave->enclave_id) != 0) {
-	fprintf(stderr, "Error: Could not delete enclave from database\n");
+	ERROR("Could not delete enclave from database\n");
 	return -1;
     }
 
@@ -450,33 +451,33 @@ create_enclave(char * cfg_file_name,
     xml = open_xml_file(cfg_file_name);
     
     if (xml == NULL) {
-	fprintf(stderr, "Error loading Enclave config file (%s)\n", cfg_file_name);
+	ERROR("Error loading Enclave config file (%s)\n", cfg_file_name);
 	return -1;
     }
 
 
     if (strncmp("enclave", ezxml_name(xml), strlen("enclave")) != 0) {
-	fprintf(stderr, "Invalid XML Config: Not an enclave config\n");
+	ERROR("Invalid XML Config: Not an enclave config\n");
 	return -1;
     }
 
     type = get_val(xml, "type");
     
     if (type == NULL) {
-	fprintf(stderr, "Enclave type not specified\n");
+	ERROR("Enclave type not specified\n");
 	return -1;
     }
 
     
     if (strncasecmp(type, "pisces", strlen("pisces")) == 0) {
 
-	printf("Creating Pisces Enclave\n");
+	DEBUG("Creating Pisces Enclave\n");
 	return create_pisces_enclave(xml, name);
 
     } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
 
     } else {
-	fprintf(stderr, "Error: Invalid Enclave Type (%s)\n", type);
+	ERROR("Invalid Enclave Type (%s)\n", type);
 	return -1;
     }
 
@@ -494,14 +495,14 @@ destroy_enclave(char * enclave_name)
     struct hobbes_enclave enclave;
 
     if (hdb_get_enclave_by_name(hobbes_master_db, enclave_name, &enclave) != 1) {
-	printf("Error: Could not find enclave (%s)\n", enclave_name);
+	ERROR("Could not find enclave (%s)\n", enclave_name);
 	return -1;
     }
     
     if (enclave.type == PISCES_ENCLAVE) {
 	return destroy_pisces_enclave(&enclave);
     } else {
-	printf("Error: Invalid Enclave Type (%d)\n", enclave.type);
+	ERROR("Invalid Enclave Type (%d)\n", enclave.type);
 	return -1;
     }
 
