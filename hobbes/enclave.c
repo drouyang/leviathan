@@ -468,10 +468,10 @@ create_enclave(char * cfg_file_name,
 
 
 int 
-destroy_enclave(u64 enclave_id)
+destroy_enclave(char * enclave_name)
 {
-
-
+    
+    
 
 
 }

@@ -41,9 +41,14 @@ create_enclave_handler(int argc, char ** argv)
 static int 
 destroy_enclave_handler(int argc, char ** argv)
 {
+    if (argc < 1) {
+	printf("Usage: hobbes destroy_enclave <enclave name>\n");
+	return -1;
+    }
+
+    destroy_enclave(argv[1]);
     
-    
-    return -1;
+    return 0;
 }
 
 static int
@@ -136,6 +141,8 @@ main(int argc, char ** argv)
 	i++;
     }
     
+    hobbes_client_deinit();
+
 
     return 0;
 }

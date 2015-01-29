@@ -8,7 +8,7 @@ The first field of every record is an integer, that encodes the record type:
    4: HDB_NEXT_PROCESS 
    5: HDB_XXPMEM_HDR
    6: HDB_XPMEM_SEGMENT
-   6: HDB_XPMEM_ATTACHMENTS
+   7: HDB_XPMEM_ATTACHMENTS
 
 
 

@@ -48,6 +48,13 @@ hdb_attach(void * db_addr)
     return db;
 }    
 
+void 
+hdb_detach(hdb_db_t db)
+{
+
+    wg_detach_database(db);
+}
+
 
 
 static int

@@ -31,7 +31,7 @@ struct hobbes_enclave {
 
 
 int create_enclave(char * cfg_file_name, char * name);
-int destroy_enclave(u64 enclave_id);
+int destroy_enclave(char * enclave_name);
 
 const char * 
 enclave_type_to_str(enclave_type_t type);
