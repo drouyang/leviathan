@@ -22,7 +22,6 @@ execs :=    	master \
 
 
 hobbes_objs := 		hobbes.o  \
-			ezxml.o   \
 			enclave.o \
 			hobbes_db.o \
 			client.o

@@ -6,13 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ezxml.h"
 #include "hobbes_types.h"
 #include "client.h"
 
 #include <pisces.h>
 #include <pet_mem.h>
 #include <pet_log.h>
+#include <ezxml.h>
 
 
 static int
