@@ -28,15 +28,20 @@ static int
 create_enclave_handler(int argc, char ** argv) 
 {
     char * cfg_file = NULL;
+    char * name     = NULL;
 
     if (argc < 1) {
-	printf("Usage: hobbes create_enclave <cfg_file>\n");
+	printf("Usage: hobbes create_enclave <cfg_file> [name] [-t <host_enclave>]\n");
 	return -1;
     }
 
     cfg_file = argv[1];
+    
+    if (argc >= 2) {
+	name = argv[2];
+    }
 
-    return create_enclave(cfg_file, NULL);
+    return create_enclave(cfg_file, name);
 }
 
 
@@ -94,8 +99,8 @@ struct hobbes_cmd {
 };
 
 static struct hobbes_cmd cmds[] = {
-    {"create_enclave",  create_enclave_handler,  "Create enclave"},
-    {"destroy_enclave", destroy_enclave_handler, "Destroy enclave"},
+    {"create_enclave",  create_enclave_handler,  "Create Native Enclave"},
+    {"destroy_enclave", destroy_enclave_handler, "Destroy Native Enclave"},
     {"list_enclaves",   list_enclaves_handler,   "List all running enclaves"},
     {"launch_job",      launch_job_handler,      "Launch a job in an enclave"},
     {0, 0, 0}

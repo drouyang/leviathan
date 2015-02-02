@@ -475,6 +475,16 @@ create_enclave(char * cfg_file_name,
 	return create_pisces_enclave(xml, name);
 
     } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
+	char * target = get_val(xml, "host_enclave");
+	
+	if (!target) {
+	    DEBUG("Creating Palacios/Linux Enclave\n");
+	    // run locally
+	} else {
+	    DEBUG("Creating Palacios/Pisces Enclave\n");
+	    // run on pisces enclave
+
+	}
 
     } else {
 	ERROR("Invalid Enclave Type (%s)\n", type);
