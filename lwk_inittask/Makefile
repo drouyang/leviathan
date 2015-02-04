@@ -12,7 +12,8 @@ execs := hobbes
 CFLAGS := 	-I$(KITTEN_PATH)/include \
 	  	-I$(PALACIOS_PATH)/user  \
 		-I$(XPMEM_PATH)          \
-		-I$(LIBHOBBES_PATH)
+		-I$(LIBHOBBES_PATH)	 \
+		-I$(PETLIB_PATH)
 
 libs  := 	$(KITTEN_PATH)/user/install/lib/liblwk.a \
 		$(LIBHOBBES_PATH)/libhobbes.a            \

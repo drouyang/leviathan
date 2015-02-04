@@ -67,7 +67,7 @@ master: $(master_objs)
 hobbes: $(hobbes_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
 
-libhobbes.a: $(libhobbes_objs)
+libhobbes.a: $(libhobbes_objs) $(libs)
 	$(call build,AR,$(AR) rcs $@ $^)
 
 

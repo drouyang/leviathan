@@ -30,9 +30,9 @@ typedef unsigned long long u64;
 
 #define PISCES_CMD_PATH "/dev/pisces"
 
-
-#include "palacios.h"
 #include "hobbes.h"
+
+#include <v3vee.h>
 
 char test_buf[4096]  __attribute__ ((aligned (512)));
 char hello_buf[512]  __attribute__ ((aligned (512)));
@@ -54,53 +54,6 @@ send_resp(int fd, u64 err_code)
 	return 0;
 }
 
-static int 
-issue_vm_cmd(int vm_id, u64 cmd, uintptr_t arg) 
-{
-	int palacios_fd = 0;
-	char vm_fname[128];
-	
-	memset(vm_fname, 0, 128);
-	snprintf(vm_fname, 128, V3_VM_PATH "%d", vm_id);
-	
-	palacios_fd = open(vm_fname,  O_RDWR);
-	
-	if (palacios_fd < 0) {
-		printf("Could not open palacios VM file (%s)\n", vm_fname);
-		return -1;
-	}
-	
-	
-	if (ioctl(palacios_fd, cmd,  arg) < 0) {
-		printf("ERROR: Could not issue command (%llu) to guest (%d)\n", cmd, vm_id);
-		return -1;
-	}
-	
-	close(palacios_fd);
-	
-	return 0;
-}
-
-static int 
-issue_v3_cmd(u64 cmd, uintptr_t arg) 
-{
-	int palacios_fd = 0;
-	int ret         = 0;
-	
-	palacios_fd = open(V3_CMD_PATH, O_RDWR);
-	
-	if (palacios_fd < 0) {
-		printf("Could not open palacios CMD file (%s)\n", V3_CMD_PATH);
-		return -1;
-	}
-	
-	ret = ioctl(palacios_fd, cmd, arg);
-
-	
-	close(palacios_fd);
-
-	return ret;
-}
 
 
 static int 
@@ -339,6 +292,8 @@ main(int argc, char ** argv, char * envp[])
 	CPU_SET(0, &enclave_cpus);      /* We always boot on CPU 0 */
 
 
+	hobbes_client_init();
+
 	pisces_fd = open(PISCES_CMD_PATH, O_RDWR);
 
 	if (pisces_fd < 0) {
@@ -423,11 +378,8 @@ main(int argc, char ** argv, char * envp[])
 			    }
 			   
 
-			    /* Notify Palacios of New CPU */
-			    if (issue_v3_cmd(V3_ADD_CPU, (uintptr_t)logical_cpu) == -1) {
-				    printf("Error: Could not add CPU to Palacios\n");
-			    }
-			    
+			    v3_add_cpu(logical_cpu);
+
 			    CPU_SET(logical_cpu, &enclave_cpus);
 
 			    send_resp(pisces_fd, 0);
@@ -553,7 +505,7 @@ main(int argc, char ** argv, char * envp[])
 				
 				
 			    /* Issue VM Create command to Palacios */
-			    vm_id = v3_create_vm(vm_cmd.path.vm_name, file_info->user_addr, file_size);
+			    vm_id = v3_create_vm(vm_cmd.path.vm_name, (u8 *)file_info->user_addr, file_size);
 				
 			    aspace_unmap_region(my_aspace_id, file_addr, round_up(file_size, PAGE_SIZE));
 			    pmem_free_umem(&rgn);
@@ -582,10 +534,11 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to Launch VM */
-			    if (issue_v3_cmd(V3_FREE_GUEST, (uintptr_t)vm_cmd.vm_id) == -1) {
+			    if (v3_free_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
+
 
 			    send_resp(pisces_fd, 0);
 
@@ -593,7 +546,7 @@ main(int argc, char ** argv, char * envp[])
 		    }
 		    case ENCLAVE_CMD_ADD_V3_PCI: {
 			    struct cmd_add_pci_dev cmd;
-			    struct v3_hw_pci_dev   v3_pci_spec;
+			    //			    struct v3_hw_pci_dev   v3_pci_spec;
 			    int ret = 0;
 
 			    memset(&cmd, 0, sizeof(struct cmd_add_pci_dev));
@@ -607,25 +560,27 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
-			    memcpy(v3_pci_spec.name, cmd.spec.name, 128);
-			    v3_pci_spec.bus  = cmd.spec.bus;
-			    v3_pci_spec.dev  = cmd.spec.dev;
-			    v3_pci_spec.func = cmd.spec.func;
+			    //			    memcpy(v3_pci_spec.name, cmd.spec.name, 128);
+			    //			    v3_pci_spec.bus  = cmd.spec.bus;
+			    //    v3_pci_spec.dev  = cmd.spec.dev;
+			    // v3_pci_spec.func = cmd.spec.func;
 
 
 			    /* Issue Device Add operation to Palacios */
+			    /*
 			    if (issue_v3_cmd(V3_ADD_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
 				    printf("Error: Could not add PCI device to Palacios\n");
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
+			    */
 
 			    send_resp(pisces_fd, 0);
 			    break;
 		    }
 		    case ENCLAVE_CMD_FREE_V3_PCI: {
 			    struct cmd_add_pci_dev cmd;
-			    struct v3_hw_pci_dev   v3_pci_spec;
+			    //		    struct v3_hw_pci_dev   v3_pci_spec;
 			    int ret = 0;
 
 			    memset(&cmd, 0, sizeof(struct cmd_add_pci_dev));
@@ -639,19 +594,21 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
+			    /*
 			    memcpy(v3_pci_spec.name, cmd.spec.name, 128);
 			    v3_pci_spec.bus  = cmd.spec.bus;
 			    v3_pci_spec.dev  = cmd.spec.dev;
 			    v3_pci_spec.func = cmd.spec.func;
-
+			    */
 
 			    /* Issue Device Add operation to Palacios */
+			    /*
 			    if (issue_v3_cmd(V3_REMOVE_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
 				    printf("Error: Could not remove PCI device from Palacios\n");
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
-
+			    */
 			    send_resp(pisces_fd, 0);
 			    break;
 		    }
@@ -666,7 +623,7 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to Launch VM */
-			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_LAUNCH, (uintptr_t)NULL) == -1) {
+			    if (v3_launch_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
@@ -694,7 +651,7 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to Launch VM */
-			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_STOP, (uintptr_t)NULL) == -1) {
+			    if (v3_stop_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
@@ -715,7 +672,7 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to Launch VM */
-			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_PAUSE, (uintptr_t)NULL) == -1) {
+			    if (v3_pause_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
@@ -735,7 +692,7 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to Launch VM */
-			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONTINUE, (uintptr_t)NULL) == -1) {
+			    if (v3_continue_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
@@ -758,10 +715,11 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Signal Palacios to connect the console */
+			    /*
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONSOLE_CONNECT, (uintptr_t)&cons_ring_buf) == -1) {
 				    cons_ring_buf        = 0;
 			    }
-					
+			    */	
 
 			    printf("Cons Ring Buf=%p\n", (void *)cons_ring_buf);
 			    send_resp(pisces_fd, cons_ring_buf);
@@ -781,10 +739,12 @@ main(int argc, char ** argv, char * envp[])
 
 
 			    /* Send Disconnect Request to Palacios */
+			    /*
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONSOLE_DISCONNECT, (uintptr_t)NULL) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
+			    */
 
 			    send_resp(pisces_fd, 0);
 			    break;
@@ -801,18 +761,18 @@ main(int argc, char ** argv, char * envp[])
 			    }
 
 			    /* Send Keycode to Palacios */
+			    /*
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_KEYBOARD_EVENT, vm_cmd.scan_code) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
-
+			    */
 			    send_resp(pisces_fd, 0);
 			    break;
 		    }
 
 		    case ENCLAVE_CMD_VM_DBG: {
 			    struct cmd_vm_debug pisces_cmd;
-			    struct v3_debug_cmd v3_cmd;
 			    
 			    ret = read(pisces_fd, &pisces_cmd, sizeof(struct cmd_vm_debug));
 			    
@@ -821,10 +781,10 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 			    
-			    v3_cmd.core = pisces_cmd.spec.core;
-			    v3_cmd.cmd  = pisces_cmd.spec.cmd;
 			    
-			    if (issue_vm_cmd(pisces_cmd.spec.vm_id, V3_VM_DEBUG, (uintptr_t)&v3_cmd) == -1) {
+			    if (v3_debug_vm(pisces_cmd.spec.vm_id, 
+					    pisces_cmd.spec.core, 
+					    pisces_cmd.spec.cmd) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
 			    }
@@ -835,12 +795,13 @@ main(int argc, char ** argv, char * envp[])
 
 		    case ENCLAVE_CMD_SHUTDOWN: {
 
+			/*
 			if (issue_v3_cmd(V3_SHUTDOWN, 0) == -1) {
 			    printf("Error: Could not shutdown Palacios VMM\n");
 			    send_resp(pisces_fd, -1);
 			    break;
 			}
-			
+			*/
 			/* Perform additional Cleanup is necessary */
 
 			send_resp(pisces_fd, 0);
