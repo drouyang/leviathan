@@ -1,6 +1,6 @@
 <enclave type="pisces">
     <kernel>/home/jarusl/pisces/kitten/vmlwk.bin</kernel>
-    <init_task>/home/jarusl/pisces/kitten/user/pisces/pisces</init_task>
+    <init_task>/home/jarusl/pisces/hobbes/lwk_inittask/hobbes</init_task>
     <cmd_line>console=pisces</cmd_line>
     
     <boot_env>

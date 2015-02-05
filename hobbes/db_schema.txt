@@ -25,8 +25,13 @@ Column 2: [int] enclave type
     LINUX_VM_ENCLAVE  = 4
 Column 3: [int] parent enclave          - enclave ID of host enclave for VMs
 Column 4: [int] management device ID    - local device interface ID for ioctls
-Column 5: [string] name                 - name of enclave 
-  
+Column 5: [int] enclave state
+    ENCLAVE_INITTED   = 0
+    ENCLAVE_RUNNING   = 1
+    ENCLAVE_STOPPED   = 2
+    ENCLAVE_CRASHED   = 3
+Column 6: [string] name                 - name of enclave 
+
 
 -------------------------------------------------------------------------------------
 HDB_ENCLAVE_HDR: Global information about enclaves in the system

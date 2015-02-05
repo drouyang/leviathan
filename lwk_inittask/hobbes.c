@@ -292,6 +292,7 @@ main(int argc, char ** argv, char * envp[])
 	CPU_SET(0, &enclave_cpus);      /* We always boot on CPU 0 */
 
 
+	sleep(1);
 	hobbes_client_init();
 
 	pisces_fd = open(PISCES_CMD_PATH, O_RDWR);

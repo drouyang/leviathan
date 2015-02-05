@@ -10,10 +10,10 @@ CFLAGS = -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH) -I$(PISCES_PATH) -I$(PETLIB_PATH) 
 CC = gcc
 AR = ar
 
-libs := 	$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
-		$(XPMEM_PATH)/libxpmem.a             \
+libs := 	$(XPMEM_PATH)/libxpmem.a             \
 		$(PALACIOS_PATH)/libv3vee_user.a     \
 		$(PISCES_PATH)/libpisces.a           \
+		$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
 		$(PETLIB_PATH)/petlib.a              
 
 
@@ -59,7 +59,10 @@ build = \
 	$(call build,AR,$(AR) rcs $@ $^)
 
 
-all: $(execs) $(libs)
+all: libhobbes.mri $(execs) $(libs)
+
+libhobbes.mri: FORCE
+	./build_mri.pl libhobbes.mri libhobbes.a $(libhobbes_objs) LIBS $(libs)
 
 master: $(master_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
@@ -67,8 +70,8 @@ master: $(master_objs)
 hobbes: $(hobbes_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
 
-libhobbes.a: $(libhobbes_objs) $(libs)
-	$(call build,AR,$(AR) rcs $@ $^)
+libhobbes.a: $(libhobbes_objs) $(libs) libhobbes.mri
+	$(call build,AR,$(AR) -M < libhobbes.mri)
 
 
 
@@ -78,3 +81,5 @@ libhobbes.a: $(libhobbes_objs) $(libs)
 
 clean:
 	rm -f $(wildcard  $(execs)) *.o
+
+FORCE:

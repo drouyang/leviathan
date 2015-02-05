@@ -8,7 +8,12 @@
 #include "hobbes_types.h"
 
 
-
+typedef enum {
+    ENCLAVE_INITTED   = 0,
+    ENCLAVE_RUNNING   = 1,
+    ENCLAVE_STOPPED   = 2,
+    ENCLAVE_CRASHED   = 3
+} enclave_state_t;
 
 typedef enum {
     INVALID_ENCLAVE   = 0,
@@ -21,12 +26,13 @@ typedef enum {
 struct hobbes_enclave {
     char name[32];
 
-    u64 enclave_id;
-    u64 parent_id;
+    int enclave_id;
+    int parent_id;
 
     int mgmt_dev_id;
     
-    enclave_type_t type;
+    enclave_state_t state;
+    enclave_type_t  type;
 };
 
 
@@ -36,5 +42,7 @@ int destroy_enclave(char * enclave_name);
 const char * 
 enclave_type_to_str(enclave_type_t type);
 
+const char *
+enclave_state_to_str(enclave_state_t state);
 
 #endif

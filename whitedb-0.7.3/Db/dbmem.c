@@ -387,6 +387,8 @@ void* wg_attach_local_database(gint size) {
     show_memory_error("posix_memalign failed");
     return NULL;
   } else {
+
+    memset(shm, 0, size);
     /* key=0 - no shared memory associated */
 #ifdef USE_DATABASE_HANDLE
     ((db_handle *) dbhandle)->db = shm;

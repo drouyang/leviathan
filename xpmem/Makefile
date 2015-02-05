@@ -1,6 +1,6 @@
 CC             = gcc
 AR             = ar
-CFLAGS         = -fPIC -I$(PWD)/../include
+CFLAGS         = -fPIC -I$(PWD)/../include -I./
 
 TARGET        = libxpmem.so
 TARGET_STATIC = libxpmem.a

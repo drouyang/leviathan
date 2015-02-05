@@ -2,17 +2,17 @@ indextool.o: indextool.c /usr/include/stdc-predef.h /usr/include/stdio.h \
  /usr/include/features.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
  /usr/include/gnu/stubs-64.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stddef.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stddef.h \
  /usr/include/bits/types.h /usr/include/bits/typesizes.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdarg.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stdarg.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
  /usr/include/bits/stdio.h /usr/include/string.h /usr/include/xlocale.h \
  /usr/include/bits/string.h /usr/include/bits/string2.h \
  /usr/include/endian.h /usr/include/bits/endian.h \
  /usr/include/bits/byteswap.h /usr/include/bits/byteswap-16.h \
  /usr/include/stdlib.h ../config.h ../Db/dballoc.h \
- /usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdint.h \
+ /usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stdint.h \
  /usr/include/stdint.h /usr/include/bits/wchar.h ../Db/../config.h \
  ../Db/dbmem.h ../Db/dbindex.h ../Db/dbdata.h ../Db/dballoc.h \
  ../Db/dbhash.h ../Db/dbutil.h
@@ -31,7 +31,7 @@ indextool.o: indextool.c /usr/include/stdc-predef.h /usr/include/stdio.h \
 
 /usr/include/gnu/stubs-64.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stddef.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stddef.h:
 
 /usr/include/bits/types.h:
 
@@ -43,7 +43,7 @@ indextool.o: indextool.c /usr/include/stdc-predef.h /usr/include/stdio.h \
 
 /usr/include/wchar.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdarg.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stdarg.h:
 
 /usr/include/bits/stdio_lim.h:
 
@@ -73,7 +73,7 @@ indextool.o: indextool.c /usr/include/stdc-predef.h /usr/include/stdio.h \
 
 ../Db/dballoc.h:
 
-/usr/lib/gcc/x86_64-redhat-linux/4.8.3/include/stdint.h:
+/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include/stdint.h:
 
 /usr/include/stdint.h:
 

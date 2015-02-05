@@ -198,7 +198,29 @@ static int
 create_pisces_enclave(ezxml_t   xml, 
 		      char    * name)
 {
-    int pisces_id = -1;
+    int pisces_id  = -1;
+    int enclave_id = -1;
+
+    struct hobbes_enclave enclave;
+
+    memset(&enclave, 0, sizeof(struct hobbes_enclave));
+
+    /* Add enclave to the Master DB */
+    {
+	char * enclave_name = name; 
+
+	if (enclave_name == NULL) {
+	    enclave_name = get_val(xml, "name");
+	}
+
+	enclave_id = hdb_create_enclave(hobbes_master_db, enclave_name, pisces_id, PISCES_ENCLAVE, 0);
+
+	if (hdb_get_enclave_by_id(hobbes_master_db, enclave_id, &enclave) == 0) {
+	    ERROR("Error creating enclave. could not find it...\n");
+	    return -1;
+	}
+    }
+
 
     /* Load Enclave OS files */
     {
@@ -223,6 +245,10 @@ create_pisces_enclave(ezxml_t   xml,
 	}
     }
 
+    {
+	enclave.mgmt_dev_id = pisces_id;
+	hdb_update_enclave(hobbes_master_db, &enclave);
+    }
 
     /* Boot the enclave with boot_env (if specified) */
 
@@ -267,22 +293,21 @@ create_pisces_enclave(ezxml_t   xml,
 	if (pisces_launch(pisces_id, boot_cpu, numa_zone, block_id, num_blocks) != 0) {
 	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);
 	    ERROR("ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
+	    
+	    enclave.state = ENCLAVE_CRASHED;
+	    hdb_update_enclave(hobbes_master_db, &enclave);
+
 	    return -1;
 	}
     }
 
-    /* Add enclave to the Master DB */
+
     {
-	char * enclave_name = name; 
-
-	if (enclave_name == NULL) {
-	    enclave_name = get_val(xml, "name");
-	}
-
-	hdb_insert_enclave(hobbes_master_db, enclave_name, pisces_id, PISCES_ENCLAVE, 0);
-
+	enclave.state = ENCLAVE_RUNNING;
+	hdb_update_enclave(hobbes_master_db, &enclave);
     }
-    
+
+
 
     /* Dynamically add additional memory (if requested) */
     {
@@ -540,3 +565,19 @@ enclave_type_to_str(enclave_type_t type)
 
     return NULL;
 }
+
+const char *
+enclave_state_to_str(enclave_state_t state) 
+{
+    switch (state) {
+	case ENCLAVE_INITTED: return "Initialized";
+	case ENCLAVE_RUNNING: return "Running";
+	case ENCLAVE_STOPPED: return "Stopped";
+	case ENCLAVE_CRASHED: return "Crashed";
+
+	default: return NULL;
+    }
+
+    return NULL;
+}
+    

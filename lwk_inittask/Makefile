@@ -13,13 +13,11 @@ CFLAGS := 	-I$(KITTEN_PATH)/include \
 	  	-I$(PALACIOS_PATH)/user  \
 		-I$(XPMEM_PATH)          \
 		-I$(LIBHOBBES_PATH)	 \
-		-I$(PETLIB_PATH)
+		-I$(PETLIB_PATH)	 \
+		-static
 
-libs  := 	$(KITTEN_PATH)/user/install/lib/liblwk.a \
-		$(LIBHOBBES_PATH)/libhobbes.a            \
-	 	$(PALACIOS_PATH)/user/libv3vee_user.a    \
-		$(XPMEM_PATH)/libxpmem.a                 \
-		$(PETLIB_PATH)/petlib.a
+libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
+		$(LIBHOBBES_PATH)/libhobbes.a
 
 hobbes_objs :=	hobbes.o \
 		sched_getcpu.o

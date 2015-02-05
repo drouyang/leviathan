@@ -22,11 +22,11 @@ create_master_db(unsigned int size)
     xpmem_segid_t segid = HDB_MASTER_DB_SEGID;
     void *   db_addr    = NULL;
     hdb_db_t db         = hdb_create(size);
-
-
+   
     /* Initialize Master DB State */
     {
 	void * rec = NULL;
+	struct hobbes_enclave enclave;
 
 	rec = wg_create_record(db, 3);
 	wg_set_field(db, rec, 0, wg_encode_int(db, HDB_ENCLAVE_HDR));
@@ -39,7 +39,16 @@ create_master_db(unsigned int size)
 
 
 	/* Create Master enclave */
-	hdb_insert_enclave(db, "master", 0, MASTER_ENCLAVE, 0);
+	hdb_create_enclave(db, "master", 0, MASTER_ENCLAVE, 0);
+
+	hdb_get_enclave_by_id(db, 0, &enclave);
+
+	printf("Master Enclave id =%d\n", enclave.enclave_id);
+	printf("Master enclave name=%s\n", enclave.name);
+
+	enclave.state = ENCLAVE_RUNNING;
+	
+	hdb_update_enclave(db, &enclave);
 
 	/* Create Master Process */
        
