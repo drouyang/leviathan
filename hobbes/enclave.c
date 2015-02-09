@@ -122,7 +122,7 @@ read_file(int             fd,
 */
 
 #include "enclave_pisces.h"
-
+#include "enclave_linux_vm.h"
 
 int 
 create_enclave(char * cfg_file_name, 
@@ -164,7 +164,7 @@ create_enclave(char * cfg_file_name,
 	    DEBUG("Creating Palacios/Linux Enclave\n");
 	    
 	    // run locally
-	    create_linux_vm(xml, name)
+	    create_linux_vm(xml, name);
 	} else {
 	    DEBUG("Creating Palacios/Pisces Enclave\n");
 	    // run on pisces enclave

@@ -1,7 +1,7 @@
 
 
 
-
+#include <v3vee.h>
 
 
 
@@ -14,8 +14,8 @@
 
 
 static int 
-create_pisces_enclave(ezxml_t   xml, 
-		      char    * name)
+create_linux_vm(ezxml_t   xml, 
+		char    * name)
 {
     int vm_id      = -1;
     int enclave_id = -1;
@@ -58,7 +58,7 @@ create_pisces_enclave(ezxml_t   xml,
 
 	// offline and add regions
 	
-	v3_add_mem(num_blks + 2, mem_node);
+	v3_add_mem(num_blks, mem_node);
 
     }
 
@@ -88,7 +88,7 @@ create_pisces_enclave(ezxml_t   xml,
 
     /* Created successfully, record where to find it */
     {
-	enclave.mgmt_dev_id = pisces_id;
+	enclave.mgmt_dev_id = vm_id;
 	hdb_update_enclave(hobbes_master_db, &enclave);
     }
 
