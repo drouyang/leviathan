@@ -57,7 +57,7 @@ create_master_db(unsigned int size)
     db_addr = hdb_get_db_addr(db);
 
     //segid = xpmem_make(db_addr, size, XPMEM_REQUEST_MODE, (void *)segid);
-    segid = xpmem_make_hobbes(db_addr, size, XPMEM_PERMIT_MODE, (void *)0777,
+    segid = xpmem_make_hobbes(db_addr, size, XPMEM_PERMIT_MODE, (void *)0600,
         XPMEM_MEM_MODE | XPMEM_REQUEST_MODE, segid, NULL);
 
 
