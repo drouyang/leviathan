@@ -534,7 +534,6 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
-			    /* Signal Palacios to Launch VM */
 			    if (v3_free_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
@@ -651,7 +650,6 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
-			    /* Signal Palacios to Launch VM */
 			    if (v3_stop_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
@@ -672,7 +670,6 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
-			    /* Signal Palacios to Launch VM */
 			    if (v3_pause_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
@@ -692,7 +689,6 @@ main(int argc, char ** argv, char * envp[])
 				    break;
 			    }
 
-			    /* Signal Palacios to Launch VM */
 			    if (v3_continue_vm(vm_cmd.vm_id) == -1) {
 				    send_resp(pisces_fd, -1);
 				    break;
