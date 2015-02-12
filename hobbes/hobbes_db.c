@@ -11,17 +11,17 @@
 #include <dballoc.h>
 
 #include <pet_log.h>
+#include <stdint.h>
 
 #include <xpmem.h>
 
 #include "hobbes_db.h"
-#include "hobbes_types.h"
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
 hdb_db_t 
-hdb_create(u64 size) 
+hdb_create(uint64_t size) 
 {
     void * db      = NULL;
 
@@ -244,11 +244,11 @@ create_enclave_record(hdb_db_t         db,
 		      enclave_type_t   type, 
 		      int              parent)
 {
-    void * rec           = NULL;
-    void * hdr_rec       = NULL;
-    int    enclave_id    = 0;
-    u32    enclave_cnt   = 0;
-    char   auto_name[32] = {[0 ... 31] = 0};
+    void    * rec           = NULL;
+    void    * hdr_rec       = NULL;
+    int       enclave_id    = 0;
+    uint32_t  enclave_cnt   = 0;
+    char      auto_name[32] = {[0 ... 31] = 0};
 
     
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
@@ -289,7 +289,7 @@ hdb_create_enclave(hdb_db_t         db,
 		   char           * name, 
 		   int              mgmt_dev_id, 
 		   enclave_type_t   type, 
-		   u64              parent)
+		   uint64_t              parent)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -317,9 +317,9 @@ static int
 delete_enclave(hdb_db_t db,
 	       int      enclave_id)
 {
-    void * hdr_rec      = NULL;
-    void * rec          = NULL;
-    u32    enclave_cnt  = 0;
+    void   * hdr_rec      = NULL;
+    void   * rec          = NULL;
+    uint32_t enclave_cnt  = 0;
 
 
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);

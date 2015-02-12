@@ -1,18 +1,19 @@
-WHITEDB_PATH = ../whitedb-0.7.3
-XPMEM_PATH   = ../xpmem
-PISCES_PATH  = ../../pisces/linux_usr
-PETLIB_PATH  = ../../petlib
-PALACIOS_PATH = ../../palacios/user
+XPMEM_PATH=../xpmem
+PALACIOS_PATH=../palacios
+PISCES_PATH=../pisces
+PETLIB_PATH=../petlib
+WHITEDB_PATH=../whitedb-0.7.3
 
-CFLAGS = -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH) -I$(PISCES_PATH) -I$(PETLIB_PATH) -I$(PALACIOS_PATH) -static  
+
+CFLAGS = -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -static  
 
 
 CC = gcc
 AR = ar
 
-libs := 	$(XPMEM_PATH)/libxpmem.a             \
-		$(PALACIOS_PATH)/libv3vee_user.a     \
-		$(PISCES_PATH)/libpisces.a           \
+libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
+		$(PALACIOS_PATH)/user/libv3vee_user.a     \
+		$(PISCES_PATH)/linux_usr/libpisces.a           \
 		$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
 		$(PETLIB_PATH)/petlib.a              
 

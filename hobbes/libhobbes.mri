@@ -1,10 +1,10 @@
 create libhobbes.a
 addmod client.o
 addmod hobbes_db.o
-addlib ../xpmem/libxpmem.a
-addlib ../../palacios/user/libv3vee_user.a
-addlib ../../pisces/linux_usr/libpisces.a
+addlib ../xpmem/lib/libxpmem.a
+addlib ../palacios/user/libv3vee_user.a
+addlib ../pisces/linux_usr/libpisces.a
 addlib ../whitedb-0.7.3/Main/.libs/libwgdb.a
-addlib ../../petlib/petlib.a
+addlib ../petlib/petlib.a
 save
 end

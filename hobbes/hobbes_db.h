@@ -6,8 +6,8 @@
 #define __HOBBES_DB_H__
 
 #include <xpmem.h>
+#include <stdint.h>
 
-#include "hobbes_types.h"
 #include "enclave.h"
 
 /* set master db size to 64MB for now */
@@ -28,7 +28,7 @@ typedef void * hdb_db_t;
 
 
 
-hdb_db_t hdb_create(u64 size);
+hdb_db_t hdb_create(uint64_t size);
 hdb_db_t hdb_attach(void * db_addr);
 void hdb_detach(hdb_db_t db);
 
@@ -48,7 +48,7 @@ int hdb_create_enclave(hdb_db_t       db,
 		       char         * name, 
 		       int            mgmt_dev_id, 
 		       enclave_type_t type, 
-		       u64            parent);
+		       uint64_t            parent);
 
 
 int hdb_update_enclave(hdb_db_t                db,

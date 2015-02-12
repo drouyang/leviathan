@@ -46,11 +46,12 @@ create_linux_vm(ezxml_t   xml,
 
     /* Allocate memory for VM */
     {
-	char * mem_str  = get_val(xml, "memory");
-	int    mem_node = smart_atoi(-1, get_val(get_subtree(xml, "memory"), "node"));
-	u64    mem_size = 0;
-	u64    num_blks = 0;
+	ezxml_t   mem_cfg  = get_subtree(xml, "memory");
+	uint64_t  mem_size = 0;
+	uint64_t  num_blks = 0;
 
+
+#if 0
 	// Get Memory size
 	mem_size = smart_atoi(0, mem_str) * (1024 * 1024); 
 
@@ -59,7 +60,7 @@ create_linux_vm(ezxml_t   xml,
 	// offline and add regions
 	
 	v3_add_mem(num_blks, mem_node);
-
+#endif
     }
 
     /* Load VM Image */

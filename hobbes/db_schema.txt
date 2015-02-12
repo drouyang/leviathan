@@ -1,14 +1,14 @@
 This is a listing of each of the different record formats stored in the database.
 
 The first field of every record is an integer, that encodes the record type:
-   0: HDB_ENCLAVE      
-   1: HDB_PROCESS      
-   2: HDB_SEGMENT     
-   3: HDB_ENCLAVE_HDR
-   4: HDB_NEXT_PROCESS 
-   5: HDB_XXPMEM_HDR
-   6: HDB_XPMEM_SEGMENT
-   7: HDB_XPMEM_ATTACHMENTS
+   0:  HDB_ENCLAVE      
+   1:  HDB_PROCESS      
+   2:  HDB_SEGMENT     
+   3:  HDB_ENCLAVE_HDR
+   4:  HDB_NEXT_PROCESS 
+   5:  HDB_XXPMEM_HDR
+   6:  HDB_XPMEM_SEGMENT
+   7:  HDB_XPMEM_ATTACHMENTS
 
 
 

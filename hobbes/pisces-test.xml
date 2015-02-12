@@ -1,6 +1,6 @@
 <enclave type="pisces">
-    <kernel>/home/jarusl/pisces/kitten/vmlwk.bin</kernel>
-    <init_task>/home/jarusl/pisces/hobbes/lwk_inittask/hobbes</init_task>
+    <kernel>/home/jarusl/kitten/vmlwk.bin</kernel>
+    <init_task>/home/jarusl/hobbes/lwk_inittask/hobbes</init_task>
     <cmd_line>console=pisces</cmd_line>
     
     <boot_env>
@@ -10,8 +10,6 @@
    
     <memory>
         <blocks contig="0">2</blocks>
-        <block>4</block>
-        <block>2</block>
     </memory>
     
     <cpus>

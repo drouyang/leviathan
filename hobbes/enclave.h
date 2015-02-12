@@ -5,8 +5,7 @@
 #ifndef __ENCLAVE_H__
 #define __ENCLAVE_H__
 
-#include "hobbes_types.h"
-
+#include <stdint.h>
 
 typedef enum {
     ENCLAVE_INITTED   = 0,

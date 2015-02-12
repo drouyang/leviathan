@@ -8,11 +8,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <stdint.h>
 
 #include "hobbes_db.h"
 #include "enclave.h"
-#include "hobbes_types.h"
 
 
 extern hdb_db_t hobbes_master_db;
