@@ -22,6 +22,11 @@ if [ ! -d $PETLIB_PATH ]; then
 	exit
 fi
 
+if [ ! -d $KITTEN_PATH ]; then
+	echo "Error: KITTEN could not be found at $KITTEN_PATH"
+	exit
+fi
+
 if [ ! -d xpmem ]; then
 	ln -s $XPMEM_PATH xpmem
 fi
@@ -36,4 +41,8 @@ fi
 
 if [ ! -d petlib ]; then
 	ln -s $PETLIB_PATH petlib
+fi
+
+if [ ! -d kitten ]; then
+	ln -s $KITTEN_PATH kitten
 fi
