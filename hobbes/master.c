@@ -269,7 +269,7 @@ create_master_db(unsigned int size)
 
 	hdb_get_enclave_by_id(db, 0, &enclave);
 
-	printf("Master Enclave id =%d\n", enclave.enclave_id);
+	printf("Master Enclave id = %d\n", enclave.enclave_id);
 	printf("Master enclave name=%s\n", enclave.name);
 
 	enclave.state = ENCLAVE_RUNNING;
@@ -281,6 +281,8 @@ create_master_db(unsigned int size)
     }
 
     db_addr = hdb_get_db_addr(db);
+
+    printf("HDB SegID = %d\n", (int)segid);
 
     segid = xpmem_make(db_addr, size, XPMEM_REQUEST_MODE, (void *)segid);
 

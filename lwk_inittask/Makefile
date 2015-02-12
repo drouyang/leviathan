@@ -1,8 +1,8 @@
-KITTEN_PATH    = ../../kitten
+KITTEN_PATH    = ../kitten
 LIBHOBBES_PATH = ../hobbes
 XPMEM_PATH     = ../xpmem
-PALACIOS_PATH  = ../../palacios
-PETLIB_PATH    = ../../petlib
+PALACIOS_PATH  = ../palacios
+PETLIB_PATH    = ../petlib
 
 CC = gcc
 AR = ar
@@ -11,7 +11,7 @@ execs := hobbes
 
 CFLAGS := 	-I$(KITTEN_PATH)/include \
 	  	-I$(PALACIOS_PATH)/user  \
-		-I$(XPMEM_PATH)          \
+		-I$(XPMEM_PATH)/include  \
 		-I$(LIBHOBBES_PATH)	 \
 		-I$(PETLIB_PATH)	 \
 		-static
