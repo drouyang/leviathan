@@ -3,13 +3,13 @@
 # boilerplate junk
 IFS=
 
-if [ -f pids ]; then
+if [ -f hobbes.pid ]; then
     echo "PID file exists. Is Hobbes already running?"
     exit
 fi
 
 if [ ! -f ./build.cfg ]; then
-    echo "Hobbes configuration file not present. Please run setup.sh"
+    echo "Hobbes configuration file (build.cfg) not present."
     exit
 fi
 
@@ -36,5 +36,5 @@ insmod $PISCES_PATH/pisces.ko
 
 
 echo "Launching Hobbes Node Manager."
-$HOBBES_PATH/hobbes/master ${@:1}
+$HOBBES_PATH/hobbes/master ${@:1} &
 echo $! > hobbes.pid

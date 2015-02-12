@@ -116,7 +116,7 @@ int main(int argc, char ** argv) {
 	    }
 
 	    if (pet_cpu_status(phys_cpu_id) != PET_CPU_RSVD) {
-		fprintf(stderr, "ERROR: CPU %d is OFFLINE. Cannot lock.\n", phys_cpu_id);
+		fprintf(stderr, "ERROR: Could not lock CPU %d\n", phys_cpu_id);
 		continue;
 	    }
 
