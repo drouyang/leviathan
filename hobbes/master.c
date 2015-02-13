@@ -214,11 +214,12 @@ int main(int argc, char ** argv) {
 		continue;
 	    }
 		
-	    if (cpu_arr[i].state != PET_CPU_RSVD) {
-		printf("Removing CPU %d from Palacios/Linux\n", cpu_arr[i].cpu_id);
-		v3_remove_cpu(cpu_arr[i].cpu_id);
+	    if (v3_is_vmm_present()) {
+		if (cpu_arr[i].state != PET_CPU_RSVD) {
+		    printf("Removing CPU %d from Palacios/Linux\n", cpu_arr[i].cpu_id);
+		    v3_remove_cpu(cpu_arr[i].cpu_id);
+		}
 	    }
-
 	}
     }
 

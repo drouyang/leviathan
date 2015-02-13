@@ -28,13 +28,18 @@ IFS=" "
 echo "Inserting XPMEM Module."
 insmod $XPMEM_PATH/mod/xpmem.ko ns=1
 
+if [-f $PALACIOS_PATH/v3vee.ko ]; then
 echo "Inserting Palacios Module."
 insmod $PALACIOS_PATH/v3vee.ko
+else
+echo "Could not find v3vee module.  Palacios/Linux will not be enabled."
+fi
+
 
 echo "Inserting Pisces Module."
 insmod $PISCES_PATH/pisces.ko
 
 
 echo "Launching Hobbes Node Manager."
-$HOBBES_PATH/hobbes/master ${@:1} &
+$HOBBES_PATH/hobbes/master ${@:1} 1> hobbes.log&
 echo $! > hobbes.pid
