@@ -3,10 +3,10 @@
 # boilerplate junk
 IFS=
 
-if [ -f hobbes.pid ]; then
-    echo "PID file exists. Is Hobbes already running?"
-    exit
-fi
+#if [ -f hobbes.pid ]; then
+#    echo "PID file exists. Is Hobbes already running?"
+#    exit
+#fi
 
 if [ ! -f ./build.cfg ]; then
     echo "Hobbes configuration file (build.cfg) not present."
@@ -28,7 +28,7 @@ IFS=" "
 echo "Inserting XPMEM Module."
 insmod $XPMEM_PATH/mod/xpmem.ko ns=1
 
-if [-f $PALACIOS_PATH/v3vee.ko ]; then
+if [ -f $PALACIOS_PATH/v3vee.ko ]; then
 echo "Inserting Palacios Module."
 insmod $PALACIOS_PATH/v3vee.ko
 else

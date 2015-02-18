@@ -1,16 +1,4 @@
-
-
-
 #include <v3vee.h>
-
-
-
-
-
-
-
-
-
 
 
 static int 
