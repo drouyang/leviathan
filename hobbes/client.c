@@ -7,6 +7,8 @@
 
 
 #include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
 
 
 hdb_db_t hobbes_master_db = NULL;
@@ -68,4 +70,31 @@ hobbes_client_deinit()
     xpmem_release(hobbes_db_apid);
 
     return 0;
+}
+
+
+int
+hobbes_client_export_segment(xpmem_segid_t segid,
+                             char        * name)
+{
+    if (strlen(name) >= HOBBES_MAX_SEGMENT_NAME_LEN)
+        return -EINVAL;
+
+    return hdb_export_segment(hobbes_master_db, segid, name);
+}
+
+
+int
+hobbes_client_remove_segment(xpmem_segid_t segid)
+{
+    return hdb_remove_segment(hobbes_master_db, segid);
+}
+
+struct hobbes_segment *
+hobbes_client_get_segment_list(int * num_segments)
+{
+    if (num_segments == NULL)
+        return NULL;
+
+    return hdb_get_segment_list(hobbes_master_db,  num_segments);
 }

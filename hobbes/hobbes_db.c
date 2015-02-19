@@ -491,3 +491,287 @@ hdb_free_enclave_list(struct hobbes_enclave * enclave_list)
 {
     free(enclave_list);
 }
+
+
+static void *
+find_xpmem_rec_by_segid(hdb_db_t      db, 
+                        xpmem_segid_t segid) 
+{
+    void        * rec   = NULL;
+    wg_query    * query = NULL;
+    wg_query_arg  arglist[2];
+    char segid_str[sizeof(xpmem_segid_t) + 1];
+
+    /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
+    memset(segid_str, 0, sizeof(xpmem_segid_t) + 1);
+    snprintf(segid_str, sizeof(xpmem_segid_t), "%lli", segid);
+
+    arglist[0].column = 0;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_XPMEM_SEGMENT);    
+
+    arglist[1].column = 1;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_str(db, segid_str, NULL);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    rec = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return rec;
+}
+
+static void *
+find_xpmem_rec_by_name(hdb_db_t db,
+                       char   * name)
+{
+    void        * rec   = NULL;
+    wg_query    * query = NULL;
+    wg_query_arg  arglist[2];
+
+    arglist[0].column = 0;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_XPMEM_SEGMENT);
+
+    arglist[1].column = 2;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    rec = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return rec;
+
+}
+
+static int 
+create_xpmem_record(hdb_db_t      db,
+                    xpmem_segid_t segid,
+                    char        * name)
+{
+    void * rec           = NULL;
+    void * hdr_rec       = NULL;
+    int    segment_cnt   = 0;
+    char   segid_str[sizeof(xpmem_segid_t) + 1];
+
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
+    
+    if (!hdr_rec) {
+        ERROR("malformed database. Missing xpmem Header\n");
+        return -1;
+    }
+
+    /* Ensure segid and name do not exist */
+    rec = find_xpmem_rec_by_segid(db, segid);
+    if (rec) {
+        ERROR("xpmem segment with segid %lli already present\n", segid);
+        return -1;
+    }
+
+    rec = find_xpmem_rec_by_name(db, name);
+    if (rec) {
+        ERROR("xpmem segment with name %s already present\n", name);
+        return -1;
+    }
+
+    /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
+    memset(segid_str, 0, sizeof(xpmem_segid_t) + 1);
+    snprintf(segid_str, sizeof(xpmem_segid_t), "%lli", segid);
+
+    /* Insert segment into the db */
+    rec = wg_create_record(db, 3);
+    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_XPMEM_SEGMENT));
+    wg_set_field(db, rec, 1, wg_encode_str(db, segid_str, NULL));
+    wg_set_field(db, rec, 2, wg_encode_str(db, name, NULL));
+
+    /* Update the xpmem Header information */
+    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
+    wg_set_field(db, hdr_rec, 1, wg_encode_int(db, segment_cnt + 1));
+
+    return 0;
+}
+
+static int
+delete_xpmem_record(hdb_db_t      db,
+                    xpmem_segid_t segid)
+{
+    void * rec           = NULL;
+    void * hdr_rec       = NULL;
+    int    segment_cnt   = 0;
+    int    ret           = 0;
+
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
+    
+    if (!hdr_rec) {
+        ERROR("malformed database. Missing xpmem Header\n");
+        return -1;
+    }
+
+    /* Find record by segid */
+    rec = find_xpmem_rec_by_segid(db, segid);
+    if (!rec) {
+        ERROR("Could not find xpmem segment (segid: %lli)\n", segid);
+        return -1;
+    }
+
+    ret = wg_delete_record(db, rec);
+    if (ret != 0) {
+        ERROR("Could not delete xpmem segment from database\n");
+        return ret;
+    }
+
+
+    /* Update the xpmem Header information */
+    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
+    wg_set_field(db, hdr_rec, 1, wg_encode_int(db, segment_cnt - 1));
+
+    return 0;
+}
+
+static int
+deserialize_segment(hdb_db_t                db,
+                    void                  * segment_rec,
+                    struct hobbes_segment * segment)
+{
+    char * segid_str = wg_decode_str(db, wg_get_field(db, segment_rec, 1));
+
+    segment->segid = atoll(segid_str);
+    wg_decode_str_copy(db, wg_get_field(db, segment_rec, 2), segment->name,
+            sizeof(segment->name) - 1);
+
+    return 0;
+}
+
+static struct hobbes_segment * 
+get_segment_list(hdb_db_t db,
+                 int    * num_segments)
+{
+    struct hobbes_segment * list = NULL;
+
+    void * db_rec  = NULL;
+    void * hdr_rec = NULL;
+    int    i       = 0;
+
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);    
+
+    if (!hdr_rec) {
+        ERROR("Malformed database. Missing xpmem Header\n");
+        return NULL;
+    }
+
+    *num_segments = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
+
+    list = malloc(sizeof(struct hobbes_segment) * (*num_segments));
+    if (!list)
+        return NULL;
+
+    memset(list, 0, sizeof(struct hobbes_segment) * (*num_segments));
+
+    for (i = 0; i < *num_segments; i++) {
+        db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_SEGMENT, db_rec);
+        
+        if (!db_rec) {
+            ERROR("xpmem Header state mismatch\n");
+            *num_segments = i;
+            break;
+        }
+
+        deserialize_segment(db, db_rec, &(list[i]));
+    }
+
+    return list;
+}
+
+
+struct hobbes_segment *
+hdb_get_segment_list(hdb_db_t db,
+                     int    * num_segments)
+{
+    struct hobbes_segment * list = NULL;
+    wg_int lock_id;
+
+    if (!num_segments) {
+        return NULL;
+    }
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return NULL;
+    }
+
+    list = get_segment_list(db, num_segments);
+
+    if (!wg_end_read(db, lock_id))
+        ERROR("Catastrophic database locking error\n");
+
+    return list;
+}
+
+
+int
+hdb_export_segment(hdb_db_t      db,
+                   xpmem_segid_t segid,
+                   char        * name)
+{
+    wg_int lock_id;
+    int    ret;
+
+    lock_id = wg_start_write(db);
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return -1;
+    }
+
+    ret = create_xpmem_record(db, segid, name);
+    if (ret != 0) 
+        ERROR("Could not create xpmem database record\n");
+
+out:
+    if (wg_end_write(db, lock_id) == 0)
+        ERROR("Apparently this is catastrophic...\n");
+
+    return ret;
+}
+
+int
+hdb_remove_segment(hdb_db_t      db,
+                   xpmem_segid_t segid)
+{
+    wg_int lock_id;
+    int    ret;
+    
+    lock_id = wg_start_write(db);
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return -1;
+    }
+
+    ret = delete_xpmem_record(db, segid);
+    if (ret != 0)
+        ERROR("Could not delete xpmem database record\n");
+
+out:
+    if (wg_end_write(db, lock_id) == 0)
+        ERROR("Apparently this is catastrophic...\n");
+
+    return ret;
+
+}
+
+
+void
+hdb_free_segment_list(struct hobbes_segment* segment_list)
+{
+    free(segment_list);
+}

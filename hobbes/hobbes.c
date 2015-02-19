@@ -92,6 +92,52 @@ list_enclaves_handler(int argc, char ** argv)
     return 0;
 }
 
+static int
+list_segments_handler(int argc, char ** argv)
+{
+    struct hobbes_segment * list = NULL;
+    int num_segments = 0, i;
+
+    if (argc != 1) {
+        printf("Usage: hobbes list_segments\n");
+        return -1;
+    }
+
+    list = hdb_get_segment_list(hobbes_master_db, &num_segments);
+
+    if (list == NULL) {
+        ERROR("Could not retrieve segment list\n");
+        return -1;
+    }
+
+    printf("%d segments:\n", num_segments);
+
+    for (i = 0; i < num_segments; i++) {
+        printf("%lli: %-35s\n",
+            list[i].segid,
+            list[i].name);
+    }
+
+    hdb_free_segment_list(list);
+
+    return 0;
+}
+
+static int
+remove_segment_handler(int argc, char ** argv)
+{
+    xpmem_segid_t segid;
+
+    if (argc != 2) {
+        printf("Usage: hobbes remove_segment <segid>\n");
+        return -1;
+    }
+
+    segid = atoll(*(++argv));
+
+    return hdb_remove_segment(hobbes_master_db, segid);
+}
+
 
 struct hobbes_cmd {
     char * name;
@@ -104,6 +150,8 @@ static struct hobbes_cmd cmds[] = {
     {"destroy_enclave", destroy_enclave_handler, "Destroy Native Enclave"},
     {"list_enclaves",   list_enclaves_handler,   "List all running enclaves"},
     {"launch_job",      launch_job_handler,      "Launch a job in an enclave"},
+    {"list_segments",   list_segments_handler,   "List all exported xpmem segments"},
+    {"remove_segment",  remove_segment_handler,  "Remove an exported xpmem segment from the DB"},
     {0, 0, 0}
 };
 

@@ -271,6 +271,10 @@ create_master_db(unsigned int size)
 	wg_set_field(db, rec, 0, wg_encode_int(db, HDB_NEXT_PROCESS));
 	wg_set_field(db, rec, 1, wg_encode_int(db, 0));
 
+        /* Create XPMEM header */
+        rec = wg_create_record(db, 2);
+        wg_set_field(db, rec, 0, wg_encode_int(db, HDB_XPMEM_HDR));
+        wg_set_field(db, rec, 1, wg_encode_int(db, 0));
 
 	/* Create Master enclave */
 	hdb_create_enclave(db, "master", 0, MASTER_ENCLAVE, 0);

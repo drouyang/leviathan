@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "enclave.h"
+#include "client.h"
 
 /* set master db size to 64MB for now */
 #define HDB_MASTER_DB_SIZE  (64 * 1024 * 1024) 
@@ -18,11 +19,14 @@
 
 typedef void * hdb_db_t;
 
-#define HDB_ENCLAVE      0
-#define HDB_PROCESS      1
-#define HDB_SEGMENT      2
-#define HDB_ENCLAVE_HDR  3
-#define HDB_NEXT_PROCESS 4
+#define HDB_ENCLAVE          0
+#define HDB_PROCESS          1
+#define HDB_SEGMENT          2
+#define HDB_ENCLAVE_HDR      3
+#define HDB_NEXT_PROCESS     4
+#define HDB_XPMEM_HDR        5
+#define HDB_XPMEM_SEGMENT    6
+#define HDB_XPMEM_ATTACHMENT 7
 
 
 
@@ -67,5 +71,7 @@ int hdb_delete_enclave(hdb_db_t db,
 
 struct hobbes_enclave * hdb_get_enclave_list(hdb_db_t db, int * num_enclaves);
 void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);
+
+struct hobbes_segment * hdb_get_segment_list(hdb_db_t db, int * num_segments);
 
 #endif

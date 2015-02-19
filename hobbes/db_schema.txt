@@ -6,7 +6,7 @@ The first field of every record is an integer, that encodes the record type:
    2:  HDB_SEGMENT     
    3:  HDB_ENCLAVE_HDR
    4:  HDB_NEXT_PROCESS 
-   5:  HDB_XXPMEM_HDR
+   5:  HDB_XPMEM_HDR
    6:  HDB_XPMEM_SEGMENT
    7:  HDB_XPMEM_ATTACHMENTS
 
@@ -68,12 +68,15 @@ HDB_XPMEM_SEGMENT : XPMEM segment info
 Segment 1 is always the master DB
 
 Column 0: [int: value = HDB_XPMEM_SEGMENT] type 
-Column 1: [int] segid
+Column 1: [string] segid
+Column 2: [string] name
+
+TODO:
 Column 2: [int] owning enclave
 Column 3: [int] owning process ID
 
 -------------------------------------------------------------------------------------
-HDB_XPMEM_ATTACHMENT : XPMEM segment info
+HDB_XPMEM_ATTACHMENT : XPMEM attachment info
 -------------------------------------------------------------------------------------
 
 Column 0: [int: value = HDB_XPMEM_ATTACHMENT] type 
