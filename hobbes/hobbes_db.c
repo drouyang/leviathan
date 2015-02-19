@@ -310,7 +310,6 @@ hdb_create_enclave(hdb_db_t         db,
     return ret;
 }
 
-
 static int
 delete_enclave(hdb_db_t db,
 	       int      enclave_id)
@@ -484,6 +483,7 @@ hdb_get_enclave_list(hdb_db_t   db,
     return list;
 }
 
+
 void
 hdb_free_enclave_list(struct hobbes_enclave * enclave_list)
 {
@@ -498,11 +498,11 @@ find_xpmem_rec_by_segid(hdb_db_t      db,
     void        * rec   = NULL;
     wg_query    * query = NULL;
     wg_query_arg  arglist[2];
-    char segid_str[16];
+    char segid_str[32];
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, 16);
-    snprintf(segid_str, 15, "%lli", segid);
+    memset(segid_str, 0, 32);
+    snprintf(segid_str, 31, "%lli", segid);
 
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
@@ -559,7 +559,7 @@ create_xpmem_record(hdb_db_t      db,
     void * rec           = NULL;
     void * hdr_rec       = NULL;
     int    segment_cnt   = 0;
-    char   segid_str[16];
+    char   segid_str[32];
 
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
     
@@ -582,8 +582,8 @@ create_xpmem_record(hdb_db_t      db,
     }
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, 16);
-    snprintf(segid_str, 15, "%lli", segid);
+    memset(segid_str, 0, 32);
+    snprintf(segid_str, 31, "%lli", segid);
 
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
