@@ -9,7 +9,6 @@
 #include <stdint.h>
 
 #include "enclave.h"
-#include "client.h"
 
 struct hobbes_segment;
 

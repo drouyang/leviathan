@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "hobbes_db.h"
+#include "client.h"
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
