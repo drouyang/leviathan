@@ -5,7 +5,6 @@
 
 #include "client.h"
 
-
 #include <sys/mman.h>
 #include <errno.h>
 #include <string.h>
@@ -88,6 +87,21 @@ int
 hobbes_client_remove_segment(xpmem_segid_t segid)
 {
     return hdb_remove_segment(hobbes_master_db, segid);
+}
+
+
+xpmem_segid_t
+hobbes_client_get_segid_by_name(char * name)
+{
+    struct hobbes_segment segment;
+
+    if (strlen(name) >= HOBBES_MAX_SEGMENT_NAME_LEN)
+        return -EINVAL;
+
+    if (hdb_get_segment_by_name(hobbes_master_db, name, &segment) != 0)
+        return -ENOENT;
+
+    return segment.segid;
 }
 
 struct hobbes_segment *

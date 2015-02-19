@@ -13,8 +13,6 @@
 #include <pet_log.h>
 #include <stdint.h>
 
-#include <xpmem.h>
-
 #include "hobbes_db.h"
 
 
@@ -500,11 +498,11 @@ find_xpmem_rec_by_segid(hdb_db_t      db,
     void        * rec   = NULL;
     wg_query    * query = NULL;
     wg_query_arg  arglist[2];
-    char segid_str[sizeof(xpmem_segid_t) + 1];
+    char segid_str[16];
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, sizeof(xpmem_segid_t) + 1);
-    snprintf(segid_str, sizeof(xpmem_segid_t), "%lli", segid);
+    memset(segid_str, 0, 16);
+    snprintf(segid_str, 15, "%lli", segid);
 
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
@@ -561,7 +559,7 @@ create_xpmem_record(hdb_db_t      db,
     void * rec           = NULL;
     void * hdr_rec       = NULL;
     int    segment_cnt   = 0;
-    char   segid_str[sizeof(xpmem_segid_t) + 1];
+    char   segid_str[16];
 
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
     
@@ -584,8 +582,8 @@ create_xpmem_record(hdb_db_t      db,
     }
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, sizeof(xpmem_segid_t) + 1);
-    snprintf(segid_str, sizeof(xpmem_segid_t), "%lli", segid);
+    memset(segid_str, 0, 16);
+    snprintf(segid_str, 15, "%lli", segid);
 
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
@@ -691,34 +689,6 @@ get_segment_list(hdb_db_t db,
     return list;
 }
 
-
-struct hobbes_segment *
-hdb_get_segment_list(hdb_db_t db,
-                     int    * num_segments)
-{
-    struct hobbes_segment * list = NULL;
-    wg_int lock_id;
-
-    if (!num_segments) {
-        return NULL;
-    }
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-        ERROR("Could not lock database\n");
-        return NULL;
-    }
-
-    list = get_segment_list(db, num_segments);
-
-    if (!wg_end_read(db, lock_id))
-        ERROR("Catastrophic database locking error\n");
-
-    return list;
-}
-
-
 int
 hdb_export_segment(hdb_db_t      db,
                    xpmem_segid_t segid,
@@ -769,7 +739,60 @@ out:
 
 }
 
+int
+hdb_get_segment_by_name(hdb_db_t                db,
+                        char                  * name,
+                        struct hobbes_segment * segment)
+{
+    wg_int lock_id;
+    void * rec;
+    int ret = 0;
 
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return -1;
+    }
+
+    rec = find_xpmem_rec_by_name(db, name);
+
+    if (rec)
+        deserialize_segment(db, rec, segment);
+    else 
+        ret = -1;
+
+    if (!wg_end_read(db, lock_id))
+        ERROR("Catastrophic database locking error\n");
+
+    return ret;
+}
+
+struct hobbes_segment *
+hdb_get_segment_list(hdb_db_t db,
+                     int    * num_segments)
+{
+    struct hobbes_segment * list = NULL;
+    wg_int lock_id;
+
+    if (!num_segments) {
+        return NULL;
+    }
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return NULL;
+    }
+
+    list = get_segment_list(db, num_segments);
+
+    if (!wg_end_read(db, lock_id))
+        ERROR("Catastrophic database locking error\n");
+
+    return list;
+}
 void
 hdb_free_segment_list(struct hobbes_segment* segment_list)
 {

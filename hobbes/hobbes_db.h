@@ -11,6 +11,8 @@
 #include "enclave.h"
 #include "client.h"
 
+struct hobbes_segment;
+
 /* set master db size to 64MB for now */
 #define HDB_MASTER_DB_SIZE  (64 * 1024 * 1024) 
 #define HDB_MASTER_DB_SEGID (1)
@@ -72,6 +74,7 @@ int hdb_delete_enclave(hdb_db_t db,
 struct hobbes_enclave * hdb_get_enclave_list(hdb_db_t db, int * num_enclaves);
 void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);
 
+int hdb_get_segment_by_name(hdb_db_t db, char * name, struct hobbes_segment *);
 struct hobbes_segment * hdb_get_segment_list(hdb_db_t db, int * num_segments);
 
 #endif
