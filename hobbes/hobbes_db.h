@@ -76,4 +76,6 @@ void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);
 int hdb_get_segment_by_name(hdb_db_t db, char * name, struct hobbes_segment *);
 struct hobbes_segment * hdb_get_segment_list(hdb_db_t db, int * num_segments);
 
+int hdb_remove_segment(hdb_db_t db, xpmem_segid_t segid, char *name);
+
 #endif

@@ -114,9 +114,9 @@ list_segments_handler(int argc, char ** argv)
     printf("%d segments:\n", num_segments);
 
     for (i = 0; i < num_segments; i++) {
-        printf("%lli: %-35s\n",
-            list[i].segid,
-            list[i].name);
+        printf("%s: %lli\n",
+            list[i].name,
+            list[i].segid);
     }
 
     hdb_free_segment_list(list);
@@ -127,16 +127,16 @@ list_segments_handler(int argc, char ** argv)
 static int
 remove_segment_handler(int argc, char ** argv)
 {
-    xpmem_segid_t segid;
+    char *name;
 
     if (argc != 2) {
-        printf("Usage: hobbes remove_segment <segid>\n");
+        printf("Usage: hobbes remove_segment <name>\n");
         return -1;
     }
 
-    segid = atoll(*(++argv));
+    name = *(++argv);
 
-    return hdb_remove_segment(hobbes_master_db, segid);
+    return hdb_remove_segment(hobbes_master_db, 0, name);
 }
 
 

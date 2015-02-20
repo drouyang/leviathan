@@ -86,7 +86,7 @@ hobbes_client_export_segment(xpmem_segid_t segid,
 int
 hobbes_client_remove_segment(xpmem_segid_t segid)
 {
-    return hdb_remove_segment(hobbes_master_db, segid);
+    return hdb_remove_segment(hobbes_master_db, segid, NULL);
 }
 
 

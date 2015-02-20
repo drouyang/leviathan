@@ -499,19 +499,15 @@ find_xpmem_rec_by_segid(hdb_db_t      db,
     void        * rec   = NULL;
     wg_query    * query = NULL;
     wg_query_arg  arglist[2];
-    char segid_str[32];
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, 32);
-    snprintf(segid_str, 31, "%lli", segid);
-
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
     arglist[0].value  = wg_encode_query_param_int(db, HDB_XPMEM_SEGMENT);    
 
     arglist[1].column = 1;
     arglist[1].cond   = WG_COND_EQUAL;
-    arglist[1].value  = wg_encode_query_param_str(db, segid_str, NULL);
+    arglist[1].value  = wg_encode_query_param_int(db, segid);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
@@ -560,7 +556,6 @@ create_xpmem_record(hdb_db_t      db,
     void * rec           = NULL;
     void * hdr_rec       = NULL;
     int    segment_cnt   = 0;
-    char   segid_str[32];
 
     hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
     
@@ -582,14 +577,10 @@ create_xpmem_record(hdb_db_t      db,
         return -1;
     }
 
-    /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    memset(segid_str, 0, 32);
-    snprintf(segid_str, 31, "%lli", segid);
-
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, 0, wg_encode_int(db, HDB_XPMEM_SEGMENT));
-    wg_set_field(db, rec, 1, wg_encode_str(db, segid_str, NULL));
+    wg_set_field(db, rec, 1, wg_encode_int(db, segid));
     wg_set_field(db, rec, 2, wg_encode_str(db, name, NULL));
 
     /* Update the xpmem Header information */
@@ -601,7 +592,8 @@ create_xpmem_record(hdb_db_t      db,
 
 static int
 delete_xpmem_record(hdb_db_t      db,
-                    xpmem_segid_t segid)
+                    xpmem_segid_t segid,
+                    char        * name)
 {
     void * rec           = NULL;
     void * hdr_rec       = NULL;
@@ -615,10 +607,21 @@ delete_xpmem_record(hdb_db_t      db,
         return -1;
     }
 
-    /* Find record by segid */
-    rec = find_xpmem_rec_by_segid(db, segid);
-    if (!rec) {
-        ERROR("Could not find xpmem segment (segid: %lli)\n", segid);
+    /* Find record */
+    if (segid > 0) {
+        rec = find_xpmem_rec_by_segid(db, segid);
+        if (!rec) {
+            ERROR("Could not find xpmem segment (segid: %lli)\n", segid);
+            return -1;
+        }
+    } else if (name) {
+        rec = find_xpmem_rec_by_name(db, name);
+        if (!rec) {
+            ERROR("Could not find xpmem segment (name: %s)\n", name);
+            return -1;
+        }
+    } else {
+        ERROR("Supply valid segid or name\n");
         return -1;
     }
 
@@ -627,7 +630,6 @@ delete_xpmem_record(hdb_db_t      db,
         ERROR("Could not delete xpmem segment from database\n");
         return ret;
     }
-
 
     /* Update the xpmem Header information */
     segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
@@ -641,11 +643,8 @@ deserialize_segment(hdb_db_t                db,
                     void                  * segment_rec,
                     struct hobbes_segment * segment)
 {
-    char * segid_str = wg_decode_str(db, wg_get_field(db, segment_rec, 1));
-
-    segment->segid = atoll(segid_str);
-    wg_decode_str_copy(db, wg_get_field(db, segment_rec, 2), segment->name,
-            sizeof(segment->name) - 1);
+    segment->segid = wg_decode_int(db, wg_get_field(db, segment_rec, 1));
+    wg_decode_str_copy(db, wg_get_field(db, segment_rec, 2), segment->name, sizeof(segment->name) - 1);
 
     return 0;
 }
@@ -717,7 +716,8 @@ out:
 
 int
 hdb_remove_segment(hdb_db_t      db,
-                   xpmem_segid_t segid)
+                   xpmem_segid_t segid,
+                   char        * name)
 {
     wg_int lock_id;
     int    ret;
@@ -728,7 +728,7 @@ hdb_remove_segment(hdb_db_t      db,
         return -1;
     }
 
-    ret = delete_xpmem_record(db, segid);
+    ret = delete_xpmem_record(db, segid, name);
     if (ret != 0)
         ERROR("Could not delete xpmem database record\n");
 
