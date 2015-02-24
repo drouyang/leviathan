@@ -185,7 +185,10 @@ main(int argc, char ** argv)
 	exit(-1);
     }
 
-    hobbes_client_init();
+    if (hobbes_client_init() != 0) {
+	ERROR("Could not initialize hobbes client\n");
+	return -1;
+    }
 
     while (cmds[i].name) {
 

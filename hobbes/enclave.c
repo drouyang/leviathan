@@ -196,8 +196,10 @@ destroy_enclave(char * enclave_name)
     
     if (enclave.type == PISCES_ENCLAVE) {
 	return destroy_pisces_enclave(&enclave);
+    } else if (enclave.type == LINUX_VM_ENCLAVE) {
+	return destroy_linux_vm(&enclave);
+
 	/*
-	  } else if (enclave.type == LINUX_VM_ENCLAVE) {
 	  } else if (enclave.type == PISCES_VM_ENCLAVE) { 
 	*/
     } else {

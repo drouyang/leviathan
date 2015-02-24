@@ -28,6 +28,8 @@ IFS=" "
 echo "Inserting XPMEM Module."
 insmod $XPMEM_PATH/mod/xpmem.ko ns=1
 
+echo $PALACIOS_PATH
+
 if [ -f $PALACIOS_PATH/v3vee.ko ]; then
 echo "Inserting Palacios Module."
 insmod $PALACIOS_PATH/v3vee.ko
@@ -41,5 +43,6 @@ insmod $PISCES_PATH/pisces.ko
 
 
 echo "Launching Hobbes Node Manager."
-$HOBBES_PATH/hobbes/master ${@:1} 1> hobbes.log&
+#$HOBBES_PATH/hobbes/master ${@:1} 1> hobbes.log&
+$HOBBES_PATH/hobbes/master ${@:1} &
 echo $! > hobbes.pid

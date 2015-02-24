@@ -68,7 +68,7 @@ HDB_XPMEM_SEGMENT : XPMEM segment info
 Segment 1 is always the master DB
 
 Column 0: [int: value = HDB_XPMEM_SEGMENT] type 
-Column 1: [string] segid
+Column 1: [int] segid
 Column 2: [string] name
 
 TODO:
