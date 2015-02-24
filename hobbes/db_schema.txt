@@ -30,6 +30,7 @@ Column 5: [int] enclave state
     ENCLAVE_RUNNING   = 1
     ENCLAVE_STOPPED   = 2
     ENCLAVE_CRASHED   = 3
+    ENCLAVE_ERROR     = 4
 Column 6: [string] name                 - name of enclave 
 
 

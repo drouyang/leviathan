@@ -6,6 +6,138 @@
 #define MEM_HDR_STR       "BASE MEMORY REGIONS ([0-9]+)"
 #define MEM_REGEX_STR     "[0-9]+: ([0-9A-Fa-f]{16}) - ([0-9A-Fa-f]{16})"
 
+
+
+static int
+destroy_linux_vm(struct hobbes_enclave * enclave)
+{
+    int  * numa_block_list = NULL;
+
+
+    numa_block_list = calloc(sizeof(int), pet_num_numa_nodes());
+
+    {
+
+	char * proc_filename   = NULL;
+	FILE * proc_file       = NULL;
+	char * line            = NULL;
+	size_t line_size       = 0;
+
+	int num_blks = 0;
+	int matched  = 0;
+	int i        = 0;
+
+	/* grab memory in VM */
+	if (asprintf(&proc_filename, PROC_PATH "v3-vm%d", enclave->mgmt_dev_id) == -1) {
+	    ERROR("asprintf failed\n");
+	    goto err;
+	}
+
+	proc_file = fopen(proc_filename, "r");
+
+	free(proc_filename);
+    
+	if (proc_file == NULL) {
+	    ERROR("Could not open proc file for enclave %s (VM %d)\n", enclave->name, enclave->mgmt_dev_id);
+	    goto err;
+	}
+
+	if (getline(&line, &line_size, proc_file) == -1) {
+	    ERROR("Could not read VM proc file for enclave %s\n", enclave->name);
+	    goto err;
+	}
+	
+	matched = sscanf(line, "BASE MEMORY REGIONS (%d)", &num_blks);
+	
+	free(line);
+
+	if (matched != 1) {
+	    ERROR("Could not parse VM information proc file (memory header)\n");
+	    goto err;
+	}
+	
+
+	for (i = 0; i < num_blks; i++) {
+	    uint64_t start_addr = 0;
+	    uint64_t end_addr   = 0;
+	    uint32_t blk_size   = 0;
+	    int      numa_zone  = 0;
+	    
+	    line = NULL;
+
+	    if (getline(&line, &line_size, proc_file) == -1) {
+		ERROR("Could not read VM proc file for enclave %s\n", enclave->name);
+		goto err;
+	    }
+
+	    matched = sscanf(line, "       0x%llx - 0x%llx  (size=%uMB) [NUMA ZONE=%d]", 
+			     &start_addr, &end_addr, &blk_size, &numa_zone);
+	    free(line);
+	
+	    if (matched != 4) {
+		ERROR("Parsing error for VM memory blocks\n");
+		goto err;
+	    }
+	    
+	    numa_block_list[numa_zone]++;
+	}
+    }
+
+
+
+    /* Stop VM */
+
+    {
+	int ret = v3_stop_vm(enclave->mgmt_dev_id);
+
+	if (ret == -1) {
+	    ERROR("Could not stop Linux VM enclave %s\n", enclave->name);
+	    goto corrupt_err;
+	}
+    }
+
+    /* Free VM */
+
+    {
+	int ret = v3_free_vm(enclave->mgmt_dev_id);
+
+	if (ret == -1) {
+	    ERROR("Could not free Linux VM enclave %s\n", enclave->name);
+	    goto corrupt_err;
+	}
+    }
+
+
+    /* Release memory */
+    {
+	int i = 0;
+
+	for (i = 0; i < pet_num_numa_nodes(); i++) {
+	    v3_remove_mem(numa_block_list[i], i);
+	}
+    }
+
+
+    /* Delete enclave from database */
+    if (hdb_delete_enclave(hobbes_master_db, enclave->enclave_id) != 0) {
+	ERROR("Could not delete enclave from database\n");
+	goto corrupt_err;
+    }
+
+    free(numa_block_list);
+
+    return 0;
+
+ corrupt_err:
+    enclave->state = ENCLAVE_ERROR;
+    hdb_update_enclave(hobbes_master_db, enclave);  
+ err:
+    free(numa_block_list);
+    return -1;
+}
+
+
+
 static int 
 create_linux_vm(ezxml_t   xml, 
 		char    * name)
@@ -120,6 +252,8 @@ create_linux_vm(ezxml_t   xml,
 
     printf("Creating VM (%s)\n", enclave.name);
 
+    printf("Alloced blocks=%d\n", alloced_blocks);
+
 
     /* Load VM Image */
     {
@@ -144,6 +278,8 @@ create_linux_vm(ezxml_t   xml,
        	if ((img_data == NULL) || 
 	    (vm_id    == -1)) {
 
+	    printf("Creation error\n");
+
 	    if (alloced_array) {
 		int i = 0;
 
@@ -155,6 +291,7 @@ create_linux_vm(ezxml_t   xml,
 	    }
 	    
 	    if (alloced_blocks > 0) {
+		printf("Removing %d allocated blocks\n", alloced_blocks);
 		v3_remove_mem(alloced_blocks, -1);
 	    }
 
@@ -197,27 +334,3 @@ create_linux_vm(ezxml_t   xml,
 
     return 0;
 }
-
-
-static int
-destroy_linux_vm(struct hobbes_enclave * enclave)
-{
-    int * numa_block_list = NULL;
-
-    /* grab memory in VM */
-
-    /* Stop VM */
-
-    /* Free VM */
-
-    /* Release memory */
-
-    /* Delete enclave from database */
-    if (hdb_delete_enclave(hobbes_master_db, enclave->enclave_id) != 0) {
-	ERROR("Could not delete enclave from database\n");
-	return -1;
-    }
-
-    return 0;
-}
-

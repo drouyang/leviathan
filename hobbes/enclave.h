@@ -11,7 +11,8 @@ typedef enum {
     ENCLAVE_INITTED   = 0,
     ENCLAVE_RUNNING   = 1,
     ENCLAVE_STOPPED   = 2,
-    ENCLAVE_CRASHED   = 3
+    ENCLAVE_CRASHED   = 3,
+    ENCLAVE_ERROR     = 4
 } enclave_state_t;
 
 typedef enum {

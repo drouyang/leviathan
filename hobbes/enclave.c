@@ -240,6 +240,7 @@ enclave_state_to_str(enclave_state_t state)
 	case ENCLAVE_RUNNING: return "Running";
 	case ENCLAVE_STOPPED: return "Stopped";
 	case ENCLAVE_CRASHED: return "Crashed";
+	case ENCLAVE_ERROR:   return "Error";
 
 	default: return NULL;
     }
