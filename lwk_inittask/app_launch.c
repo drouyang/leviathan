@@ -186,7 +186,7 @@ launch_app(char        * name,
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
 	    
-	    sprintf(start_state[rank].task_name, name);
+	    sprintf(start_state[rank].task_name, "%s", name);
 
 
 	    status = elf_load((void *)file_addr,

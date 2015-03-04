@@ -43,7 +43,7 @@ build = \
 
 
 % : %.c $(libs)
-	$(call build,CC,$(CC) $(CFLAGS)  $<  $(libs) /usr/lib64/libm.a -o $@)
+	$(call build,CC,$(CC) $(CFLAGS)  $<  $(libs) -lm -o $@)
 
 %.o : %.c
 	$(call build,CC,$(CC) $(CFLAGS) -c $<  -o $@)
@@ -55,7 +55,7 @@ build = \
 all: $(execs) $(libs)
 
 lwk_init: $(init_objs)
-	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
+	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) -lm -o $@)
 
 
 clean:

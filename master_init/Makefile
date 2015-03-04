@@ -33,7 +33,7 @@ build = \
 
 
 % : %.c $(libs)
-	$(call build,CC,$(CC) $(CFLAGS)  $<  $(libs) /usr/lib64/libm.a -o $@)
+	$(call build,CC,$(CC) $(CFLAGS)  $<  $(libs) -lm -o $@)
 
 %.o : %.c
 	$(call build,CC,$(CC) $(CFLAGS) -c $<  -o $@)
@@ -46,7 +46,7 @@ all:  $(execs) $(libs)
 
 
 master: $(master_objs)
-	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
+	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) -lm -o $@)
 
 
 
