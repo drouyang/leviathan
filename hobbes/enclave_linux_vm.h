@@ -28,7 +28,7 @@ destroy_linux_vm(struct hobbes_enclave * enclave)
 	int i        = 0;
 
 	/* grab memory in VM */
-	if (asprintf(&proc_filename, PROC_PATH "v3-vm%d", enclave->mgmt_dev_id) == -1) {
+	if (asprintf(&proc_filename, PROC_PATH "v3-vm%d/mem", enclave->mgmt_dev_id) == -1) {
 	    ERROR("asprintf failed\n");
 	    goto err;
 	}

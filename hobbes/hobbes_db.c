@@ -288,7 +288,7 @@ hdb_create_enclave(hdb_db_t         db,
 		   char           * name, 
 		   int              mgmt_dev_id, 
 		   enclave_type_t   type, 
-		   uint64_t              parent)
+		   int              parent)
 {
     wg_int lock_id;
     int    ret = 0;
