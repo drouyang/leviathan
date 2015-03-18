@@ -1,29 +1,30 @@
 This is a listing of each of the different record formats stored in the database.
 
 The first field of every record is an integer, that encodes the record type:
-   0:  HDB_ENCLAVE      
-   1:  HDB_PROCESS      
-   2:  HDB_SEGMENT     
-   3:  HDB_ENCLAVE_HDR
-   4:  HDB_NEXT_PROCESS 
-   5:  HDB_XPMEM_HDR
-   6:  HDB_XPMEM_SEGMENT
-   7:  HDB_XPMEM_ATTACHMENTS
+   0:   HDB_ENCLAVE      
+   1:   HDB_PROCESS      
+   2:   HDB_SEGMENT     
+   3:   HDB_ENCLAVE_HDR
+   4:   HDB_NEXT_PROCESS 
+   5:   HDB_THREAD
 
+   50:  HDB_XPMEM_HDR
+   51:  HDB_XPMEM_SEGMENT
+   52:  HDB_XPMEM_ATTACHMENTS
 
 
 -------------------------------------------------------------------------------------
 HDB_ENCLAVE : Enclave state info (1 record per enclave)
 -------------------------------------------------------------------------------------
 Column 0: [int: value = HDB_ENCLAVE] type 
-Column 1: [int] enclave ID
-Column 2: [int] enclave type
+Column 1: [int] ref count
+Column 2: [int] enclave ID
+Column 3: [int] enclave type
     INVALID_ENCLAVE   = 0
     MASTER_ENCLAVE    = 1
     PISCES_ENCLAVE    = 2
     PISCES_VM_ENCLAVE = 3
     LINUX_VM_ENCLAVE  = 4
-Column 3: [int] parent enclave          - enclave ID of host enclave for VMs
 Column 4: [int] management device ID    - local device interface ID for ioctls
 Column 5: [int] enclave state
     ENCLAVE_INITTED   = 0
@@ -32,6 +33,11 @@ Column 5: [int] enclave state
     ENCLAVE_CRASHED   = 3
     ENCLAVE_ERROR     = 4
 Column 6: [string] name                 - name of enclave 
+Column 7: [int] num_cores
+Column 8: [int] parent enclave          - enclave ID of host enclave for VMs
+Column 9: [Reference] threads
+
+
 
 
 -------------------------------------------------------------------------------------
@@ -53,6 +59,26 @@ Column 0: [int: value = HDB_NEXT_PROCESS] type
 Column 1: [int] next available process ID 
 
 
+
+-------------------------------------------------------------------------------------
+HDB_PROCESS : Process info 
+-------------------------------------------------------------------------------------
+Column 0: [int: value = HDB_PROCESS] type
+Column 1: [int] ref count
+Column 2: [Reference] hosting enclave
+Column 3: [int]       num_threads
+Column 4: [Reference] thread list
+
+
+-------------------------------------------------------------------------------------
+HDB_THREAD : Thread info 
+-------------------------------------------------------------------------------------
+Column 0: [int: value = HDB_THREAD] type
+Column 1: [Reference] hosting enclave 
+Column 2: [int] pid
+Column 3: [int] tid
+Column 4: [Reference] Next thread in group
+
 -------------------------------------------------------------------------------------
 HDB_XPMEM_HDR : Global information about XPMEM segments
 -------------------------------------------------------------------------------------
@@ -69,12 +95,13 @@ HDB_XPMEM_SEGMENT : XPMEM segment info
 Segment 1 is always the master DB
 
 Column 0: [int: value = HDB_XPMEM_SEGMENT] type 
-Column 1: [int] segid
-Column 2: [string] name
+Column 1: [int] ref count
+Column 2: [int] segid
+Column 3: [string] name
 
 TODO:
-Column 2: [int] owning enclave
-Column 3: [int] owning process ID
+Column 4: [int] owning enclave
+Column 5: [int] owning process ID
 
 -------------------------------------------------------------------------------------
 HDB_XPMEM_ATTACHMENT : XPMEM attachment info

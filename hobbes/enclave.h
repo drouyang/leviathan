@@ -39,10 +39,14 @@ struct hobbes_enclave {
 int create_enclave(char * cfg_file_name, char * name);
 int destroy_enclave(char * enclave_name);
 
+
+struct hobbes_enclave * get_enclave(char * name);
+
 const char * 
 enclave_type_to_str(enclave_type_t type);
 
 const char *
 enclave_state_to_str(enclave_state_t state);
+
 
 #endif
