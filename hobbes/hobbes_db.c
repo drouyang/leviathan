@@ -17,6 +17,42 @@
 #include "client.h"
 
 
+/* 
+ * Database Record Type
+ *    Each row in the database has an associated type from the list below
+ */
+#define HDB_REC_ENCLAVE          0
+#define HDB_REC_PROCESS          1
+#define HDB_REC_SEGMENT          2
+#define HDB_REC_ENCLAVE_HDR      3
+#define HDB_REC_NEXT_PROCESS     4
+#define HDB_REC_XPMEM_HDR        5
+#define HDB_REC_XPMEM_SEGMENT    6
+#define HDB_REC_XPMEM_ATTACHMENT 7
+
+
+
+
+/*
+ * Database Field definitions
+ *     The column types for each row are specified below
+ */
+
+/* The first column of every row specifies the row type */
+#define HDB_TYPE_FIELD       0 
+
+/* Columns for en enclave record */
+#define HDB_ENCLAVE_ID       1
+#define HDB_ENCLAVE_TYPE     2
+#define HDB_ENCLAVE_DEV_ID   3
+#define HDB_ENCLAVE_STATE    4
+#define HDB_ENCLAVE_NAME     5
+#define HDB_ENCLAVE_PARENT   6
+
+
+
+
+
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
 hdb_db_t 
@@ -57,200 +93,120 @@ hdb_detach(hdb_db_t db)
 }
 
 
-
-static void *
-find_enclave_rec_by_id(hdb_db_t db, 
-		       int      enclave_id) 
+int
+hdb_init_master_db(hdb_db_t db)
 {
-    void        * rec   = NULL;
-    wg_query    * query = NULL;
+    void * rec = NULL;
+    
+    rec = wg_create_record(db, 3);
+    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_ENCLAVE_HDR));
+    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
+    wg_set_field(db, rec, 2, wg_encode_int(db, 0));
+    
+    rec = wg_create_record(db, 2);
+    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_NEXT_PROCESS));
+    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
+    
+    /* Create XPMEM header */
+    rec = wg_create_record(db, 2);
+    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_XPMEM_HDR));
+    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
+
+    return 0;
+}
+
+
+/* 
+ * Enclave Accessors 
+ */
+
+
+/**
+ * Get an enclave handle from an enclave id
+ *  - Returns NULL if no enclave is found 
+ **/
+static hdb_enclave_t
+__get_enclave_by_id(hdb_db_t db, 
+		    hdb_id_t enclave_id) 
+{
+    hdb_enclave_t enclave  = NULL;
+    wg_query    * query    = NULL;
     wg_query_arg  arglist[2];
 
-    arglist[0].column = 0;
+    arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_ENCLAVE);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_ENCLAVE);    
 
-    arglist[1].column = 1;
+    arglist[1].column = HDB_ENCLAVE_ID;
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_int(db, enclave_id);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    rec = wg_fetch(db, query);
+    enclave = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-    return rec;
-}
-
-
-static int
-deserialize_enclave(hdb_db_t                db,
-		    void                  * enclave_rec,
-		    struct hobbes_enclave * enclave)
-{
-    enclave->enclave_id  = wg_decode_int(db, wg_get_field(db, enclave_rec, 1));
-    enclave->type        = wg_decode_int(db, wg_get_field(db, enclave_rec, 2));
-    enclave->parent_id   = wg_decode_int(db, wg_get_field(db, enclave_rec, 3));
-    enclave->mgmt_dev_id = wg_decode_int(db, wg_get_field(db, enclave_rec, 4));
-    enclave->state       = wg_decode_int(db, wg_get_field(db, enclave_rec, 5));
-    wg_decode_str_copy(db, wg_get_field(db, enclave_rec, 6), enclave->name, sizeof(enclave->name) - 1);
-
-
-
-    return 0;
-}
-
-
-static int
-update_enclave(hdb_db_t                db,
-	       struct hobbes_enclave * enclave)
-{
-    void * enclave_rec = NULL;
-    
-    enclave_rec = find_enclave_rec_by_id(db, enclave->enclave_id);
-
-    if (!enclave_rec) {
-	printf("Could not find enclave to update\n");
-	return -1;
-    }
-
-    wg_set_field(db, enclave_rec, 2, wg_encode_int(db, enclave->type));
-    wg_set_field(db, enclave_rec, 3, wg_encode_int(db, enclave->parent_id));
-    wg_set_field(db, enclave_rec, 4, wg_encode_int(db, enclave->mgmt_dev_id));
-    wg_set_field(db, enclave_rec, 5, wg_encode_int(db, enclave->state));
-    wg_set_field(db, enclave_rec, 6, wg_encode_str(db, enclave->name, NULL));
-
-    return 0;
+    return enclave;
 }
 
 
 
 
-static struct hobbes_enclave * 
-get_enclave_list(hdb_db_t   db,
-		 int      * num_enclaves)
+
+/**
+ * Get an enclave handle from an enclave name
+ *  - Returns NULL if no enclave is found 
+ **/
+static hdb_enclave_t
+__get_enclave_by_name(hdb_db_t   db, 
+		      char     * name)
 {
-    struct hobbes_enclave * list    = NULL;
-
-    void * db_rec  = NULL;
-    void * hdr_rec = NULL;
-    int    i       = 0;
-
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);    
-
-    if (!hdr_rec) {
-	ERROR("Malformed database. Missing enclave Header\n");
-	return NULL;
-    }
-
-    *num_enclaves = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
-
-    list = malloc(sizeof(struct hobbes_enclave) * (*num_enclaves));
-
-    memset(list, 0, sizeof(struct hobbes_enclave) * (*num_enclaves));
-
-    for (i = 0; i < *num_enclaves; i++) {
-	db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE, db_rec);
-	
-	if (!db_rec) {
-	    ERROR("Enclave Header state mismatch\n");
-	    *num_enclaves = i;
-	    break;
-	}
-
-	deserialize_enclave(db, db_rec, &(list[i]));
-    }
-
-    return list;
-}
-
-
-static int 
-get_enclave_by_name(hdb_db_t                db, 
-		    char                  * name,
-		    struct hobbes_enclave * enclave)
-{
-    void     * enclave_rec = NULL;
-    wg_query * query       = NULL;
-  
-    wg_query_arg arglist[2];    
+    hdb_enclave_t   enclave  = NULL;
+    wg_query      * query    = NULL;
+    wg_query_arg    arglist[2];    
  
-    arglist[0].column = 0;
+    arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_ENCLAVE);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_ENCLAVE);    
 
-    arglist[1].column = 6;
+    arglist[1].column = HDB_ENCLAVE_NAME;
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    enclave_rec = wg_fetch(db, query);
+    enclave = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-
-    if (enclave_rec) {
-
-	if (enclave) {
-	    deserialize_enclave(db, enclave_rec, enclave);
-	}
-
-	return 1;	
-    } 
-
-    return 0;
-}
-
-
-
-static int 
-get_enclave_by_id(hdb_db_t                db, 
-		  int                     enclave_id,
-		  struct hobbes_enclave * enclave)
-{
-    void     * enclave_rec = NULL;
-
-    enclave_rec = find_enclave_rec_by_id(db, enclave_id);
-
-    if (enclave_rec) {
-
-	if (enclave) {
-	    deserialize_enclave(db, enclave_rec, enclave);
-	}
-
-	return 1;	
-    } 
-
-    return 0;
+    return enclave;
 }
 
 
 
 
 
-
-
-static int 
-create_enclave_record(hdb_db_t         db,
-		      char           * name, 
-		      int              mgmt_dev_id, 
-		      enclave_type_t   type, 
-		      int              parent)
+static hdb_id_t
+__create_enclave_record(hdb_db_t         db,
+			char           * name, 
+			int              mgmt_dev_id, 
+			enclave_type_t   type, 
+			hdb_id_t         parent)
 {
-    void    * rec           = NULL;
     void    * hdr_rec       = NULL;
-    int       enclave_id    = 0;
+    hdb_id_t  enclave_id    = 0;
     uint32_t  enclave_cnt   = 0;
     char      auto_name[32] = {[0 ... 31] = 0};
 
+    hdb_enclave_t enclave   = NULL;
+
     
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE_HDR, NULL);
     
     if (!hdr_rec) {
 	ERROR("malformed database. Missing enclave Header\n");
@@ -267,14 +223,15 @@ create_enclave_record(hdb_db_t         db,
     }
     
     /* Insert enclave into the db */
-    rec = wg_create_record(db, 7);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_ENCLAVE));
-    wg_set_field(db, rec, 1, wg_encode_int(db, enclave_id));
-    wg_set_field(db, rec, 2, wg_encode_int(db, type));
-    wg_set_field(db, rec, 3, wg_encode_int(db, parent));
-    wg_set_field(db, rec, 4, wg_encode_int(db, mgmt_dev_id));
-    wg_set_field(db, rec, 5, wg_encode_int(db, ENCLAVE_INITTED));
-    wg_set_field(db, rec, 6, wg_encode_str(db, name, NULL));
+    enclave = wg_create_record(db, 7);
+    wg_set_field(db, enclave, HDB_TYPE_FIELD,     wg_encode_int(db, HDB_REC_ENCLAVE));
+    wg_set_field(db, enclave, HDB_ENCLAVE_ID,     wg_encode_int(db, enclave_id));
+    wg_set_field(db, enclave, HDB_ENCLAVE_TYPE,   wg_encode_int(db, type));
+    wg_set_field(db, enclave, HDB_ENCLAVE_DEV_ID, wg_encode_int(db, mgmt_dev_id));
+    wg_set_field(db, enclave, HDB_ENCLAVE_STATE,  wg_encode_int(db, ENCLAVE_INITTED));
+    wg_set_field(db, enclave, HDB_ENCLAVE_NAME,   wg_encode_str(db, name, NULL));
+    wg_set_field(db, enclave, HDB_ENCLAVE_PARENT, wg_encode_int(db, parent));
+
     
     /* Update the enclave Header information */
     wg_set_field(db, hdr_rec, 1, wg_encode_int(db, enclave_id  + 1));
@@ -283,15 +240,15 @@ create_enclave_record(hdb_db_t         db,
     return enclave_id;
 }
 
-int
+hdb_id_t
 hdb_create_enclave(hdb_db_t         db,
 		   char           * name, 
 		   int              mgmt_dev_id, 
 		   enclave_type_t   type, 
-		   int              parent)
+		   hdb_id_t         parent)
 {
-    wg_int lock_id;
-    int    ret = 0;
+    wg_int   lock_id;
+    hdb_id_t enclave_id = -1;
 
     lock_id = wg_start_write(db);
 
@@ -300,7 +257,7 @@ hdb_create_enclave(hdb_db_t         db,
 	return -1;
     }
 
-    ret = create_enclave_record(db, name, mgmt_dev_id, type, parent);
+    enclave_id = __create_enclave_record(db, name, mgmt_dev_id, type, parent);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -308,33 +265,33 @@ hdb_create_enclave(hdb_db_t         db,
     }
     
 
-    return ret;
+    return enclave_id;
 }
 
 static int
-delete_enclave(hdb_db_t db,
-	       int      enclave_id)
+__delete_enclave(hdb_db_t db,
+		 hdb_id_t enclave_id)
 {
-    void   * hdr_rec      = NULL;
-    void   * rec          = NULL;
-    uint32_t enclave_cnt  = 0;
+    uint32_t      enclave_cnt = 0;
+    void        * hdr_rec     = NULL;
+    hdb_enclave_t enclave     = NULL;
 
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_ENCLAVE_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE_HDR, NULL);
     
     if (!hdr_rec) {
 	ERROR("Malformed database. Missing enclave Header\n");
 	return -1;
     }
     
-    rec = find_enclave_rec_by_id(db, enclave_id);
+    enclave = __get_enclave_by_id(db, enclave_id);
   
-    if (!rec) {
+    if (!enclave) {
 	ERROR("Could not find enclave (id: %d)\n", enclave_id);
 	return -1;
     }
 
-    if (wg_delete_record(db, rec) != 0) {
+    if (wg_delete_record(db, enclave) != 0) {
 	ERROR("Could not delete enclave from database\n");
 	return -1;
     }
@@ -346,91 +303,10 @@ delete_enclave(hdb_db_t db,
 }
 
 
-int 
-hdb_get_enclave_by_name(hdb_db_t                db, 
-			char                  * name,
-			struct hobbes_enclave * enclave)
-{
-    wg_int lock_id;
-    int    ret = 0;
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return -1;
-    }
-
-    ret = get_enclave_by_name(db, name, enclave);
-
-    if (!wg_end_read(db, lock_id)) {
-	ERROR("Catastrophic database locking error\n");
-	return -1;
-    }
-
-    return ret;
-}
-
-
-int 
-hdb_get_enclave_by_id(hdb_db_t                db, 
-		      int                     enclave_id,
-		      struct hobbes_enclave * enclave)
-{
-    wg_int lock_id;
-    int    ret = 0;
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return -1;
-    }
-
-    ret = get_enclave_by_id(db, enclave_id, enclave);
-
-    if (!wg_end_read(db, lock_id)) {
-	ERROR("Catastrophic database locking error\n");
-	return -1;
-    }
-
-    return ret;
-}
-
-
-
-
-
-
-int
-hdb_update_enclave(hdb_db_t                db,
-		   struct hobbes_enclave * enclave)
-{
-    wg_int lock_id;
-    int    ret = 0;
-
-    lock_id = wg_start_write(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return -1;
-    }
-
-    ret = update_enclave(db, enclave);
-    
-    if (!wg_end_write(db, lock_id)) {
-	ERROR("Apparently this is catastrophic...\n");
-	return -1;
-    }
-    
-
-    return ret;
-}
-
 
 int 
 hdb_delete_enclave(hdb_db_t db,
-		   int      enclave_id)
+		   hdb_id_t enclave_id)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -442,7 +318,7 @@ hdb_delete_enclave(hdb_db_t db,
 	return -1;
     }
 
-    ret = delete_enclave(db, enclave_id);
+    ret = __delete_enclave(db, enclave_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -455,13 +331,373 @@ hdb_delete_enclave(hdb_db_t db,
 
 
 
-
-struct hobbes_enclave * 
-hdb_get_enclave_list(hdb_db_t   db,
-		     int      * num_enclaves)
+static int 
+__get_enclave_dev_id(hdb_db_t db, 
+		     hdb_id_t enclave_id)
 {
-    struct hobbes_enclave * list = NULL;
+    hdb_enclave_t enclave = NULL;
+
+    int dev_id = 0;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    dev_id = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_DEV_ID));
+
+    return dev_id;
+}
+
+int 
+hdb_get_enclave_dev_id(hdb_db_t db, 
+		       hdb_id_t enclave_id)
+{
     wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __get_enclave_dev_id(db, enclave_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return ret;
+}
+
+
+static int 
+__set_enclave_dev_id(hdb_db_t db, 
+		     hdb_id_t enclave_id, 
+		     int      dev_id)
+{
+    hdb_enclave_t enclave = NULL;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    wg_set_field(db, enclave, HDB_ENCLAVE_DEV_ID, wg_encode_int(db, dev_id));
+
+    return 0;
+}
+
+int 
+hdb_set_enclave_dev_id(hdb_db_t db, 
+		       hdb_id_t enclave_id, 
+		       int      dev_id)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __set_enclave_dev_id(db, enclave_id, dev_id);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
+
+static enclave_type_t
+__get_enclave_type(hdb_db_t db, 
+		   hdb_id_t enclave_id)
+{
+    hdb_enclave_t enclave = NULL;
+
+    enclave_type_t type = INVALID_ENCLAVE;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    type = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_TYPE));
+
+    return type;
+}
+
+enclave_type_t
+hdb_get_enclave_type(hdb_db_t db, 
+		     hdb_id_t enclave_id)
+{
+    wg_int lock_id;
+    enclave_type_t type = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    type = __get_enclave_type(db, enclave_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return type;
+}
+
+
+
+
+static enclave_state_t
+__get_enclave_state(hdb_db_t db, 
+		    hdb_id_t enclave_id)
+{
+    hdb_enclave_t enclave = NULL;
+
+    enclave_state_t state = ENCLAVE_ERROR;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    state = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_STATE));
+
+    return state;
+}
+
+enclave_state_t
+hdb_get_enclave_state(hdb_db_t db, 
+		      hdb_id_t enclave_id)
+{
+    wg_int lock_id;
+    enclave_state_t state = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    state = __get_enclave_state(db, enclave_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return state;
+}
+
+
+static int
+__set_enclave_state(hdb_db_t        db, 
+		    hdb_id_t        enclave_id, 
+		    enclave_state_t state)
+{
+    hdb_enclave_t enclave = NULL;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    wg_set_field(db, enclave, HDB_ENCLAVE_STATE, wg_encode_int(db, state));
+
+    return 0;
+}
+
+int
+hdb_set_enclave_state(hdb_db_t        db, 
+		      hdb_id_t        enclave_id, 
+		      enclave_state_t state)
+{
+    wg_int lock_id;
+    int ret = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __set_enclave_state(db, enclave_id, state);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return ret;
+}
+
+
+
+static char *
+__get_enclave_name(hdb_db_t db, 
+		   hdb_id_t enclave_id)
+{
+    hdb_enclave_t enclave = NULL;
+
+    char * name = NULL;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return NULL;
+    }
+
+    name = wg_decode_str(db, wg_get_field(db, enclave, HDB_ENCLAVE_NAME));
+
+    return name;
+}
+
+char * 
+hdb_get_enclave_name(hdb_db_t db, 
+		     hdb_id_t enclave_id)
+{
+    wg_int lock_id;
+    char * name = NULL;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+   name = __get_enclave_name(db, enclave_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return NULL;
+    }
+    
+    return name;
+}
+
+
+
+static hdb_id_t
+__get_enclave_id(hdb_db_t   db, 
+		 char     * enclave_name)
+{
+    hdb_enclave_t enclave    = NULL;
+    hdb_id_t      enclave_id = -1;
+
+    enclave = __get_enclave_by_name(db, enclave_name);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (name: %s)\n", enclave_name);
+	return -1;
+    }
+
+    enclave_id = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_ID));
+
+    return enclave_id;
+}
+
+hdb_id_t
+hdb_get_enclave_id(hdb_db_t   db, 
+		   char     * enclave_name)
+{
+    wg_int   lock_id;
+    hdb_id_t enclave_id = -1;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+   enclave_id = __get_enclave_id(db, enclave_name);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return enclave_id;
+}
+
+static hdb_id_t *
+__get_enclaves(hdb_db_t   db,
+	      int       * num_enclaves)
+{
+    hdb_id_t * id_arr  = NULL;
+    void     * db_rec  = NULL;
+    void     * hdr_rec = NULL;
+    int        cnt     = 0;
+    int        i       = 0;
+    
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE_HDR, NULL);    
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing enclave Header\n");
+	return NULL;
+    }
+
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
+
+    id_arr = calloc(sizeof(hdb_id_t), cnt);
+
+    for (i = 0; i < cnt; i++) {
+	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE, db_rec);
+	
+
+	if (!db_rec) {
+	    ERROR("Enclave Header state mismatch\n");
+	    cnt = i;
+	    break;
+	}
+
+	id_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_ENCLAVE_ID));
+
+    }
+
+    *num_enclaves = cnt;
+    return id_arr;
+}
+
+
+hdb_id_t * 
+hdb_get_enclaves(hdb_db_t   db,
+		 int      * num_enclaves)
+{
+    hdb_id_t * id_arr = NULL;
+    wg_int     lock_id;
 
     if (!num_enclaves) {
 	return NULL;
@@ -474,22 +710,29 @@ hdb_get_enclave_list(hdb_db_t   db,
 	return NULL;
     }
 
-    list = get_enclave_list(db, num_enclaves);
+    id_arr = __get_enclaves(db, num_enclaves);
 
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Catastrophic database locking error\n");
 	return NULL;
     }
 
-    return list;
+    return id_arr;
 }
 
 
-void
-hdb_free_enclave_list(struct hobbes_enclave * enclave_list)
-{
-    free(enclave_list);
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 static void *
@@ -503,7 +746,7 @@ find_xpmem_rec_by_segid(hdb_db_t      db,
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_XPMEM_SEGMENT);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XPMEM_SEGMENT);    
 
     arglist[1].column = 1;
     arglist[1].cond   = WG_COND_EQUAL;
@@ -530,7 +773,7 @@ find_xpmem_rec_by_name(hdb_db_t db,
 
     arglist[0].column = 0;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_XPMEM_SEGMENT);
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XPMEM_SEGMENT);
 
     arglist[1].column = 2;
     arglist[1].cond   = WG_COND_EQUAL;
@@ -557,7 +800,7 @@ create_xpmem_record(hdb_db_t      db,
     void * hdr_rec       = NULL;
     int    segment_cnt   = 0;
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);
     
     if (!hdr_rec) {
         ERROR("malformed database. Missing xpmem Header\n");
@@ -579,7 +822,7 @@ create_xpmem_record(hdb_db_t      db,
 
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_XPMEM_SEGMENT));
+    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_XPMEM_SEGMENT));
     wg_set_field(db, rec, 1, wg_encode_int(db, segid));
     wg_set_field(db, rec, 2, wg_encode_str(db, name, NULL));
 
@@ -600,7 +843,7 @@ delete_xpmem_record(hdb_db_t      db,
     int    segment_cnt   = 0;
     int    ret           = 0;
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);
     
     if (!hdr_rec) {
         ERROR("malformed database. Missing xpmem Header\n");
@@ -659,7 +902,7 @@ get_segment_list(hdb_db_t db,
     void * hdr_rec = NULL;
     int    i       = 0;
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_HDR, NULL);    
+    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);    
 
     if (!hdr_rec) {
         ERROR("Malformed database. Missing xpmem Header\n");
@@ -675,7 +918,7 @@ get_segment_list(hdb_db_t db,
     memset(list, 0, sizeof(struct hobbes_segment) * (*num_segments));
 
     for (i = 0; i < *num_segments; i++) {
-        db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_XPMEM_SEGMENT, db_rec);
+        db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_SEGMENT, db_rec);
         
         if (!db_rec) {
             ERROR("xpmem Header state mismatch\n");

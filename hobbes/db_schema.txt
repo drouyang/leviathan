@@ -17,25 +17,24 @@ The first field of every record is an integer, that encodes the record type:
 HDB_ENCLAVE : Enclave state info (1 record per enclave)
 -------------------------------------------------------------------------------------
 Column 0: [int: value = HDB_ENCLAVE] type 
-Column 1: [int] ref count
-Column 2: [int] enclave ID
-Column 3: [int] enclave type
+Column 1: [int] enclave ID
+Column 2: [int] enclave type
     INVALID_ENCLAVE   = 0
     MASTER_ENCLAVE    = 1
     PISCES_ENCLAVE    = 2
     PISCES_VM_ENCLAVE = 3
     LINUX_VM_ENCLAVE  = 4
-Column 4: [int] management device ID    - local device interface ID for ioctls
-Column 5: [int] enclave state
+Column 3: [int] management device ID    - local device interface ID for ioctls
+Column 4: [int] enclave state
     ENCLAVE_INITTED   = 0
     ENCLAVE_RUNNING   = 1
     ENCLAVE_STOPPED   = 2
     ENCLAVE_CRASHED   = 3
     ENCLAVE_ERROR     = 4
-Column 6: [string] name                 - name of enclave 
+Column 5: [string] name                 - name of enclave 
+Column 6: [int] parent enclave          - enclave ID of host enclave for VMs
 Column 7: [int] num_cores
-Column 8: [int] parent enclave          - enclave ID of host enclave for VMs
-Column 9: [Reference] threads
+Column 8: [Reference] threads
 
 
 

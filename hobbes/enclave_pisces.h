@@ -72,12 +72,8 @@ static int
 create_pisces_enclave(ezxml_t   xml, 
 		      char    * name)
 {
-    int pisces_id  = -1;
-    int enclave_id = -1;
-
-    struct hobbes_enclave enclave;
-
-    memset(&enclave, 0, sizeof(struct hobbes_enclave));
+    int      pisces_id  = -1;
+    hdb_id_t enclave_id = -1;
 
     /* Add enclave to the Master DB */
     {
@@ -89,8 +85,8 @@ create_pisces_enclave(ezxml_t   xml,
 
 	enclave_id = hdb_create_enclave(hobbes_master_db, enclave_name, pisces_id, PISCES_ENCLAVE, 0);
 
-	if (hdb_get_enclave_by_id(hobbes_master_db, enclave_id, &enclave) == 0) {
-	    ERROR("Error creating enclave. could not find it...\n");
+	if (enclave_id == -1) {
+	    ERROR("Could not create enclave in database\n");
 	    return -1;
 	}
     }
@@ -105,6 +101,9 @@ create_pisces_enclave(ezxml_t   xml,
 	
 	if ( (kern == NULL) || (initrd == NULL) ) {
 	    ERROR("Must specify a kernel and init_task for a pisces_enclave\n");
+
+	    hdb_delete_enclave(hobbes_master_db, enclave_id);
+
 	    return -1;
 	} 
 	
@@ -120,11 +119,9 @@ create_pisces_enclave(ezxml_t   xml,
 	    ERROR("\tcmdline = %s\n", cmdline);
 	    return -1;
 	}
-    }
 
-    {
-	enclave.mgmt_dev_id = pisces_id;
-	hdb_update_enclave(hobbes_master_db, &enclave);
+	hdb_set_enclave_dev_id(hobbes_master_db, enclave_id, pisces_id);
+
     }
 
     /* Boot the enclave with boot_env (if specified) */
@@ -171,18 +168,15 @@ create_pisces_enclave(ezxml_t   xml,
 	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);
 	    ERROR("ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
 	    
-	    enclave.state = ENCLAVE_CRASHED;
-	    hdb_update_enclave(hobbes_master_db, &enclave);
+
+	    hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_CRASHED);
 
 	    return -1;
 	}
+
+	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
     }
 
-
-    {
-	enclave.state = ENCLAVE_RUNNING;
-	hdb_update_enclave(hobbes_master_db, &enclave);
-    }
 
 
 
@@ -321,19 +315,23 @@ create_pisces_enclave(ezxml_t   xml,
 
 
 
-    return -1;
+    return 0;
 }
 
 
 static int
-destroy_pisces_enclave(struct hobbes_enclave * enclave)
+destroy_pisces_enclave(hdb_id_t enclave_id)
 {
-    if (pisces_teardown(enclave->mgmt_dev_id) != 0) {
-	ERROR("Could not teardown pisces enclave (%s)\n", enclave->name);
+
+    char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);
+    int    dev_id = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
+
+    if (pisces_teardown(dev_id) != 0) {
+	ERROR("Could not teardown pisces enclave (%s)\n", name);
 	return -1;
     }
 
-    if (hdb_delete_enclave(hobbes_master_db, enclave->enclave_id) != 0) {
+    if (hdb_delete_enclave(hobbes_master_db, enclave_id) != 0) {
 	ERROR("Could not delete enclave from database\n");
 	return -1;
     }

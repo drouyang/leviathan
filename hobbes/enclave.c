@@ -188,23 +188,27 @@ create_enclave(char * cfg_file_name,
 int 
 destroy_enclave(char * enclave_name)
 {
-    struct hobbes_enclave enclave;
+    hdb_id_t       enclave_id   = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    enclave_type_t enclave_type = INVALID_ENCLAVE;
 
-    if (hdb_get_enclave_by_name(hobbes_master_db, enclave_name, &enclave) != 1) {
+    if (enclave_id == -1) {
 	ERROR("Could not find enclave (%s)\n", enclave_name);
 	return -1;
     }
     
-    if (enclave.type == PISCES_ENCLAVE) {
-	return destroy_pisces_enclave(&enclave);
-    } else if (enclave.type == LINUX_VM_ENCLAVE) {
-	return destroy_linux_vm(&enclave);
+    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
+   
+
+    if (enclave_type == PISCES_ENCLAVE) {
+	return destroy_pisces_enclave(enclave_id);
+    } else if (enclave_type == LINUX_VM_ENCLAVE) {
+	return destroy_linux_vm(enclave_id);
 
 	/*
 	  } else if (enclave.type == PISCES_VM_ENCLAVE) { 
 	*/
     } else {
-	ERROR("Invalid Enclave Type (%d)\n", enclave.type);
+	ERROR("Invalid Enclave Type (%d)\n", enclave_type);
 	return -1;
     }
 
@@ -213,7 +217,38 @@ destroy_enclave(char * enclave_name)
 }
 
 
+struct enclave_info * 
+get_enclave_list(int * num_enclaves)
+{
+    struct enclave_info * info_arr = NULL;
+    hdb_id_t            * id_arr   = NULL;
 
+    int id_cnt = 0;
+    int i      = 0;
+
+    id_arr = hdb_get_enclaves(hobbes_master_db, &id_cnt);
+    
+    if (id_arr == NULL) {
+	ERROR("Could not retrieve list of enclave ids\n");
+	return NULL;
+    }
+	
+    info_arr = calloc(sizeof(struct enclave_info), id_cnt);
+
+    for (i = 0; i < id_cnt; i++) {
+	info_arr[i].id    = id_arr[i];
+	info_arr[i].type  = hdb_get_enclave_type(hobbes_master_db, id_arr[i]);
+	info_arr[i].state = hdb_get_enclave_state(hobbes_master_db, id_arr[i]);
+
+	strncpy(info_arr[i].name, hdb_get_enclave_name(hobbes_master_db, id_arr[i]), 31);
+    }
+
+    free(id_arr);
+
+    *num_enclaves = id_cnt;
+
+    return info_arr;
+}
 
 
 

@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+
 typedef enum {
     ENCLAVE_INITTED   = 0,
     ENCLAVE_RUNNING   = 1,
@@ -23,24 +24,25 @@ typedef enum {
     LINUX_VM_ENCLAVE  = 4
 } enclave_type_t;
 
-struct hobbes_enclave {
-    char name[32];
 
-    int enclave_id;
-    int parent_id;
 
-    int mgmt_dev_id;
-    
-    enclave_state_t state;
-    enclave_type_t  type;
-};
 
 
 int create_enclave(char * cfg_file_name, char * name);
 int destroy_enclave(char * enclave_name);
 
+struct enclave_info {
+    int id;
 
-struct hobbes_enclave * get_enclave(char * name);
+    char name[32];
+
+    enclave_type_t  type;
+    enclave_state_t state;
+};
+
+struct enclave_info * 
+get_enclave_list(int * num_enclaves);
+
 
 const char * 
 enclave_type_to_str(enclave_type_t type);

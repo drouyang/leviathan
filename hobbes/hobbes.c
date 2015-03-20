@@ -66,13 +66,13 @@ launch_job_handler(int argc, char ** argv)
 static int
 list_enclaves_handler(int argc, char ** argv)
 {
-    struct hobbes_enclave * list = NULL;
+    struct enclave_info * enclaves = NULL;
     int num_enclaves = -1;
     int i = 0;
 
-    list = hdb_get_enclave_list(hobbes_master_db, &num_enclaves);
+    enclaves = get_enclave_list(&num_enclaves);
 
-    if (!list) {
+    if (enclaves == NULL) {
 	ERROR("Could not retrieve enclave list\n");
 	return -1;
     }
@@ -80,15 +80,15 @@ list_enclaves_handler(int argc, char ** argv)
     printf("%d Active Enclaves:\n", num_enclaves);
  
     for (i = 0; i < num_enclaves; i++) {
-	printf("%lu: %-35s [%s] <%s>\n", list[i].enclave_id,
-	       list[i].name,
-	       enclave_type_to_str(list[i].type), 
-	       enclave_state_to_str(list[i].state));
+	printf("%lu: %-*s [%-*s] <%s>\n", 
+	       enclaves[i].id,
+	       35, enclaves[i].name,
+	       16, enclave_type_to_str(enclaves[i].type), 
+	       enclave_state_to_str(enclaves[i].state));
 
     }
 
-
-    hdb_free_enclave_list(list);
+    free(enclaves);
 
     return 0;
 }

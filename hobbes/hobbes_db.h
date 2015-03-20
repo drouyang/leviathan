@@ -20,22 +20,21 @@ struct hobbes_segment;
 
 typedef void * hdb_db_t;
 
-#define HDB_ENCLAVE          0
-#define HDB_PROCESS          1
-#define HDB_SEGMENT          2
-#define HDB_ENCLAVE_HDR      3
-#define HDB_NEXT_PROCESS     4
-#define HDB_XPMEM_HDR        5
-#define HDB_XPMEM_SEGMENT    6
-#define HDB_XPMEM_ATTACHMENT 7
 
 
+typedef int hdb_id_t;
+
+typedef void * hdb_enclave_t;
+typedef void * hdb_process_t;
+typedef void * hdb_segment_t;
 
 
 
 hdb_db_t hdb_create(uint64_t size);
 hdb_db_t hdb_attach(void * db_addr);
 void hdb_detach(hdb_db_t db);
+
+int hdb_init_master_db(hdb_db_t db);
 
 
 static inline void * hdb_get_db_addr(hdb_db_t db) {
@@ -49,29 +48,55 @@ static inline void * hdb_get_db_addr(hdb_db_t db) {
 
 
 
-int hdb_create_enclave(hdb_db_t       db, 
-		       char         * name, 
-		       int            mgmt_dev_id, 
-		       enclave_type_t type, 
-		       int            parent);
-
-
-int hdb_update_enclave(hdb_db_t                db,
-		       struct hobbes_enclave * enclave);
-
-int hdb_get_enclave_by_name(hdb_db_t                db, 
-			    char                  * name, 
-			    struct hobbes_enclave * enclave);
-
-int hdb_get_enclave_by_id(hdb_db_t                db, 
-			  int                     enclave_id, 
-			  struct hobbes_enclave * enclave);
+/* 
+ *  Creating/deleting enclave records
+ */
+ hdb_id_t hdb_create_enclave(hdb_db_t       db, 
+			     char         * name, 
+			     int            mgmt_dev_id, 
+			     enclave_type_t type, 
+			     hdb_id_t       parent);
 
 int hdb_delete_enclave(hdb_db_t db,
-		       int      enclave_id);
+		       hdb_id_t enclave_id);
 
-struct hobbes_enclave * hdb_get_enclave_list(hdb_db_t db, int * num_enclaves);
-void hdb_free_enclave_list(struct hobbes_enclave * enclave_list);
+
+hdb_id_t * hdb_get_enclaves(hdb_db_t   db, 
+			    int      * num_enclaves);
+
+/*
+ * Enclave field Accessors 
+ */
+int hdb_get_enclave_dev_id(hdb_db_t db,
+			   hdb_id_t enclave_id);
+
+int hdb_set_enclave_dev_id(hdb_db_t db,
+			   hdb_id_t enclave_id, 
+			   int      dev_id);
+
+enclave_type_t hdb_get_enclave_type(hdb_db_t db, 
+				    hdb_id_t enclave_id);
+
+
+enclave_state_t hdb_get_enclave_state(hdb_db_t db,
+				      hdb_id_t enclave_id);
+
+int hdb_set_enclave_state(hdb_db_t        db,
+			  hdb_id_t        enclave_id, 
+			  enclave_state_t state);
+
+
+char * hdb_get_enclave_name(hdb_db_t db, 
+			    hdb_id_t enclave_id);
+
+
+hdb_id_t hdb_get_enclave_id(hdb_db_t   db, 
+			    char     * enclave_name);
+
+
+
+
+
 
 int hdb_get_segment_by_name(hdb_db_t db, char * name, struct hobbes_segment *);
 struct hobbes_segment * hdb_get_segment_list(hdb_db_t db, int * num_segments);
