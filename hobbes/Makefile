@@ -19,13 +19,14 @@ libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
 
 
 
-execs :=    	master \
+execs :=    	master      \
 		libhobbes.a \
-		hobbes \
+		hobbes      \
 
 
-hobbes_objs := 		hobbes.o  \
-			enclave.o \
+hobbes_objs := 		hobbes.o    \
+			enclave.o   \
+			xemem.o     \
 			hobbes_db.o \
 			client.o
 
@@ -35,6 +36,7 @@ master_objs := 		master.o    \
 
 
 libhobbes_objs := 	client.o \
+			xemem.o  \
 			hobbes_db.o
 
 build = \

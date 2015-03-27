@@ -1,5 +1,6 @@
 create libhobbes.a
 addmod client.o
+addmod xemem.o
 addmod hobbes_db.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../palacios/user/libv3vee_user.a

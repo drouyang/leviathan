@@ -1,8 +1,8 @@
-/* Hobbes Database interface
+/* Hobbes Database interface for whitedb
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
-#include <stdio.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -26,9 +26,9 @@
 #define HDB_REC_SEGMENT          2
 #define HDB_REC_ENCLAVE_HDR      3
 #define HDB_REC_NEXT_PROCESS     4
-#define HDB_REC_XPMEM_HDR        5
-#define HDB_REC_XPMEM_SEGMENT    6
-#define HDB_REC_XPMEM_ATTACHMENT 7
+#define HDB_REC_XEMEM_HDR        5
+#define HDB_REC_XEMEM_SEGMENT    6
+#define HDB_REC_XEMEM_ATTACHMENT 7
 
 
 
@@ -41,7 +41,11 @@
 /* The first column of every row specifies the row type */
 #define HDB_TYPE_FIELD       0 
 
-/* Columns for en enclave record */
+/* Columns for enclave header */
+#define HDB_ENCLAVE_HDR_NEXT 1
+#define HDB_ENCLAVE_HDR_CNT  2
+
+/* Columns for enclave records */
 #define HDB_ENCLAVE_ID       1
 #define HDB_ENCLAVE_TYPE     2
 #define HDB_ENCLAVE_DEV_ID   3
@@ -49,8 +53,12 @@
 #define HDB_ENCLAVE_NAME     5
 #define HDB_ENCLAVE_PARENT   6
 
+/* Columns for XEMEM segment header */
+#define HDB_SEGMENT_HDR_CNT  1
 
-
+/* Columns for XEMEM segment records */
+#define HDB_SEGMENT_SEGID    1
+#define HDB_SEGMENT_NAME     2
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -99,18 +107,18 @@ hdb_init_master_db(hdb_db_t db)
     void * rec = NULL;
     
     rec = wg_create_record(db, 3);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_ENCLAVE_HDR));
-    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
-    wg_set_field(db, rec, 2, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_ENCLAVE_HDR));
+    wg_set_field(db, rec, HDB_ENCLAVE_HDR_NEXT, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT , wg_encode_int(db, 0));
     
     rec = wg_create_record(db, 2);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_NEXT_PROCESS));
+    wg_set_field(db, rec, HDB_TYPE_FIELD, wg_encode_int(db, HDB_REC_NEXT_PROCESS));
     wg_set_field(db, rec, 1, wg_encode_int(db, 0));
     
-    /* Create XPMEM header */
+    /* Create XEMEM header */
     rec = wg_create_record(db, 2);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_XPMEM_HDR));
-    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_XEMEM_HDR));
+    wg_set_field(db, rec, HDB_SEGMENT_HDR_CNT, wg_encode_int(db, 0));
 
     return 0;
 }
@@ -214,8 +222,8 @@ __create_enclave_record(hdb_db_t         db,
     }
     
     /* Get Next Available enclave ID and enclave count */
-    enclave_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
-    enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
+    enclave_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_NEXT));
+    enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
     
     if (name == NULL) {
 	snprintf(auto_name, 31, "enclave-%lu", enclave_id);
@@ -234,8 +242,8 @@ __create_enclave_record(hdb_db_t         db,
 
     
     /* Update the enclave Header information */
-    wg_set_field(db, hdr_rec, 1, wg_encode_int(db, enclave_id  + 1));
-    wg_set_field(db, hdr_rec, 2, wg_encode_int(db, enclave_cnt + 1));
+    wg_set_field(db, hdr_rec, HDB_ENCLAVE_HDR_NEXT, wg_encode_int(db, enclave_id  + 1));
+    wg_set_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT,  wg_encode_int(db, enclave_cnt + 1));
 
     return enclave_id;
 }
@@ -296,8 +304,8 @@ __delete_enclave(hdb_db_t db,
 	return -1;
     }
 
-    enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
-    wg_set_field(db, hdr_rec, 2, wg_encode_int(db, enclave_cnt - 1));
+    enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
+    wg_set_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT, wg_encode_int(db, enclave_cnt - 1));
 
     return 0;
 }
@@ -669,7 +677,7 @@ __get_enclaves(hdb_db_t   db,
 	return NULL;
     }
 
-    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 2));
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
 
     id_arr = calloc(sizeof(hdb_id_t), cnt);
 
@@ -735,232 +743,176 @@ hdb_get_enclaves(hdb_db_t   db,
 
 
 
-static void *
-find_xpmem_rec_by_segid(hdb_db_t      db, 
-                        xpmem_segid_t segid) 
+static hdb_segment_t
+__get_segment_by_segid(hdb_db_t      db, 
+		       xemem_segid_t segid) 
 {
-    void        * rec   = NULL;
-    wg_query    * query = NULL;
+    hdb_segment_t segment = NULL;
+    wg_query    * query   = NULL;
     wg_query_arg  arglist[2];
 
     /* Convert segid to string (TODO: can the db encode 64 bit values automatically?) */
-    arglist[0].column = 0;
+    arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XPMEM_SEGMENT);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XEMEM_SEGMENT);    
 
-    arglist[1].column = 1;
+    arglist[1].column = HDB_SEGMENT_SEGID;
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_int(db, segid);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    rec = wg_fetch(db, query);
+    segment = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-    return rec;
+    return segment;
 }
 
-static void *
-find_xpmem_rec_by_name(hdb_db_t db,
-                       char   * name)
+static hdb_segment_t
+__get_segment_by_name(hdb_db_t   db,
+		      char     * name)
 {
-    void        * rec   = NULL;
-    wg_query    * query = NULL;
+    hdb_segment_t segment = NULL;
+    wg_query    * query   = NULL;
     wg_query_arg  arglist[2];
 
-    arglist[0].column = 0;
+    arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XPMEM_SEGMENT);
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_XEMEM_SEGMENT);
 
-    arglist[1].column = 2;
+    arglist[1].column = HDB_SEGMENT_NAME;
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    rec = wg_fetch(db, query);
+    segment = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-    return rec;
-
+    return segment;
 }
 
 static int 
-create_xpmem_record(hdb_db_t      db,
-                    xpmem_segid_t segid,
-                    char        * name)
+__create_segment_record(hdb_db_t        db,
+			xemem_segid_t   segid,
+			char          * name)
 {
-    void * rec           = NULL;
-    void * hdr_rec       = NULL;
-    int    segment_cnt   = 0;
+    void * hdr_rec        = NULL;
+    void * rec            = NULL;
+    int    segment_cnt    = 0;
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);
+    hdb_segment_t segment = NULL;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);
     
     if (!hdr_rec) {
-        ERROR("malformed database. Missing xpmem Header\n");
+        ERROR("malformed database. Missing xemem Header\n");
         return -1;
     }
 
     /* Ensure segid and name do not exist */
-    rec = find_xpmem_rec_by_segid(db, segid);
+    rec = __get_segment_by_segid(db, segid);
     if (rec) {
-        ERROR("xpmem segment with segid %lli already present\n", segid);
+        ERROR("xemem segment with segid %lli already present\n", segid);
         return -1;
     }
 
-    rec = find_xpmem_rec_by_name(db, name);
+    rec = __get_segment_by_name(db, name);
     if (rec) {
-        ERROR("xpmem segment with name %s already present\n", name);
+        ERROR("xemem segment with name %s already present\n", name);
         return -1;
     }
 
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
-    wg_set_field(db, rec, 0, wg_encode_int(db, HDB_REC_XPMEM_SEGMENT));
-    wg_set_field(db, rec, 1, wg_encode_int(db, segid));
-    wg_set_field(db, rec, 2, wg_encode_str(db, name, NULL));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,    wg_encode_int(db, HDB_REC_XEMEM_SEGMENT));
+    wg_set_field(db, rec, HDB_SEGMENT_SEGID, wg_encode_int(db, segid));
+    wg_set_field(db, rec, HDB_SEGMENT_NAME,  wg_encode_str(db, name, NULL));
 
-    /* Update the xpmem Header information */
-    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
-    wg_set_field(db, hdr_rec, 1, wg_encode_int(db, segment_cnt + 1));
+    /* Update the xemem Header information */
+    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT));
+    wg_set_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT, wg_encode_int(db, segment_cnt + 1));
 
     return 0;
 }
 
-static int
-delete_xpmem_record(hdb_db_t      db,
-                    xpmem_segid_t segid,
-                    char        * name)
-{
-    void * rec           = NULL;
-    void * hdr_rec       = NULL;
-    int    segment_cnt   = 0;
-    int    ret           = 0;
 
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);
+int
+hdb_create_xemem_segment(hdb_db_t      db,
+			 xemem_segid_t segid,
+			 char        * name)
+{
+    wg_int lock_id;
+    int    ret;
+
+    lock_id = wg_start_write(db);
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return -1;
+    }
+
+    ret = __create_segment_record(db, segid, name);
+    if (ret != 0) 
+        ERROR("Could not create xemem database record\n");
+
+out:
+    if (wg_end_write(db, lock_id) == 0)
+        ERROR("Apparently this is catastrophic...\n");
+
+    return ret;
+}
+
+
+static int
+__delete_segment(hdb_db_t        db,
+		 xemem_segid_t   segid)
+{
+    void * hdr_rec        = NULL;
+    int    segment_cnt    = 0;
+    int    ret            = 0;
+
+    hdb_segment_t segment = NULL;
+
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);
     
     if (!hdr_rec) {
-        ERROR("malformed database. Missing xpmem Header\n");
+        ERROR("malformed database. Missing xemem Header\n");
         return -1;
     }
 
     /* Find record */
-    if (segid > 0) {
-        rec = find_xpmem_rec_by_segid(db, segid);
-        if (!rec) {
-            ERROR("Could not find xpmem segment (segid: %lli)\n", segid);
-            return -1;
-        }
-    } else if (name) {
-        rec = find_xpmem_rec_by_name(db, name);
-        if (!rec) {
-            ERROR("Could not find xpmem segment (name: %s)\n", name);
-            return -1;
-        }
-    } else {
-        ERROR("Supply valid segid or name\n");
-        return -1;
-    }
 
-    ret = wg_delete_record(db, rec);
-    if (ret != 0) {
-        ERROR("Could not delete xpmem segment from database\n");
+    segment = __get_segment_by_segid(db, segid);
+
+    if (!segment) {
+	ERROR("Could not find xemem segment (segid: %lli)\n", segid);
+	return -1;
+    }
+    
+    if (wg_delete_record(db, segment) != 0) {
+        ERROR("Could not delete xemem segment from database\n");
         return ret;
     }
 
-    /* Update the xpmem Header information */
-    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
-    wg_set_field(db, hdr_rec, 1, wg_encode_int(db, segment_cnt - 1));
+    /* Update the xemem Header information */
+    segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT));
+    wg_set_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT, wg_encode_int(db, segment_cnt - 1));
 
     return 0;
 }
 
-static int
-deserialize_segment(hdb_db_t                db,
-                    void                  * segment_rec,
-                    struct hobbes_segment * segment)
-{
-    segment->segid = wg_decode_int(db, wg_get_field(db, segment_rec, 1));
-    wg_decode_str_copy(db, wg_get_field(db, segment_rec, 2), segment->name, sizeof(segment->name) - 1);
 
-    return 0;
-}
-
-static struct hobbes_segment * 
-get_segment_list(hdb_db_t db,
-                 int    * num_segments)
-{
-    struct hobbes_segment * list = NULL;
-
-    void * db_rec  = NULL;
-    void * hdr_rec = NULL;
-    int    i       = 0;
-
-    hdr_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_HDR, NULL);    
-
-    if (!hdr_rec) {
-        ERROR("Malformed database. Missing xpmem Header\n");
-        return NULL;
-    }
-
-    *num_segments = wg_decode_int(db, wg_get_field(db, hdr_rec, 1));
-
-    list = malloc(sizeof(struct hobbes_segment) * (*num_segments));
-    if (!list)
-        return NULL;
-
-    memset(list, 0, sizeof(struct hobbes_segment) * (*num_segments));
-
-    for (i = 0; i < *num_segments; i++) {
-        db_rec = wg_find_record_int(db, 0, WG_COND_EQUAL, HDB_REC_XPMEM_SEGMENT, db_rec);
-        
-        if (!db_rec) {
-            ERROR("xpmem Header state mismatch\n");
-            *num_segments = i;
-            break;
-        }
-
-        deserialize_segment(db, db_rec, &(list[i]));
-    }
-
-    return list;
-}
 
 int
-hdb_export_segment(hdb_db_t      db,
-                   xpmem_segid_t segid,
-                   char        * name)
-{
-    wg_int lock_id;
-    int    ret;
-
-    lock_id = wg_start_write(db);
-    if (!lock_id) {
-        ERROR("Could not lock database\n");
-        return -1;
-    }
-
-    ret = create_xpmem_record(db, segid, name);
-    if (ret != 0) 
-        ERROR("Could not create xpmem database record\n");
-
-out:
-    if (wg_end_write(db, lock_id) == 0)
-        ERROR("Apparently this is catastrophic...\n");
-
-    return ret;
-}
-
-int
-hdb_remove_segment(hdb_db_t      db,
-                   xpmem_segid_t segid,
-                   char        * name)
+hdb_delete_xemem_segment(hdb_db_t      db,
+			 xemem_segid_t segid)
 {
     wg_int lock_id;
     int    ret;
@@ -971,9 +923,9 @@ hdb_remove_segment(hdb_db_t      db,
         return -1;
     }
 
-    ret = delete_xpmem_record(db, segid, name);
+    ret = __delete_segment(db, segid);
     if (ret != 0)
-        ERROR("Could not delete xpmem database record\n");
+        ERROR("Could not delete xemem database record\n");
 
 out:
     if (wg_end_write(db, lock_id) == 0)
@@ -983,14 +935,32 @@ out:
 
 }
 
-int
-hdb_get_segment_by_name(hdb_db_t                db,
-                        char                  * name,
-                        struct hobbes_segment * segment)
+static xemem_segid_t
+__get_xemem_segid(hdb_db_t   db,
+		  char     * name)
+{
+    hdb_segment_t segment = NULL;
+    xemem_segid_t segid;
+
+    segment = __get_segment_by_name(db, name);
+
+    if (segment == NULL) {
+	ERROR("Could not find XEMEM segment (name: %s)\n", name);
+	return -1;
+    }
+
+    segid = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_SEGID));
+    
+    return segid;
+}
+
+
+xemem_segid_t
+hdb_get_xemem_segid(hdb_db_t   db,
+		    char     * name)
 {
     wg_int lock_id;
-    void * rec;
-    int ret = 0;
+    xemem_segid_t segid;
 
     lock_id = wg_start_read(db);
 
@@ -999,24 +969,109 @@ hdb_get_segment_by_name(hdb_db_t                db,
         return -1;
     }
 
-    rec = find_xpmem_rec_by_name(db, name);
-
-    if (rec)
-        deserialize_segment(db, rec, segment);
-    else 
-        ret = -1;
+    segid = __get_xemem_segid(db, name);
 
     if (!wg_end_read(db, lock_id))
         ERROR("Catastrophic database locking error\n");
 
-    return ret;
+    return segid;
 }
 
-struct hobbes_segment *
-hdb_get_segment_list(hdb_db_t db,
-                     int    * num_segments)
+
+static char *
+__get_xemem_name(hdb_db_t       db,
+		 xemem_segid_t segid)
 {
-    struct hobbes_segment * list = NULL;
+    hdb_segment_t segment = NULL;
+    char * name = NULL;
+
+    segment = __get_segment_by_segid(db, segid);
+
+    if (segment == NULL) {
+	ERROR("Could not find XEMEM segment (id: %ll)\n", segid);
+	return NULL;
+    }
+
+    name = wg_decode_str(db, wg_get_field(db, segment, HDB_SEGMENT_NAME));
+
+    return name;
+}
+
+
+char * 
+hdb_get_xemem_name(hdb_db_t      db,
+		   xemem_segid_t segid)
+{
+    wg_int lock_id;
+    char * name = NULL;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return NULL;
+    }
+
+    name = __get_xemem_name(db, segid);
+
+    if (!wg_end_read(db, lock_id))
+        ERROR("Catastrophic database locking error\n");
+
+    return name;
+}
+
+
+
+
+
+
+
+static xemem_segid_t *
+__get_segments(hdb_db_t   db,
+	       int      * num_segments)
+{
+    void * hdr_rec = NULL;
+    void * db_rec  = NULL;
+    int    cnt     = 0;
+    int    i       = 0;
+
+    xemem_segid_t * segid_arr = NULL;
+    hdb_segment_t   segment   = NULL;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);    
+
+    if (!hdr_rec) {
+        ERROR("Malformed database. Missing xemem Header\n");
+        return NULL;
+    }
+
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT));
+
+    segid_arr = calloc(sizeof(xemem_segid_t), cnt);
+
+    for (i = 0; i < cnt; i++) {
+        db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_SEGMENT, db_rec);
+        
+        if (!db_rec) {
+            ERROR("xemem Header state mismatch\n");
+	    cnt = i;
+            break;
+        }
+
+	segid_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_SEGMENT_SEGID));
+    }
+
+    *num_segments = cnt;
+    return segid_arr;
+}
+
+
+
+xemem_segid_t *
+hdb_get_segments(hdb_db_t db,
+		 int    * num_segments)
+{
+    xemem_segid_t * segid_arr = NULL;
     wg_int lock_id;
 
     if (!num_segments) {
@@ -1030,15 +1085,10 @@ hdb_get_segment_list(hdb_db_t db,
         return NULL;
     }
 
-    list = get_segment_list(db, num_segments);
+    segid_arr = __get_segments(db, num_segments);
 
     if (!wg_end_read(db, lock_id))
         ERROR("Catastrophic database locking error\n");
 
-    return list;
-}
-void
-hdb_free_segment_list(struct hobbes_segment* segment_list)
-{
-    free(segment_list);
+    return segid_arr;
 }
