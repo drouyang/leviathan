@@ -1,16 +1,31 @@
 This is a listing of each of the different record formats stored in the command queue database.
 
 The first field is always an integer that encodes the record type:
-0: HCMD_HEADER
-1: HCMD_CMD
-2: HCMD_RETURN_VALUE
+0: HCQ_HEADER
+1: HCQ_CMD
+2: HCQ_RETURN_VALUE
 
 
 
 -------------------------------------------------------------------------------------
-HCMD_HEADER : Global information about the command queue
+HCQ_HEADER : Global information about the command queue
 -------------------------------------------------------------------------------------
-Column 0: [int: value = HCMD_HEADER] type 
+Column 0: [int: value = HCQ_HEADER] type 
 Column 1: [int] next available CMD ID       - Next CMD ID that can be allocated
 Column 2: [int] Next pending CMD ID         - Next CMD pending on the queue
 Column 3: [int] Outstanding CMDs            - Number of pending CMDs on the queue
+
+-------------------------------------------------------------------------------------
+HCQ_CMD : Global information about the command queue
+-------------------------------------------------------------------------------------
+Column 0: [int:  value = HCQ_CMD] type 
+Column 1: [int]  CMD ID                      - ID for this command
+Column 2: [int]  CMD                         - Command Code
+Column 3: [int]  ret segid
+Column 4: [int]  size                        - size of the command
+Column 5: [blob] cmd_data                    - raw command data
+Column 6: [int]  status                      - Command handler status ( 0 = Pending, 1 = returned )
+Column 7: [int]  return code
+Column 8: [int]  return size 
+Column 9: [blob] return data
+

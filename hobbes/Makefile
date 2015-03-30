@@ -28,7 +28,8 @@ hobbes_objs := 		hobbes.o    \
 			enclave.o   \
 			xemem.o     \
 			hobbes_db.o \
-			client.o
+			client.o    \
+			cmd_queue.o
 
 
 master_objs := 		master.o    \

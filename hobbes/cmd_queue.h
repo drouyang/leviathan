@@ -1,0 +1,80 @@
+/* 
+ * Database Command queue 
+ * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ */
+
+#ifndef __CMD_QUEUE_H__
+#define __CMD_QUEUE_H__
+
+
+#include <stdint.h>
+
+#include "xemem.h"
+
+#define HCQ_INVALID_CMD -1
+
+
+typedef enum {
+    HCQ_CMD_PENDING  = 0,
+    HCQ_CMD_RETURNED = 1} hcq_cmd_status_t;
+
+
+typedef void *   hcq_handle_t;
+typedef uint64_t hcq_cmd_t;
+
+hcq_handle_t hcq_create_queue();
+void hcq_free_queue(hcq_handle_t hcq);
+
+xemem_segid_t hcq_get_segid(hcq_handle_t hcq);
+int hcq_get_fd(hcq_handle_t hcq);
+
+
+hcq_handle_t hcq_connect(xemem_segid_t segid);
+void hcq_disconnect(hcq_handle_t hcq);
+
+
+hcq_cmd_t hcq_cmd_issue(hcq_handle_t hcq, 
+			uint64_t     cmd_code,
+			uint32_t     data_size,
+			void       * data);
+
+
+
+hcq_cmd_status_t hcq_get_cmd_status(hcq_handle_t hcq, 
+				    hcq_cmd_t    cmd);
+
+int64_t hcq_get_ret_code(hcq_handle_t hcq, 
+			 hcq_cmd_t    cmd);
+
+void * hcq_get_ret_data(hcq_handle_t hcq, 
+			hcq_cmd_t    cmd,
+			uint32_t   * size);
+
+int hcq_cmd_complete(hcq_handle_t hcq, 
+		     hcq_cmd_t    cmd);
+
+
+
+
+hcq_cmd_t hcq_get_next_cmd(hcq_handle_t hcq);
+
+
+uint64_t hcq_get_cmd_code(hcq_handle_t hcq, 
+			  hcq_cmd_t    cmd);
+
+void * hcq_get_cmd_data(hcq_handle_t   hcq, 
+			hcq_cmd_t      cmd,
+			uint32_t     * size);
+
+
+int hcq_cmd_return(hcq_handle_t hcq, 
+		   hcq_cmd_t    cmd, 
+		   int64_t      ret_code, 
+		   uint32_t     data_size,
+		   void       * data);
+
+
+
+
+
+#endif
