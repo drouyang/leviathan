@@ -543,6 +543,7 @@ static hcq_cmd_t
 __get_next_cmd(struct cmd_queue * cq)
 {
     hcq_cmd_t   next_cmd = HCQ_INVALID_CMD;
+    uint64_t    cmd_cnt  = 0;
     void      * hdr_rec  = NULL;
     
     hdr_rec = wg_find_record_int(cq->db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
@@ -552,7 +553,12 @@ __get_next_cmd(struct cmd_queue * cq)
 	return HCQ_INVALID_CMD;
     }
 
+    cmd_cnt  = wg_decode_int(cq->db, wg_get_field(cq->db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING));
     next_cmd = wg_decode_int(cq->db, wg_get_field(cq->db, hdr_rec, HCQ_HDR_FIELD_PENDING));
+
+    if (cmd_cnt <= 0) {
+	return HCQ_INVALID_CMD;
+    }
 
     return next_cmd;
 }
