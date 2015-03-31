@@ -126,7 +126,7 @@ hcq_create_queue(char * name)
 
     if (db == NULL) {
 	ERROR("Could not create database\n");
-	return NULL;
+	return HCQ_INVALID_HANDLE;
     }
 
 
@@ -139,7 +139,7 @@ hcq_create_queue(char * name)
     if (segid <= 0) {
         ERROR("Could not register XEMEM segment for command queue\n");
 	wg_delete_local_database(db);
-	return NULL;
+	return HCQ_INVALID_HANDLE;
     }
     
     cq = calloc(sizeof(struct cmd_queue), 1);
@@ -198,7 +198,7 @@ hcq_connect(xemem_segid_t segid)
     if (db_addr == MAP_FAILED) {
 	ERROR("Failed to attach to command queue\n");
 	xemem_release(apid);
-	return NULL;
+	return HCQ_INVALID_HANDLE;
     }
 
 
@@ -208,7 +208,7 @@ hcq_connect(xemem_segid_t segid)
 	ERROR("Failed to attach command queue database\n");
 	xemem_detach(db_addr);
 	xemem_release(apid);
-	return NULL;
+	return HCQ_INVALID_HANDLE;
     }
 
     cq = calloc(sizeof(struct cmd_queue), 1);
@@ -309,6 +309,8 @@ __cmd_issue(struct cmd_queue * cq,
     /* Activate in queue */
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_NEXT_AVAIL,   wg_encode_int(db, cmd_id  + 1));
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING,  wg_encode_int(db, cmd_cnt + 1));
+
+    xemem_signal(cq->apid);
 
     return cmd_id;
 }

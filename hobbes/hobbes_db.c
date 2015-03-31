@@ -809,6 +809,8 @@ __create_segment_record(hdb_db_t        db,
 
     hdb_segment_t segment = NULL;
 
+
+
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);
     
     if (!hdr_rec) {
@@ -823,12 +825,17 @@ __create_segment_record(hdb_db_t        db,
         return -1;
     }
 
-    rec = __get_segment_by_name(db, name);
-    if (rec) {
-        ERROR("xemem segment with name %s already present\n", name);
-        return -1;
+    if (name) {
+	rec = __get_segment_by_name(db, name);
+	if (rec) {
+	    ERROR("xemem segment with name %s already present\n", name);
+	    return -1;
+	}
     }
 
+    if (name == NULL) {
+	name = "unnamed";
+    }
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,    wg_encode_int(db, HDB_REC_XEMEM_SEGMENT));

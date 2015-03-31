@@ -38,7 +38,8 @@ master_objs := 		master.o    \
 
 libhobbes_objs := 	client.o \
 			xemem.o  \
-			hobbes_db.o
+			hobbes_db.o \
+			cmd_queue.o
 
 build = \
 	@if [ -z "$V" ]; then \

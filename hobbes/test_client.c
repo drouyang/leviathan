@@ -3,38 +3,32 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <dbapi.h>
-#include <dballoc.h>
+#include <stdint.h>
 
-#include <xpmem.h>
+#include <pet_log.h>
+#include "cmd_queue.h"
+#include "xemem.h"
 
-#define PAGE_SIZE sysconf(_SC_PAGESIZE)
-
-#define DB_SIZE  (PAGE_SIZE * 100)
-
-#undef XPMEM_DEV_PATH
-#define XPMEM_DEV_PATH "/xpmem"
 
 int main(int argc, char ** argv) {
 
-
-    printf("DB attached\n");
-
-    {
-	char * str = NULL;
-	void * rec = wg_find_record_str(db, 0, WG_COND_EQUAL, "Hello DB", NULL);
-
-	str = wg_decode_str(db, wg_get_field(db, rec, 0));
-	printf("str=%s\n", str);
-	
-    }
+    hcq_handle_t hcq = HCQ_INVALID_HANDLE;
+    xemem_segid_t segid = atoll(argv[1]);
+    hcq_cmd_t cmd = HCQ_INVALID_CMD;
 
 
-    wg_detach_local_database(db);
+    char * data_buf = "Hello Hobbes";
 
+    hobbes_client_init();
 
-    xpmem_detach(db_addr);
-    xpmem_release(apid);
+    hcq = hcq_connect(segid);
+    
+    cmd = hcq_cmd_issue(hcq, 5, strlen(data_buf) + 1, data_buf);
+
+    
+    printf("cmd = %llu\n", cmd);
+			    
+    hobbes_client_deinit();
 
     return 0;
 

@@ -50,7 +50,7 @@ xemem_make_signalled(void   * vaddr,
 	return (xemem_segid_t)-1;
     }
 
-    segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_SIG_MODE, 0, &tmp_fd);
+    segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_MEM_MODE | XPMEM_SIG_MODE, 0, &tmp_fd);
     
     if (segid <= 0) {
 	ERROR("Could not create xemem segment\n");
@@ -142,10 +142,24 @@ xemem_signal(xemem_apid_t apid)
 
     /* Do we need to do any DB updates? */
 
-    ret = xemem_signal(apid);
+    ret = xpmem_signal(apid);
 
     return ret;
 }
+
+int 
+xemem_ack(int fd)
+{
+    int ret = 0;
+
+    /* Do we need to do any DB updates? */
+
+    ret = xpmem_ack(fd);
+
+    return ret;
+}
+
+
 
 void *
 xemem_attach(struct xemem_addr   addr, 

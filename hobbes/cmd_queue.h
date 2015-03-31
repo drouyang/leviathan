@@ -11,8 +11,8 @@
 
 #include "xemem.h"
 
-#define HCQ_INVALID_CMD -1
-
+#define HCQ_INVALID_CMD    -1
+#define HCQ_INVALID_HANDLE NULL
 
 typedef enum {
     HCQ_CMD_PENDING  = 0,
