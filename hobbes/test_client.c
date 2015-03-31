@@ -28,6 +28,8 @@ int main(int argc, char ** argv) {
     
     printf("cmd = %llu\n", cmd);
 			    
+
+    hcq_disconnect(hcq);
     hobbes_client_deinit();
 
     return 0;

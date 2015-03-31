@@ -97,7 +97,7 @@ void
 hdb_detach(hdb_db_t db)
 {
 
-    wg_detach_database(db);
+    wg_detach_local_database(db);
 }
 
 

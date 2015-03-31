@@ -229,7 +229,7 @@ hcq_disconnect(hcq_handle_t hcq)
 {
     struct cmd_queue * cq = hcq;
 
-    wg_detach_database(cq->db);
+    wg_detach_local_database(cq->db);
 
     xemem_detach(cq->db_addr);
     xemem_release(cq->apid);
@@ -562,6 +562,9 @@ __get_next_cmd(struct cmd_queue * cq)
 	return HCQ_INVALID_CMD;
     }
 
+    /* Quiesce the signal */
+    xemem_ack(cq->fd);
+
     return next_cmd;
 }
 
@@ -738,7 +741,7 @@ __cmd_return(struct cmd_queue * cq,
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING,     wg_encode_int(db, pending + 1));
 
     /* Signal Client segid */
-
+    
 
     return 0;
 }	     
