@@ -7,7 +7,7 @@ PETLIB_PATH    = ../petlib
 CC = gcc
 AR = ar
 
-execs := hobbes
+execs := lwk_init
 
 CFLAGS := 	-I$(KITTEN_PATH)/include \
 	  	-I$(PALACIOS_PATH)/user  \
@@ -19,7 +19,7 @@ CFLAGS := 	-I$(KITTEN_PATH)/include \
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
 		$(LIBHOBBES_PATH)/libhobbes.a
 
-hobbes_objs :=	hobbes.o \
+init_objs :=	main.o \
 		sched_getcpu.o
 
 
@@ -47,7 +47,7 @@ build = \
 
 all: $(execs) $(libs)
 
-hobbes: $(hobbes_objs)
+lwk_init: $(init_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
 
 

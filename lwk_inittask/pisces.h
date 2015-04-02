@@ -28,19 +28,19 @@
 
 #define ENCLAVE_CMD_FREE_V3_PCI        190
 
-#define ENCLAVE_CMD_LAUNCH_JOB         200
 
-#define ENCLAVE_CMD_XPMEM_CMD_EX       300
+
+#define ENCLAVE_CMD_LAUNCH_JOB         200
 
 #define ENCLAVE_CMD_SHUTDOWN           900
 
 
 
 struct pisces_pci_spec {
-    u8 name[128];
-    u32 bus;
-    u32 dev;
-    u32 func;
+    uint8_t name[128];
+    uint32_t bus;
+    uint32_t dev;
+    uint32_t func;
 } __attribute__((packed));
 
 
@@ -51,26 +51,26 @@ struct pisces_job_spec {
     char envp[256];
 
     union {
-	u64 flags;
+	uint64_t flags;
 	struct {
-	    u64   use_large_pages : 1;
-	    u64   use_smartmap    : 1;
-	    u64   rsvd            : 62;
+	    uint64_t   use_large_pages : 1;
+	    uint64_t   use_smartmap    : 1;
+	    uint64_t   rsvd            : 62;
 	} __attribute__((packed));
     } __attribute__((packed));
 
-    u8   num_ranks;
-    u64  cpu_mask;
-    u64  heap_size;
-    u64  stack_size;
+    uint8_t   num_ranks;
+    uint64_t  cpu_mask;
+    uint64_t  heap_size;
+    uint64_t  stack_size;
 } __attribute__((packed));
 
 
 
 struct pisces_dbg_spec {
-    u32 vm_id;
-    u32 core;
-    u32 cmd;
+    uint32_t vm_id;
+    uint32_t core;
+    uint32_t cmd;
 } __attribute__((packed));
 
 
@@ -78,31 +78,31 @@ struct pisces_dbg_spec {
 
 
 struct pisces_cmd {
-    u64 cmd;
-    u32 data_len;
-    u8  data[0];
+    uint64_t cmd;
+    uint32_t data_len;
+    uint8_t  data[0];
 } __attribute__((packed));
 
 
 struct pisces_resp {
-    u64 status;
-    u32 data_len;
-    u8  data[0];
+    uint64_t status;
+    uint32_t data_len;
+    uint8_t  data[0];
 } __attribute__((packed));
 
 
 /* Linux -> Enclave Commands */
 struct cmd_cpu_add {
     struct pisces_cmd hdr;
-    u64 phys_cpu_id;
-    u64 apic_id;
+    uint64_t phys_cpu_id;
+    uint64_t apic_id;
 } __attribute__((packed));
 
 
 struct cmd_mem_add {
     struct pisces_cmd hdr;
-    u64 phys_addr;
-    u64 size;
+    uint64_t phys_addr;
+    uint64_t size;
 } __attribute__((packed));
 
 
@@ -121,15 +121,15 @@ struct cmd_create_vm {
 struct cmd_vm_ctrl {
     struct pisces_cmd hdr;
 
-    u32 vm_id;
+    uint32_t vm_id;
 } __attribute__((packed));
 
 
 struct cmd_vm_cons_keycode {
     struct pisces_cmd hdr;
 
-    u32 vm_id;
-    u8  scan_code;
+    uint32_t vm_id;
+    uint8_t  scan_code;
 } __attribute__((packed));
 
 
