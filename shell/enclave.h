@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include "xemem.h"
+#include "cmd_queue.h"
 
 typedef enum {
     ENCLAVE_INITTED   = 0,
@@ -31,6 +33,9 @@ typedef enum {
 int create_enclave(char * cfg_file_name, char * name);
 int destroy_enclave(char * enclave_name);
 
+hcq_handle_t enclave_open_cmd_queue(char * enclave_name);
+int enclave_register_cmd_queue(char * enclave_name, xemem_segid_t segid);
+
 struct enclave_info {
     int id;
 
@@ -42,6 +47,7 @@ struct enclave_info {
 
 struct enclave_info * 
 get_enclave_list(int * num_enclaves);
+
 
 
 const char * 

@@ -18,7 +18,7 @@ IFS="
 
 for cfg in `cat ./build.cfg`; do
     if  [ ! -z ${cfg} ]; then
-        eval export ${cfg}
+        eval "export ${cfg}"
     fi
 done
 IFS=" "
@@ -28,7 +28,7 @@ IFS=" "
 echo "Inserting XPMEM Module."
 insmod $XPMEM_PATH/mod/xpmem.ko ns=1
 
-echo $PALACIOS_PATH
+#echo $PALACIOS_PATH
 
 if [ -f $PALACIOS_PATH/v3vee.ko ]; then
 echo "Inserting Palacios Module."

@@ -85,8 +85,18 @@ int hdb_set_enclave_state(hdb_db_t        db,
 			  enclave_state_t state);
 
 
+xemem_segid_t 
+hdb_get_enclave_cmdq(hdb_db_t db,
+		     hdb_id_t enclave_id);
+
+int
+hdb_set_enclave_cmdq(hdb_db_t      db,
+		     hdb_id_t      enclave_id, 
+		     xemem_segid_t segid);
+
 char * hdb_get_enclave_name(hdb_db_t db, 
 			    hdb_id_t enclave_id);
+
 
 
 hdb_id_t hdb_get_enclave_id(hdb_db_t   db, 

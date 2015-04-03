@@ -19,7 +19,7 @@ typedef int (*legacy_cmd_handler_fn)(int pisces_fd,
 
 
 
-int register_cmd_handler(cmd_handler_fn handler, void * priv_data);
+int register_cmd_handler(uint64_t cmd, cmd_handler_fn handler, void * priv_data);
 
 
 #endif

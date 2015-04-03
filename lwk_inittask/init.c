@@ -35,6 +35,23 @@ uint64_t    enclave_id = -1;
 static struct hashtable * cmd_handlers        = NULL;
 static struct hashtable * legacy_cmd_handlers = NULL;
 
+static uint32_t 
+handler_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
+}
+
+static int
+handler_equal_fn(uintptr_t key1, uintptr_t key2)
+{
+    return (key1 == key2);
+}
+
+struct cmd_handler {
+    uint64_t         cmd;
+    cmd_handler_fn   handler_fn;
+    void           * priv_data;
+};
 
 
 int
@@ -49,16 +66,18 @@ main(int argc, char ** argv, char * envp[])
 
 
     CPU_ZERO(&enclave_cpus);	/* Initialize CPU mask */
-    CPU_SET(0, &enclave_cpus);      /* We always boot on CPU 0 */
+    CPU_SET(0, &enclave_cpus);  /* We always boot on CPU 0 */
 
 
     printf("Pisces Control Daemon\n");
 
     // Get Enclave ID
 
+    // register handlers
+    cmd_handlers        = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
+    legacy_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
     hobbes_client_init();
-
     
     hcq = hcq_create_queue();
     
@@ -68,7 +87,7 @@ main(int argc, char ** argv, char * envp[])
     }
 
     // register command queue w/ enclave
-
+    
     
 
     while (1) {
@@ -76,195 +95,8 @@ main(int argc, char ** argv, char * envp[])
 	
 	
 	//printf("Command=%llu, data_len=%d\n", cmd.cmd, cmd.data_len);
-	
-	switch (cmd.cmd) {
-	    case ENCLAVE_CMD_ADD_MEM: {
-		struct cmd_mem_add mem_cmd;
-		struct pmem_region rgn;
-		
-		memset(&mem_cmd, 0, sizeof(struct cmd_mem_add));
-		memset(&rgn, 0, sizeof(struct pmem_region));
-		
-		ret = read(pisces_fd, &mem_cmd, sizeof(struct cmd_mem_add));
-		
-		if (ret != sizeof(struct cmd_mem_add)) {
-		    printf("Error reading pisces MEM_ADD CMD (ret=%d)\n", ret);
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-		
-		
-		rgn.start            = mem_cmd.phys_addr;
-		rgn.end              = mem_cmd.phys_addr + mem_cmd.size;
-		rgn.type_is_set      = 1;
-		rgn.type             = PMEM_TYPE_UMEM;
-		rgn.allocated_is_set = 1;
-		rgn.allocated        = 0;
-		
-		printf("Adding pmem (%p - %p)\n", (void *)rgn.start, (void *)rgn.end);
-		
-		ret = pmem_add(&rgn);
-		
-		printf("pmem_add returned %d\n", ret);
-
-		ret = pmem_zero(&rgn);
-
-		printf("pmem_zero returned %d\n", ret);
-
-		send_resp(pisces_fd, 0);
-
-		break;
-	    }
-	    case ENCLAVE_CMD_ADD_CPU: {
-		struct cmd_cpu_add cpu_cmd;
-		int logical_cpu = 0;
-
-		ret = read(pisces_fd, &cpu_cmd, sizeof(struct cmd_cpu_add));
-
-		if (ret != sizeof(struct cmd_cpu_add)) {
-		    printf("Error reading pisces CPU_ADD CMD (ret=%d)\n", ret);
-
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		printf("Adding CPU phys_id %llu, apic_id %llu\n", 
-		       (unsigned long long) cpu_cmd.phys_cpu_id, 
-		       (unsigned long long) cpu_cmd.apic_id);
-
-		logical_cpu = phys_cpu_add(cpu_cmd.phys_cpu_id, cpu_cmd.apic_id);
-
-		if (logical_cpu == -1) {
-		    printf("Error Adding CPU to Kitten\n");
-		    send_resp(pisces_fd, -1);
-
-		    break;
-		}
-			   
-
-		v3_add_cpu(logical_cpu);
-
-		CPU_SET(logical_cpu, &enclave_cpus);
-
-		send_resp(pisces_fd, 0);
-		break;
-	    }
-	    case ENCLAVE_CMD_REMOVE_CPU: {
-		struct cmd_cpu_add cpu_cmd;
-		int logical_cpu = 0;
-
-		ret = read(pisces_fd, &cpu_cmd, sizeof(struct cmd_cpu_add));
-
-		if (ret != sizeof(struct cmd_cpu_add)) {
-		    printf("Error reading pisces CPU_ADD CMD (ret=%d)\n", ret);
-
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		printf("Removing CPU phys_id %llu, apic_id %llu\n", 
-		       (unsigned long long) cpu_cmd.phys_cpu_id, 
-		       (unsigned long long) cpu_cmd.apic_id);
-
-		logical_cpu = phys_cpu_remove(cpu_cmd.phys_cpu_id, cpu_cmd.apic_id);
-
-		if (logical_cpu == -1) {
-		    printf("Error remove CPU to Kitten\n");
-
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		CPU_CLR(logical_cpu, &enclave_cpus);
-
-		send_resp(pisces_fd, 0);
-		break;
-	    }
-
-	    case ENCLAVE_CMD_LAUNCH_JOB: {
-		struct cmd_launch_job * job_cmd = malloc(sizeof(struct cmd_launch_job));
-
-		memset(job_cmd, 0, sizeof(struct cmd_launch_job));
-
-		ret = read(pisces_fd, job_cmd, sizeof(struct cmd_launch_job));
-
-		if (ret != sizeof(struct cmd_launch_job)) {
-		    printf("Error reading Job Launch CMD (ret = %d)\n", ret);
-
-		    free(job_cmd);
-			    
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-			
-		launch_job(pisces_fd, &(job_cmd->spec));
-
-		free(job_cmd);
-			
-		send_resp(pisces_fd, 0);
-		break;
-	    }
-
-	    case ENCLAVE_CMD_ADD_V3_PCI: {
-		struct cmd_add_pci_dev cmd;
-		//			    struct v3_hw_pci_dev   v3_pci_spec;
-		int ret = 0;
-
-		memset(&cmd, 0, sizeof(struct cmd_add_pci_dev));
-
-		printf("Adding V3 PCI Device\n");
-
-		ret = read(pisces_fd, &cmd, sizeof(struct cmd_add_pci_dev));
-
-		if (ret != sizeof(struct cmd_add_pci_dev)) {
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		//			    memcpy(v3_pci_spec.name, cmd.spec.name, 128);
-		//			    v3_pci_spec.bus  = cmd.spec.bus;
-		//    v3_pci_spec.dev  = cmd.spec.dev;
-		// v3_pci_spec.func = cmd.spec.func;
 
 
-		/* Issue Device Add operation to Palacios */
-		/*
-		  if (issue_v3_cmd(V3_ADD_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
-		  printf("Error: Could not add PCI device to Palacios\n");
-		  send_resp(pisces_fd, -1);
-		  break;
-		  }
-		*/
-
-		send_resp(pisces_fd, 0);
-		break;
-	    }
-	 
-
-	    case ENCLAVE_CMD_SHUTDOWN: {
-
-		/*
-		  if (issue_v3_cmd(V3_SHUTDOWN, 0) == -1) {
-		  printf("Error: Could not shutdown Palacios VMM\n");
-		  send_resp(pisces_fd, -1);
-		  break;
-		  }
-		*/
-		/* Perform additional Cleanup is necessary */
-
-		send_resp(pisces_fd, 0);
-
-		close(pisces_fd);
-		exit(0);
-
-	    }
-	    default: {
-		printf("Unknown Pisces Command (%llu)\n", cmd.cmd);
-		send_resp(pisces_fd, -1);
-		break;
-	    }
-
-	}
     }
     
     
@@ -276,9 +108,28 @@ main(int argc, char ** argv, char * envp[])
 
 
 int 
-register_cmd_handler(cmd_handler_fn   handler, 
+register_cmd_handler(uint64_t         cmd, 
+		     cmd_handler_fn   handler_fn, 
 		     void           * priv_data)
 {
+    struct cmd_handler * handler = NULL;
+
+    if (pet_htable_search(cmd_handlers, cmd) != 0) {
+	ERROR("Attempted to register duplicate command handler (cmd=%llu)\n", cmd);
+	return -1;
+    }
+
+    handler = calloc(1, sizeof(struct cmd_handler));
+    
+    handler->cmd        = cmd;
+    handler->handler_fn = handler_fn;
+    handler->priv_data  = priv_data;
+
+    if (pet_htable_insert(cmd_handlers, cmd, (uintptr_t)handler) == 0) {
+	ERROR("Could not register command (cmd=%llu)\n", cmd);
+	free(handler);
+	return -1;
+    }
 
     return 0;
 

@@ -32,9 +32,10 @@ Column 4: [int] enclave state
     ENCLAVE_CRASHED   = 3
     ENCLAVE_ERROR     = 4
 Column 5: [string] name                 - name of enclave 
-Column 6: [int] parent enclave          - enclave ID of host enclave for VMs
-Column 7: [int] num_cores
-Column 8: [Reference] threads
+Column 6: [int] command queue segid
+Column 7: [int] parent enclave          - enclave ID of host enclave for VMs
+Column 8: [int] num_cores
+Column 9: [Reference] threads
 
 
 

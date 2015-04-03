@@ -51,7 +51,8 @@
 #define HDB_ENCLAVE_DEV_ID   3
 #define HDB_ENCLAVE_STATE    4
 #define HDB_ENCLAVE_NAME     5
-#define HDB_ENCLAVE_PARENT   6
+#define HDB_ENCLAVE_CMDQ_ID  6
+#define HDB_ENCLAVE_PARENT   7
 
 /* Columns for XEMEM segment header */
 #define HDB_SEGMENT_HDR_CNT  1
@@ -231,14 +232,15 @@ __create_enclave_record(hdb_db_t         db,
     }
     
     /* Insert enclave into the db */
-    enclave = wg_create_record(db, 7);
-    wg_set_field(db, enclave, HDB_TYPE_FIELD,     wg_encode_int(db, HDB_REC_ENCLAVE));
-    wg_set_field(db, enclave, HDB_ENCLAVE_ID,     wg_encode_int(db, enclave_id));
-    wg_set_field(db, enclave, HDB_ENCLAVE_TYPE,   wg_encode_int(db, type));
-    wg_set_field(db, enclave, HDB_ENCLAVE_DEV_ID, wg_encode_int(db, mgmt_dev_id));
-    wg_set_field(db, enclave, HDB_ENCLAVE_STATE,  wg_encode_int(db, ENCLAVE_INITTED));
-    wg_set_field(db, enclave, HDB_ENCLAVE_NAME,   wg_encode_str(db, name, NULL));
-    wg_set_field(db, enclave, HDB_ENCLAVE_PARENT, wg_encode_int(db, parent));
+    enclave = wg_create_record(db, 8);
+    wg_set_field(db, enclave, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_ENCLAVE));
+    wg_set_field(db, enclave, HDB_ENCLAVE_ID,       wg_encode_int(db, enclave_id));
+    wg_set_field(db, enclave, HDB_ENCLAVE_TYPE,     wg_encode_int(db, type));
+    wg_set_field(db, enclave, HDB_ENCLAVE_DEV_ID,   wg_encode_int(db, mgmt_dev_id));
+    wg_set_field(db, enclave, HDB_ENCLAVE_STATE,    wg_encode_int(db, ENCLAVE_INITTED));
+    wg_set_field(db, enclave, HDB_ENCLAVE_NAME,     wg_encode_str(db, name, NULL));
+    wg_set_field(db, enclave, HDB_ENCLAVE_CMDQ_ID,  wg_encode_int(db, 0));
+    wg_set_field(db, enclave, HDB_ENCLAVE_PARENT,   wg_encode_int(db, parent));
 
     
     /* Update the enclave Header information */
@@ -551,7 +553,7 @@ hdb_set_enclave_state(hdb_db_t        db,
     wg_int lock_id;
     int ret = 0;
 
-    lock_id = wg_start_read(db);
+    lock_id = wg_start_write(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
@@ -560,7 +562,7 @@ hdb_set_enclave_state(hdb_db_t        db,
 
     ret = __set_enclave_state(db, enclave_id, state);
     
-    if (!wg_end_read(db, lock_id)) {
+    if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
 	return -1;
     }
@@ -613,6 +615,95 @@ hdb_get_enclave_name(hdb_db_t db,
     }
     
     return name;
+}
+
+
+static xemem_segid_t
+__get_enclave_cmdq(hdb_db_t db, 
+		   hdb_id_t enclave_id)
+{
+    hdb_enclave_t enclave = NULL;
+    xemem_segid_t segid   = 0;
+
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    segid = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_CMDQ_ID));
+
+    return segid;
+}
+
+xemem_segid_t 
+hdb_get_enclave_cmdq(hdb_db_t db,
+		     hdb_id_t enclave_id)
+{
+    wg_int lock_id;
+    xemem_segid_t segid = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    segid = __get_enclave_cmdq(db, enclave_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return segid;
+}
+
+static int
+__set_enclave_cmdq(hdb_db_t      db,
+		   hdb_id_t      enclave_id, 
+		   xemem_segid_t segid)
+{
+    hdb_enclave_t enclave = NULL;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+    
+    if (enclave == NULL) {
+	ERROR("Could not find enclave (id: %d)\n", enclave_id);
+	return -1;
+    }
+
+    wg_set_field(db, enclave, HDB_ENCLAVE_CMDQ_ID, wg_encode_int(db, segid));
+
+    return 0;
+}
+
+int
+hdb_set_enclave_cmdq(hdb_db_t      db,
+		     hdb_id_t      enclave_id, 
+		     xemem_segid_t segid)
+{
+    wg_int lock_id;
+    int ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __set_enclave_cmdq(db, enclave_id, segid);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
 }
 
 

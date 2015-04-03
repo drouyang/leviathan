@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "client.h"
+#include "cmd_queue.h"
 
 #include <pisces.h>
 #include <pet_mem.h>
@@ -214,6 +215,38 @@ destroy_enclave(char * enclave_name)
 
     return 0;
     
+}
+
+
+hcq_handle_t 
+enclave_open_cmd_queue(char * enclave_name)
+{
+    hdb_id_t      enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    xemem_segid_t segid      = -1;
+
+    if (enclave_id == -1) {
+	ERROR("Could not find enclave (%s)\n", enclave_name);
+	return HCQ_INVALID_HANDLE;
+    }
+    
+    segid = hdb_get_enclave_cmdq(hobbes_master_db, enclave_id);
+
+    return hcq_connect(segid);
+}
+
+
+int 
+enclave_register_cmd_queue(char          * enclave_name, 
+			   xemem_segid_t   segid)
+{
+    hdb_id_t      enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    
+    if (enclave_id == -1) {
+	ERROR("Could not find enclave (%s)\n", enclave_name);
+	return -1;
+    }
+    
+    return hdb_set_enclave_cmdq(hobbes_master_db, enclave_id, segid);
 }
 
 
