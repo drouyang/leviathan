@@ -22,6 +22,7 @@
 #include <pet_hashtable.h>
 #include <cmd_queue.h>
 
+#include "init.h"
 #include "pisces.h"
 #include "palacios.h"
 #include "job_launch.h"
@@ -31,10 +32,11 @@ cpu_set_t   enclave_cpus;
 uint64_t    enclave_id = -1;
 
 
-struct hashtable * cmd_handlers        = NULL;
-struct hashtable * legacy_cmd_handlers = NULL;
+static struct hashtable * cmd_handlers        = NULL;
+static struct hashtable * legacy_cmd_handlers = NULL;
 
-	
+
+
 int
 main(int argc, char ** argv, char * envp[]) 
 {
@@ -271,7 +273,13 @@ main(int argc, char ** argv, char * envp[])
 		
 
 
-int
-    register_cmd_handler() {
+
+
+int 
+register_cmd_handler(cmd_handler_fn   handler, 
+		     void           * priv_data)
+{
+
+    return 0;
 
 }

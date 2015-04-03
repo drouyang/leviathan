@@ -19,7 +19,7 @@ CFLAGS := 	-I$(KITTEN_PATH)/include \
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
 		$(LIBHOBBES_PATH)/libhobbes.a
 
-init_objs :=	main.o \
+init_objs :=	init.o \
 		sched_getcpu.o
 
 
