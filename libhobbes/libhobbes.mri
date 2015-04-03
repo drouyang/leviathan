@@ -3,6 +3,7 @@ addmod client.o
 addmod xemem.o
 addmod hobbes_db.o
 addmod cmd_queue.o
+addmod enclave.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../palacios/user/libv3vee_user.a
 addlib ../pisces/linux_usr/libpisces.a

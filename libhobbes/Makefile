@@ -19,27 +19,14 @@ libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
 
 
 
-execs :=    	master      \
-		libhobbes.a \
-		hobbes      \
-
-
-hobbes_objs := 		hobbes.o    \
-			enclave.o   \
-			xemem.o     \
-			hobbes_db.o \
-			client.o    \
-			cmd_queue.o
-
-
-master_objs := 		master.o    \
-			hobbes_db.o \
+target :=    libhobbes.a
 
 
 libhobbes_objs := 	client.o \
 			xemem.o  \
 			hobbes_db.o \
-			cmd_queue.o
+			cmd_queue.o \
+			enclave.o
 
 build = \
 	@if [ -z "$V" ]; then \
@@ -64,16 +51,10 @@ build = \
 	$(call build,AR,$(AR) rcs $@ $^)
 
 
-all: libhobbes.mri $(execs) $(libs)
+all: libhobbes.mri $(target) $(libs)
 
 libhobbes.mri: FORCE
 	./build_mri.pl libhobbes.mri libhobbes.a $(libhobbes_objs) LIBS $(libs)
-
-master: $(master_objs)
-	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
-
-hobbes: $(hobbes_objs)
-	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) /usr/lib64/libm.a -o $@)
 
 libhobbes.a: $(libhobbes_objs) $(libs) libhobbes.mri
 	$(call build,AR,$(AR) -M < libhobbes.mri)
@@ -85,6 +66,6 @@ libhobbes.a: $(libhobbes_objs) $(libs) libhobbes.mri
 
 
 clean:
-	rm -f $(wildcard  $(execs)) *.o
+	rm -f $(wildcard  $(target)) *.o
 
 FORCE:

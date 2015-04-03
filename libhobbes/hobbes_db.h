@@ -7,8 +7,8 @@
 
 #include <stdint.h>
 
-#include "enclave.h"
 #include "xemem.h"
+#include "enclave.h"
 
 struct hobbes_segment;
 
@@ -50,6 +50,7 @@ static inline void * hdb_get_db_addr(hdb_db_t db) {
 /* 
  *  Creating/deleting enclave records
  */
+
  hdb_id_t hdb_create_enclave(hdb_db_t       db, 
 			     char         * name, 
 			     int            mgmt_dev_id, 

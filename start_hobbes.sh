@@ -44,5 +44,5 @@ insmod $PISCES_PATH/pisces.ko
 
 echo "Launching Hobbes Node Manager."
 #$HOBBES_PATH/hobbes/master ${@:1} 1> hobbes.log&
-$HOBBES_PATH/hobbes/master ${@:1} &
+$HOBBES_PATH/master_init/master ${@:1} &
 echo $! > hobbes.pid

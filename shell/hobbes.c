@@ -9,8 +9,8 @@
 #include <xpmem.h>
 #include <pet_log.h>
 
-#include "enclave.h"
-#include "client.h"
+#include <enclave.h>
+#include <client.h>
 
 const char * hobbes_prog_version = "Hobbes 0.1";
 const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
