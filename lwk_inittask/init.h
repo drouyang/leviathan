@@ -5,21 +5,24 @@
 #ifndef __INIT_H__
 #define __INIT_H__
 
-#include "cmds.h"
 
-extern cpu_set_t enclave_cpus;
-extern uint64_t  enclave_id;
+#include <cmd_queue.h>
 
-typedef int (*cmd_handler_fn)(hcq_handle_t  hcq,
-			      hcq_cmd_t     cmd, 
-			      void        * priv_data);
+extern cpu_set_t  enclave_cpus;
+extern uint64_t   enclave_id;
+extern char     * enclave_name;
 
-typedef int (*legacy_cmd_handler_fn)(int pisces_fd,
-				     uint64_t cmd);
+extern bool v3vee_enabled;
+extern bool hobbes_enabled;
+
+typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
+			     hcq_cmd_t     cmd);
 
 
 
-int register_cmd_handler(uint64_t cmd, cmd_handler_fn handler, void * priv_data);
+
+int register_hobbes_cmd(uint64_t cmd, hobbes_cmd_fn handler);
+
 
 
 #endif

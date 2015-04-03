@@ -2,19 +2,37 @@
  * (c) 2015, Jack Lange, <jacklange@cs.pitt.edu>
  */
 
+#define _GNU_SOURCE
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <lwk/liblwk.h>
+#include <arch/types.h>
+#include <lwk/pmem.h>
+#include <lwk/smp.h>
+#include <sys/ioctl.h>
+#include <pthread.h>
+#include <poll.h>
+
+#include <stdint.h>
 
 
 #include <pet_log.h>
 
 extern cpu_set_t enclave_cpus;
 
+#include "pisces.h"
 
 int 
 launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 {
 
-    u32 page_size = (job_spec->use_large_pages ? VM_PAGE_2MB : VM_PAGE_4KB);
+    uint32_t page_size = (job_spec->use_large_pages ? VM_PAGE_2MB : VM_PAGE_4KB);
 
     vaddr_t   file_addr = 0;
     cpu_set_t spec_cpus;

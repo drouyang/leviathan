@@ -1,5 +1,5 @@
 KITTEN_PATH    = ../kitten
-LIBHOBBES_PATH = ../hobbes
+LIBHOBBES_PATH = ../libhobbes
 XPMEM_PATH     = ../xpmem
 PALACIOS_PATH  = ../palacios
 PETLIB_PATH    = ../petlib
@@ -20,6 +20,8 @@ libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
 		$(LIBHOBBES_PATH)/libhobbes.a
 
 init_objs :=	init.o \
+		pisces_cmds.o \
+		job_launch.o \
 		sched_getcpu.o
 
 

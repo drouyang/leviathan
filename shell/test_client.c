@@ -6,14 +6,16 @@
 #include <stdint.h>
 
 #include <pet_log.h>
-#include "cmd_queue.h"
-#include "xemem.h"
+
+#include <cmd_queue.h>
+#include <xemem.h>
+#include <enclave.h>
 
 
 int main(int argc, char ** argv) {
 
     hcq_handle_t hcq = HCQ_INVALID_HANDLE;
-    xemem_segid_t segid = atoll(argv[1]);
+    xemem_segid_t segid = -1;
     hcq_cmd_t cmd = HCQ_INVALID_CMD;
 
 
@@ -21,8 +23,8 @@ int main(int argc, char ** argv) {
 
     hobbes_client_init();
 
-    hcq = hcq_connect(segid);
-    
+    hcq = enclave_open_cmd_queue("master");
+
     cmd = hcq_cmd_issue(hcq, 5, strlen(data_buf) + 1, data_buf);
 
     
