@@ -61,6 +61,8 @@ struct pisces_resp {
 
 
 /* Linux -> Enclave Commands */
+
+
 struct cmd_cpu_add {
     struct pisces_cmd hdr;
     uint64_t phys_cpu_id;
@@ -73,6 +75,49 @@ struct cmd_mem_add {
     uint64_t phys_addr;
     uint64_t size;
 } __attribute__((packed));
+
+struct pisces_job_spec {
+    char name[64];
+    char exe_path[256];
+    char argv[256];
+    char envp[256];
+
+    union {
+	uint64_t flags;
+	struct {
+	    uint64_t   use_large_pages : 1;
+	    uint64_t   use_smartmap    : 1;
+	    uint64_t   rsvd            : 62;
+	} __attribute__((packed));
+    } __attribute__((packed));
+
+    uint8_t   num_ranks;
+    uint64_t  cpu_mask;
+    uint64_t  heap_size;
+    uint64_t  stack_size;
+} __attribute__((packed));
+
+struct pisces_pci_spec {
+    char     name[128];
+    uint32_t bus;
+    uint32_t dev;
+    uint32_t func;
+} __attribute__((packed));
+
+
+
+struct pisces_file_pair {
+    char lnx_file[128];
+    char lwk_file[128];
+} __attribute__((packed));
+
+
+struct pisces_dbg_spec {
+    uint32_t vm_id;
+    uint32_t core;
+    uint32_t cmd;
+} __attribute__((packed));
+
 
 
 struct vm_path {
@@ -144,8 +189,7 @@ struct cmd_load_file {
 typedef int (*pisces_cmd_fn)(int        pisces_fd,
 			     uint64_t   cmd);
 
-
-int pisces_init(void);
+int pisces_cmd_init(void);
 int pisces_handle_cmd(int pisces_fd);
 int register_pisces_cmd(uint64_t cmd, pisces_cmd_fn handler);
 

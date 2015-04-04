@@ -189,7 +189,8 @@ static int
 __launch_job(int      pisces_fd, 
 	     uint64_t cmd)
 {
-    struct cmd_launch_job * job_cmd = calloc(1, sizeof(struct cmd_launch_job));
+    struct cmd_launch_job  * job_cmd  = calloc(1, sizeof(struct cmd_launch_job));
+    struct pisces_job_spec * job_spec = NULL;
     int ret = 0;
 
     ret = read(pisces_fd, job_cmd, sizeof(struct cmd_launch_job));
@@ -202,8 +203,18 @@ __launch_job(int      pisces_fd,
 	send_resp(pisces_fd, -1);
 	return 0;
     }
-			
-    ret = launch_job(pisces_fd, &(job_cmd->spec));
+    
+    job_spec = &(job_cmd->spec);
+
+    ret = launch_job(job_spec->name,
+		     job_spec->exe_path, 
+		     job_spec->argv, 
+		     job_spec->envp, 
+		     job_spec->flags, 
+		     job_spec->num_ranks, 
+		     job_spec->cpu_mask, 
+		     job_spec->heap_size, 
+		     job_spec->stack_size);
 
     free(job_cmd);
 			
@@ -211,6 +222,39 @@ __launch_job(int      pisces_fd,
 
     return 0;
 }
+
+static int
+load_file(char * lnx_file, 
+	  char * lwk_file)
+{
+	size_t file_size = 0;
+	char * file_buf  = NULL;
+
+
+	file_size = pisces_file_stat(lnx_file);
+
+	file_buf  = (char *)malloc(file_size);
+
+	if (!file_buf) {
+	    printf("Error: Could not allocate space for file (%s)\n", lnx_file);
+	    return -1;
+	}
+
+	pisces_file_load(lnx_file, file_buf);
+
+	{
+	    FILE * new_file = fopen(lwk_file, "w+");
+	    
+	    fwrite(file_buf, file_size, 1, new_file);
+
+	    fclose(new_file);
+	}
+
+	free(file_buf);
+
+	return 0;
+}
+
 
 static int
 __load_file(int      pisces_fd, 
@@ -229,7 +273,7 @@ __load_file(int      pisces_fd,
 	send_resp(pisces_fd, -1);
 	return 0;
     }
-			
+    
     ret = load_file(load_cmd->file_pair.lnx_file, load_cmd->file_pair.lwk_file);
 
     free(load_cmd);

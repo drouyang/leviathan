@@ -26,14 +26,13 @@
 #include "pisces.h"
 #include "pisces_cmds.h"
 #include "palacios.h"
-#include "job_launch.h"
 
 
 cpu_set_t   enclave_cpus;
 char      * enclave_name =  NULL; 
 
 
-static int pisces_fd = 0;
+
 
 bool hobbes_enabled = true;
 bool v3vee_enabled  = false;
@@ -89,6 +88,7 @@ main(int argc, char ** argv, char * envp[])
 
     int max_fd    = 0;
     int hcq_fd    = 0;
+    int pisces_fd = 0;
 
     fd_set full_set;
 
@@ -112,14 +112,13 @@ main(int argc, char ** argv, char * envp[])
 
     /* Set up Pisces interface */
     {
-	pisces_fd = open(PISCES_CTRL_PATH, O_RDWR);
 	
-	if (pisces_fd < 0) {
-	    ERROR("Error opening pisces cmd file (%s)\n", PISCES_CTRL_PATH);
+	if (pisces_init() != 0) {
+	    ERROR("Could not initialize pisces interface\n");
 	    return -1;
 	}
-	
-	pisces_cmd_init();
+
+	pisces_fd = pisces_get_fd();
 
 	FD_SET(pisces_fd, &full_set);
 	max_fd = (max_fd < pisces_fd) ? pisces_fd + 1 : max_fd;
@@ -236,41 +235,3 @@ register_hobbes_cmd(uint64_t        cmd,
 }
 
 
-int
-load_file(char * lnx_file, 
-	  char * lwk_file)
-{
-	struct pisces_user_file_info * file_info = NULL;
-	int    path_len  = strlen(lnx_file) + 1;
-	size_t file_size = 0;
-	char * file_buf  = NULL;
-
-	file_info = calloc(1, sizeof(struct pisces_user_file_info) + path_len);
-    
-	file_info->path_len = path_len;
-	strncpy(file_info->path, lnx_file, path_len - 1);
-    
-	file_size = ioctl(pisces_fd, PISCES_STAT_FILE, file_info);
-    
-	file_buf  = (char *)malloc(file_size);
-
-	if (!file_buf) {
-	    printf("Error: Could not allocate space for file (%s)\n", lnx_file);
-	    return -1;
-	}
-
-	file_info->user_addr = (uintptr_t)file_buf;
-	ioctl(pisces_fd, PISCES_LOAD_FILE, file_info);
-
-	{
-	    FILE * new_file = fopen(lwk_file, "w+");
-	    
-	    fwrite(file_buf, file_size, 1, new_file);
-
-	    fclose(new_file);
-	}
-
-	free(file_buf);
-
-	return 0;
-}

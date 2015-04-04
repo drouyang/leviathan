@@ -27,16 +27,24 @@
 extern cpu_set_t enclave_cpus;
 
 #include "pisces.h"
+#include "job_launch.h"
 
 int 
-launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
+launch_job(char        * name, 
+	   char        * exe_path, 
+	   char        * argv, 
+	   char        * envp, 
+	   job_flags_t   flags,
+	   uint8_t       num_ranks, 
+	   uint64_t      cpu_mask,
+	   uint64_t      heap_size,
+	   uint64_t      stack_size)
 {
+    uint32_t page_size = (flags.use_large_pages ? VM_PAGE_2MB : VM_PAGE_4KB);
 
-    uint32_t page_size = (job_spec->use_large_pages ? VM_PAGE_2MB : VM_PAGE_4KB);
-
-    vaddr_t   file_addr = 0;
-    cpu_set_t spec_cpus;
-    cpu_set_t job_cpus;
+    vaddr_t        file_addr = 0;
+    cpu_set_t      spec_cpus;
+    cpu_set_t      job_cpus;
     user_cpumask_t lwk_cpumask;
 
     int status = 0;
@@ -49,7 +57,7 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 	CPU_ZERO(&spec_cpus);
 	
 	for (i = 0; i < 64; i++) {
-	    if ((job_spec->cpu_mask & (0x1ULL << i)) != 0) {
+	    if ((cpu_mask & (0x1ULL << i)) != 0) {
 		CPU_SET(i, &spec_cpus);
 	    }
 	}
@@ -65,7 +73,7 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 
 	CPU_AND(&job_cpus, &spec_cpus, &enclave_cpus);
 
-	if (CPU_COUNT(&job_cpus) < job_spec->num_ranks) {
+	if (CPU_COUNT(&job_cpus) < num_ranks) {
 	    printf("Error: Could not find enough CPUs for job\n");
 	    return -1;
 	}
@@ -86,23 +94,14 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 
     /* Load exe file info memory */
     {
-	struct pisces_user_file_info * file_info = NULL;
-	int    path_len  = strlen(job_spec->exe_path) + 1;
 	size_t file_size = 0;
 	id_t   my_aspace_id;
 
-	file_info = malloc(sizeof(struct pisces_user_file_info) + path_len);
-	memset(file_info, 0, sizeof(struct pisces_user_file_info) + path_len);
-    
-	file_info->path_len = path_len;
-	strncpy(file_info->path, job_spec->exe_path, path_len - 1);
-    
-	file_size = ioctl(pisces_fd, PISCES_STAT_FILE, file_info);
-    
 	status = aspace_get_myid(&my_aspace_id);
 	if (status != 0) 
 	    return status;
 
+	file_size = pisces_file_stat(exe_path);
 
 	{
 	
@@ -133,20 +132,14 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 	    if (status)
 		return status;
 	
-
-	    file_info->user_addr = file_addr;
 	}
     
 	printf("Loading EXE into memory\n");
-
-	ioctl(pisces_fd, PISCES_LOAD_FILE, file_info);
-
-
-	free(file_info);
+	pisces_file_load(exe_path, (void *)file_addr);
     }
 
 
-    printf("Job Launch Request (%s) [%s %s]\n", job_spec->name, job_spec->exe_path, job_spec->argv);
+    printf("Job Launch Request (%s) [%s %s]\n", name, exe_path, argv);
 
 
     /* Initialize start state for each rank */
@@ -155,14 +148,14 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 	int rank = 0; 
 
 	/* Allocate start state for each rank */
-	start_state = malloc(job_spec->num_ranks * sizeof(start_state_t));
+	start_state = malloc(num_ranks * sizeof(start_state_t));
 	if (!start_state) {
 	    printf("malloc of start_state[] failed\n");
 	    return -1;
 	}
 
 
-	for (rank = 0; rank < job_spec->num_ranks; rank++) {
+	for (rank = 0; rank < num_ranks; rank++) {
 	    int cpu = 0;
 	    int i   = 0;
 	    
@@ -182,17 +175,17 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
 	    
-	    sprintf(start_state[rank].task_name, job_spec->name);
+	    sprintf(start_state[rank].task_name, name);
 
 
 	    status = elf_load((void *)file_addr,
-			      job_spec->name,
+			      name,
 			      ANY_ID,
 			      page_size, 
-			      job_spec->heap_size,   // heap_size 
-			      job_spec->stack_size,  // stack_size 
-			      job_spec->argv,        // argv_str
-			      job_spec->envp,        // envp_str
+			      heap_size,   // heap_size 
+			      stack_size,  // stack_size 
+			      argv,        // argv_str
+			      envp,        // envp_str
 			      &start_state[rank],
 			      0,
 			      &elf_dflt_alloc_pmem
@@ -211,13 +204,13 @@ launch_job(int pisces_fd, struct pisces_job_spec * job_spec)
 		 
 
 	    /* Setup Smartmap regions if enabled */
-	    if (job_spec->use_smartmap) {
+	    if (flags.use_smartmap) {
 		int src = 0;
 		int dst = 0;
 
 		printf("Creating SMARTMAP mappings...\n");
-		for (dst = 0; dst < job_spec->num_ranks; dst++) {
-		    for (src = 0; src < job_spec->num_ranks; src++) {
+		for (dst = 0; dst < num_ranks; dst++) {
+		    for (src = 0; src < num_ranks; src++) {
 			status =
 			    aspace_smartmap(
 					    start_state[src].aspace_id,

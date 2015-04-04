@@ -20,6 +20,7 @@ libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
 		$(LIBHOBBES_PATH)/libhobbes.a
 
 init_objs :=	init.o \
+		pisces.o \
 		pisces_cmds.o \
 		job_launch.o \
 		sched_getcpu.o
