@@ -10,6 +10,8 @@
 #include <xpmem.h>
 #include <pet_cpu.h>
 
+#include <v3vee.h>
+
 #include "hobbes_db.h"
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -45,7 +47,6 @@ int main(int argc, char ** argv) {
     char * cpu_str  = NULL;
     char * cpu_list = NULL;
 
-    int ret = 0;
 
 
    /* Parse options */
@@ -101,22 +102,22 @@ int main(int argc, char ** argv) {
 	    printf("Ignoring NUMA specification\n");
 	}
 	
-	while (iter_str = strsep(&cpu_list, ",")) {
+	while ((iter_str = strsep(&cpu_list, ","))) {
 	    phys_cpu_id = atoi(iter_str);
 	    
 
 	    if (pet_cpu_status(phys_cpu_id) == PET_CPU_OFFLINE) {
-		fprintf(stderr, "ERROR: CPU %d is OFFLINE. Cannot lock.\n", phys_cpu_id);
+		fprintf(stderr, "ERROR: CPU %lu is OFFLINE. Cannot lock.\n", phys_cpu_id);
 		continue;
 	    }
 
-	    printf("Locking CPU %d\n", phys_cpu_id);
+	    printf("Locking CPU %lu\n", phys_cpu_id);
 	    if (pet_lock_cpu(phys_cpu_id) == -1) {
-		printf("Error: Could not Lock CPU %d's state\n", phys_cpu_id);
+		printf("Error: Could not Lock CPU %lu's state\n", phys_cpu_id);
 	    }
 
 	    if (pet_cpu_status(phys_cpu_id) != PET_CPU_RSVD) {
-		fprintf(stderr, "ERROR: Could not lock CPU %d\n", phys_cpu_id);
+		fprintf(stderr, "ERROR: Could not lock CPU %lu\n", phys_cpu_id);
 		continue;
 	    }
 
@@ -196,9 +197,9 @@ int main(int argc, char ** argv) {
     {
 	struct pet_cpu * cpu_arr = NULL;
 
-	int cpu_cnt = 0;
-	int ret     = 0;
-	int i       = 0;
+	uint32_t cpu_cnt = 0;
+	uint32_t i       = 0;
+	int      ret     = 0;
 
 	ret = pet_probe_cpus(&cpu_cnt, &cpu_arr);
 
