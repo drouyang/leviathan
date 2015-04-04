@@ -227,7 +227,7 @@ __create_enclave_record(hdb_db_t         db,
     enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
     
     if (name == NULL) {
-	snprintf(auto_name, 31, "enclave-%lu", enclave_id);
+	snprintf(auto_name, 31, "enclave-%d", enclave_id);
 	name = auto_name;
     }
     
@@ -898,10 +898,6 @@ __create_segment_record(hdb_db_t        db,
     void * rec            = NULL;
     int    segment_cnt    = 0;
 
-    hdb_segment_t segment = NULL;
-
-
-
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);
     
     if (!hdr_rec) {
@@ -912,7 +908,7 @@ __create_segment_record(hdb_db_t        db,
     /* Ensure segid and name do not exist */
     rec = __get_segment_by_segid(db, segid);
     if (rec) {
-        ERROR("xemem segment with segid %lli already present\n", segid);
+        ERROR("xemem segment with segid %ld already present\n", segid);
         return -1;
     }
 
@@ -927,6 +923,7 @@ __create_segment_record(hdb_db_t        db,
     if (name == NULL) {
 	name = "unnamed";
     }
+
     /* Insert segment into the db */
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,    wg_encode_int(db, HDB_REC_XEMEM_SEGMENT));
@@ -956,12 +953,12 @@ hdb_create_xemem_segment(hdb_db_t      db,
     }
 
     ret = __create_segment_record(db, segid, name);
-    if (ret != 0) 
-        ERROR("Could not create xemem database record\n");
 
-out:
-    if (wg_end_write(db, lock_id) == 0)
+    if (!wg_end_write(db, lock_id)) {
         ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+
 
     return ret;
 }
@@ -990,7 +987,7 @@ __delete_segment(hdb_db_t        db,
     segment = __get_segment_by_segid(db, segid);
 
     if (!segment) {
-	ERROR("Could not find xemem segment (segid: %lli)\n", segid);
+	ERROR("Could not find xemem segment (segid: %ld)\n", segid);
 	return -1;
     }
     
@@ -1022,12 +1019,11 @@ hdb_delete_xemem_segment(hdb_db_t      db,
     }
 
     ret = __delete_segment(db, segid);
-    if (ret != 0)
-        ERROR("Could not delete xemem database record\n");
 
-out:
-    if (wg_end_write(db, lock_id) == 0)
+    if (!wg_end_write(db, lock_id)) {
         ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
 
     return ret;
 
@@ -1069,8 +1065,10 @@ hdb_get_xemem_segid(hdb_db_t   db,
 
     segid = __get_xemem_segid(db, name);
 
-    if (!wg_end_read(db, lock_id))
+    if (!wg_end_read(db, lock_id)) {
         ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
 
     return segid;
 }
@@ -1086,7 +1084,7 @@ __get_xemem_name(hdb_db_t       db,
     segment = __get_segment_by_segid(db, segid);
 
     if (segment == NULL) {
-	ERROR("Could not find XEMEM segment (id: %ll)\n", segid);
+	ERROR("Could not find XEMEM segment (id: %ld)\n", segid);
 	return NULL;
     }
 
@@ -1112,8 +1110,10 @@ hdb_get_xemem_name(hdb_db_t      db,
 
     name = __get_xemem_name(db, segid);
 
-    if (!wg_end_read(db, lock_id))
+    if (!wg_end_read(db, lock_id)) {
         ERROR("Catastrophic database locking error\n");
+	return NULL;
+    }
 
     return name;
 }
@@ -1134,7 +1134,6 @@ __get_segments(hdb_db_t   db,
     int    i       = 0;
 
     xemem_segid_t * segid_arr = NULL;
-    hdb_segment_t   segment   = NULL;
 
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_XEMEM_HDR, NULL);    
 

@@ -76,7 +76,7 @@ xemem_make_segid(void          * vaddr,
     tmp_segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_REQUEST_MODE, segid, NULL);
     
     if (tmp_segid != segid) {
-	ERROR("Could not create xemem segment for segid (%ll)\n", segid);
+	ERROR("Could not create xemem segment for segid (%ld)\n", segid);
 	return -1;
     }
 
@@ -94,14 +94,14 @@ xemem_remove(xemem_segid_t segid)
     ret = hdb_delete_xemem_segment(hobbes_master_db, segid);
     
     if (ret != 0) {
-	ERROR("Could not delete segid (%ll) from database\n", segid);
+	ERROR("Could not delete segid (%ld) from database\n", segid);
 	return -1;
     }
 
     ret = xpmem_remove(segid);
 
     if (ret != 0) {
-	ERROR("Error removing segid (%ll) from XPMEM service\n", segid);
+	ERROR("Error removing segid (%ld) from XPMEM service\n", segid);
 	return -1;
     }
 

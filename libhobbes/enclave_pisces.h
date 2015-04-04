@@ -154,7 +154,7 @@ create_pisces_enclave(ezxml_t   xml,
 		    size_in_MB = smart_atoi(dflt_size_in_MB, mem_size);
 		    
 		    if (size_in_MB % dflt_size_in_MB) {
-			WARN("Memory size is not a multiple of the HW block size [%d].\n", pet_block_size());
+			WARN("Memory size is not a multiple of the HW block size [%lu].\n", pet_block_size());
 			WARN("Memory size will be truncated.\n");
 		    }
 

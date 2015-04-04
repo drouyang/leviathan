@@ -1,5 +1,7 @@
 #include <v3vee.h>
 
+#include <pet_numa.h>
+
 
 #define PROC_PATH   "/proc/v3vee/"
 
@@ -18,7 +20,7 @@ destroy_linux_vm(hdb_id_t enclave_id)
     enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
     dev_id       = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
 
-    numa_block_list = calloc(sizeof(int), pet_num_numa_nodes());
+    numa_block_list = calloc(pet_num_numa_nodes(), sizeof(int));
 
     {
 
@@ -74,7 +76,7 @@ destroy_linux_vm(hdb_id_t enclave_id)
 		goto err;
 	    }
 
-	    matched = sscanf(line, "       0x%llx - 0x%llx  (size=%uMB) [NUMA ZONE=%d]", 
+	    matched = sscanf(line, "       0x%lx - 0x%lx  (size=%uMB) [NUMA ZONE=%d]", 
 			     &start_addr, &end_addr, &blk_size, &numa_zone);
 	    free(line);
 	
@@ -153,9 +155,7 @@ create_linux_vm(ezxml_t   xml,
     int * alloced_array   = NULL;
     int   alloced_blocks  = 0;
 
-    hdb_enclave_t enclave = NULL;
-
-
+ 
   
     /* Add enclave to the Master DB */
     {
@@ -205,11 +205,11 @@ create_linux_vm(ezxml_t   xml,
 		numa_zone = smart_atoi(-1, node_str);
 
 		// offline and add regions
-		printf("Adding %d memory blocks to Palacios from NUMA node %d\n", num_blks, numa_zone);
+		printf("Adding %lu memory blocks to Palacios from NUMA node %d\n", num_blks, numa_zone);
 
 		if (v3_add_mem(num_blks, numa_zone) == -1) {
 
-		    ERROR("Could not add %d memory blocks to Palacios from NUMA zone %d\n", num_blks, numa_zone);
+		    ERROR("Could not add %lu memory blocks to Palacios from NUMA zone %d\n", num_blks, numa_zone);
 
 		    hdb_delete_enclave(hobbes_master_db, enclave_id);
 
@@ -242,10 +242,10 @@ create_linux_vm(ezxml_t   xml,
 	    num_blks = (mem_size + (pet_block_size() - 1)) / pet_block_size();
 	    
 	    // offline and add regions
-	    printf("Adding %d memory blocks to Palacios\n", num_blks);
+	    printf("Adding %lu memory blocks to Palacios\n", num_blks);
 
 	    if (v3_add_mem(num_blks, -1) == -1) {
-		ERROR("Could not add %d memory blocks to Palacios\n", num_blks);
+		ERROR("Could not add %lu memory blocks to Palacios\n", num_blks);
 
 		hdb_delete_enclave(hobbes_master_db, enclave_id);
 
@@ -267,7 +267,6 @@ create_linux_vm(ezxml_t   xml,
     {
 	u8 * img_data = NULL;
 	u32  img_size = 0;
-	int  ret      = 0;
 
 	img_data = v3_build_vm_image(xml, &img_size);
 

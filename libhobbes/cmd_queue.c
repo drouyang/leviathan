@@ -356,7 +356,7 @@ __get_cmd_status(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find command (ID=%ll) in queue\n", cmd);
+	ERROR("Could not find command (ID=%lu) in queue\n", cmd);
 	return -1;
     }
     
@@ -402,7 +402,7 @@ __get_ret_code(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find command (ID=%ll) in queue\n", cmd);
+	ERROR("Could not find command (ID=%lu) in queue\n", cmd);
 	return -1;
     }
 
@@ -451,7 +451,7 @@ __get_ret_data(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find command (ID=%ll) in queue\n", cmd);
+	ERROR("Could not find command (ID=%lu) in queue\n", cmd);
 	return NULL;
     }
 
@@ -503,7 +503,7 @@ __complete_cmd(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find Command (ID=%llu) in queue\n", cmd);
+	ERROR("Could not find Command (ID=%lu) in queue\n", cmd);
 	return -1;
     }
 
@@ -604,7 +604,7 @@ __get_cmd_code(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find command (ID=%ll) in queue\n", cmd);
+	ERROR("Could not find command (ID=%lu) in queue\n", cmd);
 	return 0;
     }
     
@@ -653,7 +653,7 @@ __get_cmd_data(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (cmd_rec == NULL) {
-	ERROR("Could not find command (ID=%ll) in queue\n", cmd);
+	ERROR("Could not find command (ID=%lu) in queue\n", cmd);
 	return NULL;
     }
 
@@ -727,7 +727,7 @@ __cmd_return(struct cmd_queue * cq,
     cmd_rec = __get_cmd_rec(cq, cmd);
 
     if (!cmd_rec) {
-	ERROR("Could not find command to return (ID=%llu)\n", cmd);
+	ERROR("Could not find command to return (ID=%lu)\n", cmd);
 	return -1;
     }
 

@@ -2,6 +2,8 @@
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +13,8 @@
 #include "cmd_queue.h"
 
 #include <pisces.h>
+#include <pisces_ctrl.h>
+
 #include <pet_mem.h>
 #include <pet_log.h>
 #include <ezxml.h>
@@ -86,11 +90,6 @@ get_subtree(ezxml_t   tree,
 }
 
 
-static ezxml_t
-get_next_branch(ezxml_t tree) 
-{
-    return ezxml_next(tree);
-}
 
 
 /*
