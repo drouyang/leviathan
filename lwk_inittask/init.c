@@ -36,7 +36,7 @@ char      * enclave_name =  NULL;
 static int pisces_fd = 0;
 
 bool hobbes_enabled = true;
-bool v3vee_enabled  = true;
+bool v3vee_enabled  = false;
 
 static struct hashtable * hobbes_cmd_handlers = NULL;
 
@@ -101,8 +101,8 @@ main(int argc, char ** argv, char * envp[])
  
     printf("Pisces Control Daemon\n");
 
-    // Get Enclave Name
 
+    /* Detect a Hobbes environment by checking for an enclave name */
     enclave_name = getenv("ENCLAVE_NAME");
 
     if (enclave_name == NULL) {
@@ -135,21 +135,29 @@ main(int argc, char ** argv, char * envp[])
     
 	hcq = init_cmd_queue();
     
-	/* Get File descriptors */    
-	hcq_fd = hcq_get_fd(hcq);
-
-	FD_SET(hcq_fd, &full_set);
-	max_fd = (max_fd < hcq_fd) ? hcq_fd + 1 : max_fd;
-    
+	if (hcq != HCQ_INVALID_HANDLE) {
+	    /* Get File descriptors */    
+	    hcq_fd = hcq_get_fd(hcq);
+	    
+	    FD_SET(hcq_fd, &full_set);
+	    max_fd = (max_fd < hcq_fd) ? hcq_fd + 1 : max_fd;
+	} else {
+	    ERROR("Could not initialize hobbes command queue\n");
+	    ERROR("Running in a degraded state with legacy pisces interface\n");
+	}
     }
     
     /* Setup v3vee interface */
-    if (v3vee_enabled) {
+    if (v3_is_vmm_present()) {
+
+	v3vee_enabled = true;
 
 	// setup V3vee handlers 
 
     }
 
+
+    /* Command Loop */
     while (1) {
 	int    ret  = 0;
 	fd_set rset = full_set;
@@ -161,7 +169,7 @@ main(int argc, char ** argv, char * envp[])
 	    break;
 	}
 
-
+	/* Execute Legacy Pisces Commands if needed */
 	if ( FD_ISSET(pisces_fd, &rset) ) {
 
 	    ret = pisces_handle_cmd(pisces_fd);
@@ -170,10 +178,10 @@ main(int argc, char ** argv, char * envp[])
 		ERROR("Pisces handler fault\n");
 		return -1;
 	    }
-
 	}
 
 
+	/* Handle Hobbes commands */
 	if ( ( hobbes_enabled ) && 
 	     ( FD_ISSET(hcq_fd, &rset) ) ) {
 
