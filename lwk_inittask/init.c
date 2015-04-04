@@ -17,10 +17,15 @@
 
 #include <stdint.h>
 
-#include <xemem.h>
 #include <pet_log.h>
 #include <pet_hashtable.h>
+
+#include <v3vee.h>
+
+#include <xemem.h>
+#include <enclave.h>
 #include <cmd_queue.h>
+#include <client.h>
 
 #include "init.h"
 #include "pisces.h"
@@ -86,13 +91,12 @@ main(int argc, char ** argv, char * envp[])
 {
     hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
-    int max_fd    = 0;
     int hcq_fd    = 0;
     int pisces_fd = 0;
 
-    fd_set full_set;
+    struct pollfd ufds[2] = {{-1, 0, 0}, 
+			     {-1, 0, 0}};
 
-    FD_ZERO(&full_set);
 
     CPU_ZERO(&enclave_cpus);	/* Initialize CPU mask */
     CPU_SET(0, &enclave_cpus);  /* We always boot on CPU 0 */
@@ -112,7 +116,7 @@ main(int argc, char ** argv, char * envp[])
 
     /* Set up Pisces interface */
     {
-	
+	printf("Initializing Pisces Interface\n");
 	if (pisces_init() != 0) {
 	    ERROR("Could not initialize pisces interface\n");
 	    return -1;
@@ -120,33 +124,41 @@ main(int argc, char ** argv, char * envp[])
 
 	pisces_fd = pisces_get_fd();
 
-	FD_SET(pisces_fd, &full_set);
-	max_fd = (max_fd < pisces_fd) ? pisces_fd + 1 : max_fd;
-
+	ufds[0].fd     = pisces_fd;
+	ufds[0].events = POLLIN;
     }
 
 
+    printf("Checking for Hobbes environment...\n");
     /* Set up Hobbes interface */
     if (hobbes_enabled) {
-	printf("Hobbes Enclave: %s\n", enclave_name);
+	printf("\tHobbes Enclave: %s\n", enclave_name);
     
 	hobbes_client_init();
     
+	printf("\tInitializing Hobbes Command Queue\n");
+
 	hcq = init_cmd_queue();
+
     
 	if (hcq != HCQ_INVALID_HANDLE) {
+
+	    printf("\t...done\n");
+
 	    /* Get File descriptors */    
 	    hcq_fd = hcq_get_fd(hcq);
 	    
-	    FD_SET(hcq_fd, &full_set);
-	    max_fd = (max_fd < hcq_fd) ? hcq_fd + 1 : max_fd;
+	    ufds[1].fd     = hcq_fd;
+	    ufds[1].events = POLLIN;
 	} else {
 	    ERROR("Could not initialize hobbes command queue\n");
 	    ERROR("Running in a degraded state with legacy pisces interface\n");
 	}
     }
     
+    
     /* Setup v3vee interface */
+    printf("Checking for Palacios...\n");
     if (v3_is_vmm_present()) {
 
 	v3vee_enabled = true;
@@ -157,11 +169,11 @@ main(int argc, char ** argv, char * envp[])
 
 
     /* Command Loop */
+    printf("Entering Command Loop\n");
     while (1) {
 	int    ret  = 0;
-	fd_set rset = full_set;
 
-	ret = select(max_fd, &rset, NULL, NULL, NULL);
+	ret = poll(ufds, 2, -1);
 
 	if (ret == -1) {
 	    ERROR("Select() error\n");
@@ -169,7 +181,7 @@ main(int argc, char ** argv, char * envp[])
 	}
 
 	/* Execute Legacy Pisces Commands if needed */
-	if ( FD_ISSET(pisces_fd, &rset) ) {
+	if ( ufds[0].revents & POLLIN ) {
 
 	    ret = pisces_handle_cmd(pisces_fd);
 
@@ -182,19 +194,19 @@ main(int argc, char ** argv, char * envp[])
 
 	/* Handle Hobbes commands */
 	if ( ( hobbes_enabled ) && 
-	     ( FD_ISSET(hcq_fd, &rset) ) ) {
+	     ( ufds[1].revents & POLLIN ) ) {
 
 	    hobbes_cmd_fn handler = NULL;
 
 	    hcq_cmd_t cmd      = hcq_get_next_cmd(hcq);
 	    uint64_t  cmd_code = hcq_get_cmd_code(hcq, cmd);
 	    
-	    printf("Hobbes cmd code=%llu\n", cmd_code);
+	    printf("Hobbes cmd code=%lu\n", cmd_code);
 
 	    handler = (hobbes_cmd_fn)pet_htable_search(hobbes_cmd_handlers, (uintptr_t)cmd_code);
 
 	    if (handler == NULL) {
-		ERROR("Received invalid Hobbes command (%llu)\n", cmd_code);
+		ERROR("Received invalid Hobbes command (%lu)\n", cmd_code);
 		hcq_cmd_return(hcq, cmd, -1, 0, NULL);
 		continue;
 	    }
@@ -221,12 +233,12 @@ register_hobbes_cmd(uint64_t        cmd,
 		    hobbes_cmd_fn   handler_fn)
 {
     if (pet_htable_search(hobbes_cmd_handlers, cmd) != 0) {
-	ERROR("Attempted to register duplicate command handler (cmd=%llu)\n", cmd);
+	ERROR("Attempted to register duplicate command handler (cmd=%lu)\n", cmd);
 	return -1;
     }
   
     if (pet_htable_insert(hobbes_cmd_handlers, cmd, (uintptr_t)handler_fn) == 0) {
-	ERROR("Could not register hobbes command (cmd=%llu)\n", cmd);
+	ERROR("Could not register hobbes command (cmd=%lu)\n", cmd);
 	return -1;
     }
 

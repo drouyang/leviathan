@@ -18,11 +18,13 @@
 #include <pet_hashtable.h>
 #include <pet_log.h>
 
+#include <v3vee.h>
 
 #include "pisces.h"
 #include "pisces_cmds.h"
 #include "palacios.h"
 #include "init.h"
+#include "job_launch.h"
 
 static struct hashtable * pisces_cmd_handlers = NULL;
 
@@ -210,7 +212,7 @@ __launch_job(int      pisces_fd,
 		     job_spec->exe_path, 
 		     job_spec->argv, 
 		     job_spec->envp, 
-		     job_spec->flags, 
+		     (job_flags_t)job_spec->flags, 
 		     job_spec->num_ranks, 
 		     job_spec->cpu_mask, 
 		     job_spec->heap_size, 
@@ -333,7 +335,7 @@ pisces_handle_cmd(int pisces_fd)
     handler = (pisces_cmd_fn)pet_htable_search(pisces_cmd_handlers, (uintptr_t)cmd.cmd);
 
     if (handler == NULL) {
-	ERROR("Received invalid pisces Command (%llu)\n", cmd.cmd);
+	ERROR("Received invalid pisces Command (%lu)\n", cmd.cmd);
 	send_resp(pisces_fd, -1);
 	return 0;
     }
@@ -347,12 +349,12 @@ register_pisces_cmd(uint64_t        cmd,
 		    pisces_cmd_fn   handler_fn)
 {
     if (pet_htable_search(pisces_cmd_handlers, cmd) != 0) {
-	ERROR("Attempted to register duplicate command handler (cmd=%llu)\n", cmd);
+	ERROR("Attempted to register duplicate command handler (cmd=%lu)\n", cmd);
 	return -1;
     }
 
     if (pet_htable_insert(pisces_cmd_handlers, cmd, (uintptr_t)handler_fn) == 0) {
-	ERROR("Could not register pisces command (cmd=%llu)\n", cmd);
+	ERROR("Could not register pisces command (cmd=%lu)\n", cmd);
 	return -1;
     }
 

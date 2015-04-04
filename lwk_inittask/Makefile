@@ -14,6 +14,7 @@ CFLAGS := 	-I$(KITTEN_PATH)/include \
 		-I$(XPMEM_PATH)/include  \
 		-I$(LIBHOBBES_PATH)	 \
 		-I$(PETLIB_PATH)	 \
+		-Wall			 \
 		-static
 
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
