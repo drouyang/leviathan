@@ -87,7 +87,7 @@ list_enclaves_handler(int argc, char ** argv)
     printf("%d Active Enclaves:\n", num_enclaves);
  
     for (i = 0; i < num_enclaves; i++) {
-	printf("%lu: %-*s [%-*s] <%s>\n", 
+	printf("%d: %-*s [%-*s] <%s>\n", 
 	       enclaves[i].id,
 	       35, enclaves[i].name,
 	       16, enclave_type_to_str(enclaves[i].type), 
@@ -122,7 +122,7 @@ list_segments_handler(int argc, char ** argv)
     printf("%d segments:\n", num_segments);
 
     for (i = 0; i < num_segments; i++) {
-        printf("%s: %lli\n",
+        printf("%s: %lu\n",
             seg_arr[i].name,
             seg_arr[i].segid);
     }
