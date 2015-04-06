@@ -15,16 +15,5 @@ extern char     * enclave_name;
 extern bool v3vee_enabled;
 extern bool hobbes_enabled;
 
-typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
-			     hcq_cmd_t     cmd);
-
-
-
-
-int register_hobbes_cmd(uint64_t cmd, hobbes_cmd_fn handler);
-
-
-
-
 
 #endif

@@ -1,4 +1,8 @@
 
+/* Pisces Legacy Commands
+ * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ */
+
 #ifndef __PISCES_CMDS_H__
 #define __PISCES_CMDS_H__
 

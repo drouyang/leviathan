@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <pet_log.h>
-#include <pet_hashtable.h>
 
 #include <v3vee.h>
 
@@ -30,6 +29,7 @@
 #include "init.h"
 #include "pisces.h"
 #include "pisces_cmds.h"
+#include "hobbes_cmds.h"
 #include "palacios.h"
 
 
@@ -41,8 +41,6 @@ char      * enclave_name =  NULL;
 
 bool hobbes_enabled = true;
 bool v3vee_enabled  = false;
-
-static struct hashtable * hobbes_cmd_handlers = NULL;
 
 
 
@@ -61,29 +59,6 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
 
 
 
-static hcq_handle_t 
-init_cmd_queue( void )
-{
-    hcq_handle_t  hcq = HCQ_INVALID_HANDLE;
-    xemem_segid_t segid;
-
-    hcq = hcq_create_queue();
-    
-    if (hcq == HCQ_INVALID_HANDLE) {
-	ERROR("Could not create command queue\n");
-	return hcq;
-    }
-
-    segid = hcq_get_segid(hcq);
-
-    if (enclave_register_cmd_queue(enclave_name, segid) != 0) {
-	ERROR("Could not register command queue\n");
-	hcq_free_queue(hcq);
-	return HCQ_INVALID_HANDLE;
-    }
-
-    return hcq;
-}
 
 
 int
@@ -101,7 +76,7 @@ main(int argc, char ** argv, char * envp[])
     CPU_ZERO(&enclave_cpus);	/* Initialize CPU mask */
     CPU_SET(0, &enclave_cpus);  /* We always boot on CPU 0 */
 
-    hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
+  
  
     printf("Pisces Control Daemon\n");
 
@@ -138,7 +113,7 @@ main(int argc, char ** argv, char * envp[])
     
 	printf("\tInitializing Hobbes Command Queue\n");
 
-	hcq = init_cmd_queue();
+	hcq = hobbes_cmd_init();
 
     
 	if (hcq != HCQ_INVALID_HANDLE) {
@@ -196,23 +171,8 @@ main(int argc, char ** argv, char * envp[])
 	if ( ( hobbes_enabled ) && 
 	     ( ufds[1].revents & POLLIN ) ) {
 
-	    hobbes_cmd_fn handler = NULL;
+	    ret = hobbes_handle_cmd(hcq);
 
-	    hcq_cmd_t cmd      = hcq_get_next_cmd(hcq);
-	    uint64_t  cmd_code = hcq_get_cmd_code(hcq, cmd);
-	    
-	    printf("Hobbes cmd code=%lu\n", cmd_code);
-
-	    handler = (hobbes_cmd_fn)pet_htable_search(hobbes_cmd_handlers, (uintptr_t)cmd_code);
-
-	    if (handler == NULL) {
-		ERROR("Received invalid Hobbes command (%lu)\n", cmd_code);
-		hcq_cmd_return(hcq, cmd, -1, 0, NULL);
-		continue;
-	    }
-	    
-	    ret = handler(hcq, cmd_code);
-	    
 	    if (ret == -1) {
 		ERROR("Hobbes handler fault\n");
 		return -1;
@@ -224,26 +184,5 @@ main(int argc, char ** argv, char * envp[])
     return 0;
  }
 		
-
-
-
-
-int 
-register_hobbes_cmd(uint64_t        cmd, 
-		    hobbes_cmd_fn   handler_fn)
-{
-    if (pet_htable_search(hobbes_cmd_handlers, cmd) != 0) {
-	ERROR("Attempted to register duplicate command handler (cmd=%lu)\n", cmd);
-	return -1;
-    }
-  
-    if (pet_htable_insert(hobbes_cmd_handlers, cmd, (uintptr_t)handler_fn) == 0) {
-	ERROR("Could not register hobbes command (cmd=%lu)\n", cmd);
-	return -1;
-    }
-
-    return 0;
-
-}
 
 
