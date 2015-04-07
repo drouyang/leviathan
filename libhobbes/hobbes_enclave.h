@@ -29,14 +29,14 @@ typedef enum {
 
 
 int hobbes_create_enclave(char * cfg_file_name, char * name);
-int hobbes_destroy_enclave(char * enclave_name);
+int hobbes_destroy_enclave(hobbes_id_t enclave_id);
 
 
 hobbes_id_t hobbes_get_enclave_id(char * enclave_name);
 char *      hobbes_get_enclave_name(hobbes_id_t enclave_id);
 
-hcq_handle_t hobbes_open_enclave_cmdq(char * enclave_name);
-int hobbes_register_enclave_cmdq(char * enclave_name, xemem_segid_t segid);
+hcq_handle_t hobbes_open_enclave_cmdq(hobbes_id_t enclave_id);
+int hobbes_register_enclave_cmdq(hobbes_id_t enclave_id, xemem_segid_t segid);
 
 struct enclave_info {
     hobbes_id_t id;

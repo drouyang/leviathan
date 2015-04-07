@@ -30,10 +30,4 @@ int hobbes_client_init( void );
 int hobbes_client_deinit( void );
 
 
-#include "hobbes_db.h"
-#include "hobbes_enclave.h"
-#include "hobbes_app.h"
-#include "xemem.h"
-#include "hobbes_cmd_queue.h"
-
 #endif

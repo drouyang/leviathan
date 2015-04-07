@@ -24,7 +24,7 @@ init_objs :=	init.o \
 		pisces.o \
 		pisces_cmds.o \
 		hobbes_cmds.o \
-		job_launch.o \
+		app_launch.o \
 		sched_getcpu.o
 
 

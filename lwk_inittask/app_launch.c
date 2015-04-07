@@ -27,7 +27,7 @@
 extern cpu_set_t enclave_cpus;
 
 #include "pisces.h"
-#include "job_launch.h"
+#include "app_launch.h"
 
 int 
 launch_job(char        * name, 

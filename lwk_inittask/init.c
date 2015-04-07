@@ -21,10 +21,10 @@
 
 #include <v3vee.h>
 
+#include <hobbes.h>
 #include <xemem.h>
 #include <hobbes_enclave.h>
 #include <hobbes_cmd_queue.h>
-#include <hobbes_client.h>
 
 #include "init.h"
 #include "pisces.h"

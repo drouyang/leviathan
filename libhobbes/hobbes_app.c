@@ -16,26 +16,6 @@
 
 
 #if 0
-static int
-smart_atoi(int dflt, char * str) 
-{
-    char * end = NULL;
-    int    tmp = 0;
-    
-    if ((str == NULL) || (*str == '\0')) {
-	/*  String was either NULL or empty */
-	return dflt;
-    }
-
-    tmp = strtol(str, &end, 10);
-
-    if (*end) {
-	/* String contained non-numerics */
-	return dflt;
-    }
-    
-    return tmp;
-}
 
 static ezxml_t 
 open_xml_file(char * filename) 

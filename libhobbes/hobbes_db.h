@@ -7,9 +7,9 @@
 
 #include <stdint.h>
 
+#include "hobbes_enclave.h"
 #include "hobbes.h"
 #include "xemem.h"
-#include "hobbes_enclave.h"
 
 struct hobbes_segment;
 

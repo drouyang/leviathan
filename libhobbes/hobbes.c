@@ -12,6 +12,8 @@
 
 #include "hobbes.h"
 #include "hobbes_util.h"
+#include "hobbes_db.h"
+#include "hobbes_enclave.h"
 
 hdb_db_t hobbes_master_db = NULL;
 static xemem_apid_t hobbes_db_apid;

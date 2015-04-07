@@ -10,18 +10,11 @@
 #include <pet_log.h>
 
 #include <hobbes_enclave.h>
-#include <hobbes_client.h>
+#include <hobbes.h>
 
-const char * hobbes_prog_version = "Hobbes 0.1";
-const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
+static const char * hobbes_prog_version = "Hobbes Runtime Shell 0.1";
+static const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
 
-
-
-struct args 
-{
-
-
-};
 
 
 
@@ -49,12 +42,17 @@ create_enclave_handler(int argc, char ** argv)
 static int 
 destroy_enclave_handler(int argc, char ** argv)
 {
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+
     if (argc < 1) {
 	printf("Usage: hobbes destroy_enclave <enclave name>\n");
 	return -1;
     }
+    
+    enclave_id = hobbes_get_enclave_id(argv[1]);
+    
 
-    return hobbes_destroy_enclave(argv[1]);
+    return hobbes_destroy_enclave(enclave_id);
 }
 
 
@@ -147,6 +145,8 @@ usage()
 {
     int i = 0;
 
+    printf("%s\n", hobbes_prog_version);
+    printf("Report Bugs to %s\n", bug_email_addr);
     printf("Usage: hobbes <command> [args...]\n");
     printf("Commands:\n");
 

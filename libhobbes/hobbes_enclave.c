@@ -18,6 +18,8 @@
 
 #include "hobbes.h"
 #include "hobbes_util.h"
+#include "hobbes_enclave.h"
+#include "hobbes_db.h"
 
 extern hdb_db_t hobbes_master_db;
 
@@ -108,7 +110,7 @@ read_file(int             fd,
 
 int 
 hobbes_create_enclave(char * cfg_file_name, 
-	       char * name)
+		      char * name)
 {
     ezxml_t   xml  = NULL;
     char    * type = NULL; 
@@ -167,17 +169,16 @@ hobbes_create_enclave(char * cfg_file_name,
 
 
 int 
-hobbes_destroy_enclave(char * enclave_name)
+hobbes_destroy_enclave(hobbes_id_t enclave_id)
 {
-    hobbes_id_t    enclave_id   = hdb_get_enclave_id(hobbes_master_db, enclave_name);
     enclave_type_t enclave_type = INVALID_ENCLAVE;
 
-    if (enclave_id == -1) {
-	ERROR("Could not find enclave (%s)\n", enclave_name);
+    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
+
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
 	return -1;
     }
-    
-    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
    
 
     if (enclave_type == PISCES_ENCLAVE) {
@@ -212,13 +213,15 @@ hobbes_get_enclave_name(hobbes_id_t enclave_id)
 
 
 hcq_handle_t 
-hobbes_open_enclave_cmdq(char * enclave_name)
+hobbes_open_enclave_cmdq(hobbes_id_t enclave_id)
 {
-    hobbes_id_t   enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
-    xemem_segid_t segid      = -1;
+    xemem_segid_t  segid        = -1;
+    enclave_type_t enclave_type = INVALID_ENCLAVE;
 
-    if (enclave_id == -1) {
-	ERROR("Could not find enclave (%s)\n", enclave_name);
+    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
+
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
 	return HCQ_INVALID_HANDLE;
     }
     
@@ -229,13 +232,15 @@ hobbes_open_enclave_cmdq(char * enclave_name)
 
 
 int 
-hobbes_register_enclave_cmdq(char          * enclave_name, 
-			     xemem_segid_t   segid)
+hobbes_register_enclave_cmdq(hobbes_id_t   enclave_id, 
+			     xemem_segid_t segid)
 {
-    hobbes_id_t  enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
-    
-    if (enclave_id == -1) {
-	ERROR("Could not find enclave (%s)\n", enclave_name);
+    enclave_type_t enclave_type = INVALID_ENCLAVE;
+
+    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
+
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
 	return -1;
     }
     

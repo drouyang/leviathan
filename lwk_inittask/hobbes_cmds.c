@@ -56,9 +56,9 @@ hobbes_handle_cmd(hcq_handle_t hcq)
 static hcq_handle_t 
 init_cmd_queue( void )
 {
-    hcq_handle_t  hcq = HCQ_INVALID_HANDLE;
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
+    hcq_handle_t  hcq        = HCQ_INVALID_HANDLE;
     xemem_segid_t segid;
-    char * enclave_name = NULL;
 
     hcq = hcq_create_queue();
     
@@ -69,9 +69,9 @@ init_cmd_queue( void )
 
     segid = hcq_get_segid(hcq);
 
-    enclave_name = getenv("ENCLAVE_NAME");
+    enclave_id = hobbes_get_my_enclave_id();
 
-    if (hobbes_register_enclave_cmdq(enclave_name, segid) != 0) {
+    if (hobbes_register_enclave_cmdq(enclave_id, segid) != 0) {
 	ERROR("Could not register command queue\n");
 	hcq_free_queue(hcq);
 	return HCQ_INVALID_HANDLE;
