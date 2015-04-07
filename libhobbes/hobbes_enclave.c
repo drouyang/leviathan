@@ -2,15 +2,12 @@
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
-#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
-#include "client.h"
-#include "cmd_queue.h"
 
 #include <pisces.h>
 #include <pisces_ctrl.h>
@@ -19,27 +16,11 @@
 #include <pet_log.h>
 #include <ezxml.h>
 
+#include "hobbes.h"
+#include "hobbes_util.h"
 
-static int
-smart_atoi(int dflt, char * str) 
-{
-    char * end = NULL;
-    int    tmp = 0;
-    
-    if ((str == NULL) || (*str == '\0')) {
-	/*  String was either NULL or empty */
-	return dflt;
-    }
+extern hdb_db_t hobbes_master_db;
 
-    tmp = strtol(str, &end, 10);
-
-    if (*end) {
-	/* String contained non-numerics */
-	return dflt;
-    }
-    
-    return tmp;
-}
 
 static ezxml_t 
 open_xml_file(char * filename) 
@@ -126,7 +107,7 @@ read_file(int             fd,
 
 
 int 
-create_enclave(char * cfg_file_name, 
+hobbes_create_enclave(char * cfg_file_name, 
 	       char * name)
 {
     ezxml_t   xml  = NULL;
@@ -186,9 +167,9 @@ create_enclave(char * cfg_file_name,
 
 
 int 
-destroy_enclave(char * enclave_name)
+hobbes_destroy_enclave(char * enclave_name)
 {
-    hdb_id_t       enclave_id   = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    hobbes_id_t    enclave_id   = hdb_get_enclave_id(hobbes_master_db, enclave_name);
     enclave_type_t enclave_type = INVALID_ENCLAVE;
 
     if (enclave_id == -1) {
@@ -217,10 +198,23 @@ destroy_enclave(char * enclave_name)
 }
 
 
-hcq_handle_t 
-enclave_open_cmd_queue(char * enclave_name)
+hobbes_id_t
+hobbes_get_enclave_id(char * enclave_name)
+{	
+    return hdb_get_enclave_id(hobbes_master_db, enclave_name);
+}
+
+char * 
+hobbes_get_enclave_name(hobbes_id_t enclave_id)
 {
-    hdb_id_t      enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    return hdb_get_enclave_name(hobbes_master_db, enclave_id);
+}
+
+
+hcq_handle_t 
+hobbes_open_enclave_cmdq(char * enclave_name)
+{
+    hobbes_id_t   enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
     xemem_segid_t segid      = -1;
 
     if (enclave_id == -1) {
@@ -235,10 +229,10 @@ enclave_open_cmd_queue(char * enclave_name)
 
 
 int 
-enclave_register_cmd_queue(char          * enclave_name, 
-			   xemem_segid_t   segid)
+hobbes_register_enclave_cmdq(char          * enclave_name, 
+			     xemem_segid_t   segid)
 {
-    hdb_id_t      enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
+    hobbes_id_t  enclave_id = hdb_get_enclave_id(hobbes_master_db, enclave_name);
     
     if (enclave_id == -1) {
 	ERROR("Could not find enclave (%s)\n", enclave_name);
@@ -250,10 +244,10 @@ enclave_register_cmd_queue(char          * enclave_name,
 
 
 struct enclave_info * 
-get_enclave_list(int * num_enclaves)
+hobbes_get_enclave_list(int * num_enclaves)
 {
     struct enclave_info * info_arr = NULL;
-    hdb_id_t            * id_arr   = NULL;
+    hobbes_id_t         * id_arr   = NULL;
 
     int id_cnt = 0;
     int i      = 0;

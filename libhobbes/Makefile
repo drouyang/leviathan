@@ -5,7 +5,7 @@ PETLIB_PATH=../petlib
 WHITEDB_PATH=../whitedb-0.7.3
 
 
-CFLAGS = -Wall -Werror -Wno-nonnull -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -static  
+CFLAGS = -Wall -Werror -Wno-nonnull -D_GNU_SOURCE -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -static  
 
 
 CC = gcc
@@ -22,11 +22,13 @@ libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
 target :=    libhobbes.a
 
 
-libhobbes_objs := 	client.o \
-			xemem.o  \
+libhobbes_objs := 	xemem.o  \
+			hobbes.o \
 			hobbes_db.o \
-			cmd_queue.o \
-			enclave.o
+			hobbes_cmd_queue.o \
+			hobbes_enclave.o \
+			hobbes_app.o 
+
 
 build = \
 	@if [ -z "$V" ]; then \

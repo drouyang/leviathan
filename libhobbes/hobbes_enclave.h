@@ -2,13 +2,13 @@
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
-#ifndef __ENCLAVE_H__
-#define __ENCLAVE_H__
+#ifndef __HOBBES_ENCLAVE_H__
+#define __HOBBES_ENCLAVE_H__
 
 #include <stdint.h>
 
-#include "xemem.h"
-#include "cmd_queue.h"
+#include "hobbes.h"
+#include "hobbes_cmd_queue.h"
 
 typedef enum {
     ENCLAVE_INITTED   = 0,
@@ -28,16 +28,18 @@ typedef enum {
 
 
 
+int hobbes_create_enclave(char * cfg_file_name, char * name);
+int hobbes_destroy_enclave(char * enclave_name);
 
 
-int create_enclave(char * cfg_file_name, char * name);
-int destroy_enclave(char * enclave_name);
+hobbes_id_t hobbes_get_enclave_id(char * enclave_name);
+char *      hobbes_get_enclave_name(hobbes_id_t enclave_id);
 
-hcq_handle_t enclave_open_cmd_queue(char * enclave_name);
-int enclave_register_cmd_queue(char * enclave_name, xemem_segid_t segid);
+hcq_handle_t hobbes_open_enclave_cmdq(char * enclave_name);
+int hobbes_register_enclave_cmdq(char * enclave_name, xemem_segid_t segid);
 
 struct enclave_info {
-    int id;
+    hobbes_id_t id;
 
     char name[32];
 
@@ -46,7 +48,7 @@ struct enclave_info {
 };
 
 struct enclave_info * 
-get_enclave_list(int * num_enclaves);
+hobbes_get_enclave_list(int * num_enclaves);
 
 
 

@@ -13,8 +13,8 @@
 #include <pet_log.h>
 #include <stdint.h>
 
+#include "hobbes.h"
 #include "hobbes_db.h"
-#include "client.h"
 
 
 /* 
@@ -135,8 +135,8 @@ hdb_init_master_db(hdb_db_t db)
  *  - Returns NULL if no enclave is found 
  **/
 static hdb_enclave_t
-__get_enclave_by_id(hdb_db_t db, 
-		    hdb_id_t enclave_id) 
+__get_enclave_by_id(hdb_db_t    db, 
+		    hobbes_id_t enclave_id) 
 {
     hdb_enclave_t enclave  = NULL;
     wg_query    * query    = NULL;
@@ -200,17 +200,17 @@ __get_enclave_by_name(hdb_db_t   db,
 
 
 
-static hdb_id_t
+static hobbes_id_t
 __create_enclave_record(hdb_db_t         db,
 			char           * name, 
 			int              mgmt_dev_id, 
 			enclave_type_t   type, 
-			hdb_id_t         parent)
+			hobbes_id_t      parent)
 {
-    void    * hdr_rec       = NULL;
-    hdb_id_t  enclave_id    = 0;
-    uint32_t  enclave_cnt   = 0;
-    char      auto_name[32] = {[0 ... 31] = 0};
+    void       * hdr_rec       = NULL;
+    hobbes_id_t  enclave_id    = 0;
+    uint32_t     enclave_cnt   = 0;
+    char         auto_name[32] = {[0 ... 31] = 0};
 
     hdb_enclave_t enclave   = NULL;
 
@@ -250,15 +250,15 @@ __create_enclave_record(hdb_db_t         db,
     return enclave_id;
 }
 
-hdb_id_t
+hobbes_id_t
 hdb_create_enclave(hdb_db_t         db,
 		   char           * name, 
 		   int              mgmt_dev_id, 
 		   enclave_type_t   type, 
-		   hdb_id_t         parent)
+		   hobbes_id_t      parent)
 {
-    wg_int   lock_id;
-    hdb_id_t enclave_id = -1;
+    wg_int      lock_id;
+    hobbes_id_t enclave_id = -1;
 
     lock_id = wg_start_write(db);
 
@@ -279,8 +279,8 @@ hdb_create_enclave(hdb_db_t         db,
 }
 
 static int
-__delete_enclave(hdb_db_t db,
-		 hdb_id_t enclave_id)
+__delete_enclave(hdb_db_t    db,
+		 hobbes_id_t enclave_id)
 {
     uint32_t      enclave_cnt = 0;
     void        * hdr_rec     = NULL;
@@ -315,8 +315,8 @@ __delete_enclave(hdb_db_t db,
 
 
 int 
-hdb_delete_enclave(hdb_db_t db,
-		   hdb_id_t enclave_id)
+hdb_delete_enclave(hdb_db_t    db,
+		   hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -342,8 +342,8 @@ hdb_delete_enclave(hdb_db_t db,
 
 
 static int 
-__get_enclave_dev_id(hdb_db_t db, 
-		     hdb_id_t enclave_id)
+__get_enclave_dev_id(hdb_db_t    db, 
+		     hobbes_id_t enclave_id)
 {
     hdb_enclave_t enclave = NULL;
 
@@ -362,8 +362,8 @@ __get_enclave_dev_id(hdb_db_t db,
 }
 
 int 
-hdb_get_enclave_dev_id(hdb_db_t db, 
-		       hdb_id_t enclave_id)
+hdb_get_enclave_dev_id(hdb_db_t    db, 
+		       hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -388,9 +388,9 @@ hdb_get_enclave_dev_id(hdb_db_t db,
 
 
 static int 
-__set_enclave_dev_id(hdb_db_t db, 
-		     hdb_id_t enclave_id, 
-		     int      dev_id)
+__set_enclave_dev_id(hdb_db_t    db, 
+		     hobbes_id_t enclave_id, 
+		     int         dev_id)
 {
     hdb_enclave_t enclave = NULL;
 
@@ -407,9 +407,9 @@ __set_enclave_dev_id(hdb_db_t db,
 }
 
 int 
-hdb_set_enclave_dev_id(hdb_db_t db, 
-		       hdb_id_t enclave_id, 
-		       int      dev_id)
+hdb_set_enclave_dev_id(hdb_db_t    db, 
+		       hobbes_id_t enclave_id, 
+		       int         dev_id)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -433,8 +433,8 @@ hdb_set_enclave_dev_id(hdb_db_t db,
 
 
 static enclave_type_t
-__get_enclave_type(hdb_db_t db, 
-		   hdb_id_t enclave_id)
+__get_enclave_type(hdb_db_t    db, 
+		   hobbes_id_t enclave_id)
 {
     hdb_enclave_t enclave = NULL;
 
@@ -453,8 +453,8 @@ __get_enclave_type(hdb_db_t db,
 }
 
 enclave_type_t
-hdb_get_enclave_type(hdb_db_t db, 
-		     hdb_id_t enclave_id)
+hdb_get_enclave_type(hdb_db_t    db, 
+		     hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     enclave_type_t type = 0;
@@ -481,8 +481,8 @@ hdb_get_enclave_type(hdb_db_t db,
 
 
 static enclave_state_t
-__get_enclave_state(hdb_db_t db, 
-		    hdb_id_t enclave_id)
+__get_enclave_state(hdb_db_t    db, 
+		    hobbes_id_t enclave_id)
 {
     hdb_enclave_t enclave = NULL;
 
@@ -501,8 +501,8 @@ __get_enclave_state(hdb_db_t db,
 }
 
 enclave_state_t
-hdb_get_enclave_state(hdb_db_t db, 
-		      hdb_id_t enclave_id)
+hdb_get_enclave_state(hdb_db_t    db, 
+		      hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     enclave_state_t state = 0;
@@ -528,7 +528,7 @@ hdb_get_enclave_state(hdb_db_t db,
 
 static int
 __set_enclave_state(hdb_db_t        db, 
-		    hdb_id_t        enclave_id, 
+		    hobbes_id_t     enclave_id, 
 		    enclave_state_t state)
 {
     hdb_enclave_t enclave = NULL;
@@ -547,7 +547,7 @@ __set_enclave_state(hdb_db_t        db,
 
 int
 hdb_set_enclave_state(hdb_db_t        db, 
-		      hdb_id_t        enclave_id, 
+		      hobbes_id_t     enclave_id, 
 		      enclave_state_t state)
 {
     wg_int lock_id;
@@ -574,8 +574,8 @@ hdb_set_enclave_state(hdb_db_t        db,
 
 
 static char *
-__get_enclave_name(hdb_db_t db, 
-		   hdb_id_t enclave_id)
+__get_enclave_name(hdb_db_t    db, 
+		   hobbes_id_t enclave_id)
 {
     hdb_enclave_t enclave = NULL;
 
@@ -594,8 +594,8 @@ __get_enclave_name(hdb_db_t db,
 }
 
 char * 
-hdb_get_enclave_name(hdb_db_t db, 
-		     hdb_id_t enclave_id)
+hdb_get_enclave_name(hdb_db_t    db, 
+		     hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     char * name = NULL;
@@ -619,8 +619,8 @@ hdb_get_enclave_name(hdb_db_t db,
 
 
 static xemem_segid_t
-__get_enclave_cmdq(hdb_db_t db, 
-		   hdb_id_t enclave_id)
+__get_enclave_cmdq(hdb_db_t    db, 
+		   hobbes_id_t enclave_id)
 {
     hdb_enclave_t enclave = NULL;
     xemem_segid_t segid   = 0;
@@ -639,8 +639,8 @@ __get_enclave_cmdq(hdb_db_t db,
 }
 
 xemem_segid_t 
-hdb_get_enclave_cmdq(hdb_db_t db,
-		     hdb_id_t enclave_id)
+hdb_get_enclave_cmdq(hdb_db_t    db,
+		     hobbes_id_t enclave_id)
 {
     wg_int lock_id;
     xemem_segid_t segid = 0;
@@ -664,7 +664,7 @@ hdb_get_enclave_cmdq(hdb_db_t db,
 
 static int
 __set_enclave_cmdq(hdb_db_t      db,
-		   hdb_id_t      enclave_id, 
+		   hobbes_id_t   enclave_id, 
 		   xemem_segid_t segid)
 {
     hdb_enclave_t enclave = NULL;
@@ -683,7 +683,7 @@ __set_enclave_cmdq(hdb_db_t      db,
 
 int
 hdb_set_enclave_cmdq(hdb_db_t      db,
-		     hdb_id_t      enclave_id, 
+		     hobbes_id_t   enclave_id, 
 		     xemem_segid_t segid)
 {
     wg_int lock_id;
@@ -708,12 +708,12 @@ hdb_set_enclave_cmdq(hdb_db_t      db,
 
 
 
-static hdb_id_t
+static hobbes_id_t
 __get_enclave_id(hdb_db_t   db, 
 		 char     * enclave_name)
 {
     hdb_enclave_t enclave    = NULL;
-    hdb_id_t      enclave_id = -1;
+    hobbes_id_t   enclave_id = -1;
 
     enclave = __get_enclave_by_name(db, enclave_name);
     
@@ -727,12 +727,12 @@ __get_enclave_id(hdb_db_t   db,
     return enclave_id;
 }
 
-hdb_id_t
+hobbes_id_t
 hdb_get_enclave_id(hdb_db_t   db, 
 		   char     * enclave_name)
 {
-    wg_int   lock_id;
-    hdb_id_t enclave_id = -1;
+    wg_int      lock_id;
+    hobbes_id_t enclave_id = -1;
 
     lock_id = wg_start_read(db);
 
@@ -751,15 +751,15 @@ hdb_get_enclave_id(hdb_db_t   db,
     return enclave_id;
 }
 
-static hdb_id_t *
+static hobbes_id_t *
 __get_enclaves(hdb_db_t   db,
 	      int       * num_enclaves)
 {
-    hdb_id_t * id_arr  = NULL;
-    void     * db_rec  = NULL;
-    void     * hdr_rec = NULL;
-    int        cnt     = 0;
-    int        i       = 0;
+    hobbes_id_t * id_arr  = NULL;
+    void        * db_rec  = NULL;
+    void        * hdr_rec = NULL;
+    int           cnt     = 0;
+    int           i       = 0;
     
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE_HDR, NULL);    
 
@@ -770,7 +770,7 @@ __get_enclaves(hdb_db_t   db,
 
     cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
 
-    id_arr = calloc(sizeof(hdb_id_t), cnt);
+    id_arr = calloc(sizeof(hobbes_id_t), cnt);
 
     for (i = 0; i < cnt; i++) {
 	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE, db_rec);
@@ -791,12 +791,12 @@ __get_enclaves(hdb_db_t   db,
 }
 
 
-hdb_id_t * 
+hobbes_id_t * 
 hdb_get_enclaves(hdb_db_t   db,
 		 int      * num_enclaves)
 {
-    hdb_id_t * id_arr = NULL;
-    wg_int     lock_id;
+    hobbes_id_t * id_arr = NULL;
+    wg_int        lock_id;
 
     if (!num_enclaves) {
 	return NULL;

@@ -13,6 +13,8 @@
 
 #include <v3vee.h>
 
+#include <hobbes_enclave.h>
+
 #include "hobbes_cmds.h"
 
 
@@ -48,9 +50,7 @@ hobbes_handle_cmd(hcq_handle_t hcq)
 	return -1;;
     }
     
-    ret = handler(hcq, cmd);
-    
-    return ret;
+    return handler(hcq, cmd);
 }
 
 static hcq_handle_t 
@@ -58,6 +58,7 @@ init_cmd_queue( void )
 {
     hcq_handle_t  hcq = HCQ_INVALID_HANDLE;
     xemem_segid_t segid;
+    char * enclave_name = NULL;
 
     hcq = hcq_create_queue();
     
@@ -68,7 +69,9 @@ init_cmd_queue( void )
 
     segid = hcq_get_segid(hcq);
 
-    if (enclave_register_cmd_queue(enclave_name, segid) != 0) {
+    enclave_name = getenv("ENCLAVE_NAME");
+
+    if (hobbes_register_enclave_cmdq(enclave_name, segid) != 0) {
 	ERROR("Could not register command queue\n");
 	hcq_free_queue(hcq);
 	return HCQ_INVALID_HANDLE;

@@ -9,8 +9,8 @@
 #include <xpmem.h>
 #include <pet_log.h>
 
-#include <enclave.h>
-#include <client.h>
+#include <hobbes_enclave.h>
+#include <hobbes_client.h>
 
 const char * hobbes_prog_version = "Hobbes 0.1";
 const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
@@ -42,7 +42,7 @@ create_enclave_handler(int argc, char ** argv)
 	name = argv[2];
     }
 
-    return create_enclave(cfg_file, name);
+    return hobbes_create_enclave(cfg_file, name);
 }
 
 
@@ -54,21 +54,10 @@ destroy_enclave_handler(int argc, char ** argv)
 	return -1;
     }
 
-    return destroy_enclave(argv[1]);
+    return hobbes_destroy_enclave(argv[1]);
 }
 
-static int
-launch_job_handler(int argc, char ** argv)
-{
-    if (argc < 1) {
-	printf("Usage: hobbes launch_job <enclave_name>\n");
-	return -1;
-    }
 
-    
-
-    return -1;
-}
 
 static int
 list_enclaves_handler(int argc, char ** argv)
@@ -77,7 +66,7 @@ list_enclaves_handler(int argc, char ** argv)
     int num_enclaves = -1;
     int i = 0;
 
-    enclaves = get_enclave_list(&num_enclaves);
+    enclaves = hobbes_get_enclave_list(&num_enclaves);
 
     if (enclaves == NULL) {
 	ERROR("Could not retrieve enclave list\n");
@@ -140,12 +129,14 @@ struct hobbes_cmd {
     char * desc;
 };
 
+extern int launch_app_main(int argc, char ** argv);
+
 static struct hobbes_cmd cmds[] = {
     {"create_enclave",  create_enclave_handler,  "Create Native Enclave"},
     {"destroy_enclave", destroy_enclave_handler, "Destroy Native Enclave"},
     {"list_enclaves",   list_enclaves_handler,   "List all running enclaves"},
-    {"launch_job",      launch_job_handler,      "Launch a job in an enclave"},
     {"list_segments",   list_segments_handler,   "List all exported xpmem segments"},
+    {"launch_app",      launch_app_main,         "Launch an application in an enclave"},
     {0, 0, 0}
 };
 

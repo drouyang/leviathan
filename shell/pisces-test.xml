@@ -1,7 +1,7 @@
 <enclave type="pisces">
     <kernel>/home/jarusl/kitten/vmlwk.bin</kernel>
     <init_task>/home/jarusl/hobbes/lwk_inittask/lwk_init</init_task>
-    <cmd_line>console=pisces init_envp="ENCLAVE_NAME=enclave-3"</cmd_line>
+    <cmd_line>console=pisces init_envp="ENCLAVE_NAME=enclave-2"</cmd_line>
     
     <boot_env>
 <!--       <cpu>2</cpu> -->

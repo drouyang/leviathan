@@ -14,7 +14,7 @@
 #include <pet_log.h>
 #include <stdint.h>
 
-#include "cmd_queue.h"
+#include "hobbes_cmd_queue.h"
 #include "xpmem.h"
 
 

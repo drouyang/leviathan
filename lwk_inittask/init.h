@@ -6,7 +6,7 @@
 #define __INIT_H__
 
 
-#include <cmd_queue.h>
+#include <hobbes_cmd_queue.h>
 
 extern cpu_set_t  enclave_cpus;
 extern uint64_t   enclave_id;

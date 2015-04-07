@@ -11,7 +11,7 @@
 
 
 static int
-destroy_linux_vm(hdb_id_t enclave_id)
+destroy_linux_vm(hobbes_id_t enclave_id)
 {
     int  * numa_block_list = NULL;
     int    dev_id          = -1;
@@ -147,13 +147,14 @@ static int
 create_linux_vm(ezxml_t   xml, 
 		char    * name)
 {
-    char   * enclave_name = name; 
-    hdb_id_t enclave_id   = -1;
-    int      vm_id        = -1;
-    int      ret          =  0;
+    hobbes_id_t enclave_id = -1;
 
-    int * alloced_array   = NULL;
-    int   alloced_blocks  = 0;
+    char * enclave_name    =  name; 
+    int    vm_id           = -1;
+    int    ret             =  0;
+
+    int  * alloced_array   =  NULL;
+    int    alloced_blocks  =  0;
 
  
   

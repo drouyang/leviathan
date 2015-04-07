@@ -72,8 +72,8 @@ static int
 create_pisces_enclave(ezxml_t   xml, 
 		      char    * name)
 {
-    int      pisces_id  = -1;
-    hdb_id_t enclave_id = -1;
+    int         pisces_id  = -1;
+    hobbes_id_t enclave_id = -1;
 
     /* Add enclave to the Master DB */
     {
@@ -320,7 +320,7 @@ create_pisces_enclave(ezxml_t   xml,
 
 
 static int
-destroy_pisces_enclave(hdb_id_t enclave_id)
+destroy_pisces_enclave(hobbes_id_t enclave_id)
 {
 
     char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);

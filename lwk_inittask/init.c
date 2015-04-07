@@ -22,9 +22,9 @@
 #include <v3vee.h>
 
 #include <xemem.h>
-#include <enclave.h>
-#include <cmd_queue.h>
-#include <client.h>
+#include <hobbes_enclave.h>
+#include <hobbes_cmd_queue.h>
+#include <hobbes_client.h>
 
 #include "init.h"
 #include "pisces.h"
@@ -41,21 +41,6 @@ char      * enclave_name =  NULL;
 
 bool hobbes_enabled = true;
 bool v3vee_enabled  = false;
-
-
-
-
-static uint32_t 
-handler_hash_fn(uintptr_t key)
-{
-    return pet_hash_ptr(key);
-}
-
-static int
-handler_equal_fn(uintptr_t key1, uintptr_t key2)
-{
-    return (key1 == key2);
-}
 
 
 
