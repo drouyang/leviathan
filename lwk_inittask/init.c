@@ -37,12 +37,16 @@ cpu_set_t   enclave_cpus;
 char      * enclave_name =  NULL; 
 
 
-
-
 bool hobbes_enabled = true;
 bool v3vee_enabled  = false;
 
 
+
+
+
+static void hobbes_exit( void ) {
+    hobbes_client_deinit();
+}
 
 
 
@@ -65,15 +69,6 @@ main(int argc, char ** argv, char * envp[])
  
     printf("Pisces Control Daemon\n");
 
-
-    /* Detect a Hobbes environment by checking for an enclave name */
-    enclave_name = getenv("ENCLAVE_NAME");
-
-    if (enclave_name == NULL) {
-	ERROR("Enclave Name is not set\n");
-	hobbes_enabled = false;
-    }
-
     /* Set up Pisces interface */
     {
 	printf("Initializing Pisces Interface\n");
@@ -91,16 +86,17 @@ main(int argc, char ** argv, char * envp[])
 
     printf("Checking for Hobbes environment...\n");
     /* Set up Hobbes interface */
-    if (hobbes_enabled) {
-	printf("\tHobbes Enclave: %s\n", enclave_name);
+    if (hobbes_is_enabled()) {
     
 	hobbes_client_init();
-    
+	atexit(hobbes_exit);
+
+	printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());
+   
 	printf("\tInitializing Hobbes Command Queue\n");
 
 	hcq = hobbes_cmd_init();
 
-    
 	if (hcq != HCQ_INVALID_HANDLE) {
 
 	    printf("\t...done\n");
@@ -161,6 +157,7 @@ main(int argc, char ** argv, char * envp[])
 	    if (ret == -1) {
 		ERROR("Hobbes handler fault\n");
 		return -1;
+		
 	    }
 	}
     }

@@ -30,7 +30,7 @@ extern cpu_set_t enclave_cpus;
 #include "app_launch.h"
 
 int 
-launch_job(char        * name, 
+launch_app(char        * name, 
 	   char        * exe_path, 
 	   char        * argv, 
 	   char        * envp, 

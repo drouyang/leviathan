@@ -64,6 +64,7 @@ xemem_apid_t xemem_get(xemem_segid_t  segid,
 int xemem_release(xemem_apid_t apid);
 
 int xemem_signal(xemem_apid_t apid);
+int xemem_signal_segid(xemem_segid_t segid);
 
 int xemem_ack(int fd);
 

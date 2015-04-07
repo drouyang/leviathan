@@ -45,14 +45,14 @@ static int cmd_line_exe         = 1;
 
 
 static void usage() {
-    printf("pisces_run: Job Launch utility for pisces\n\n"		\
-	   " Launches a job as specified in command line options or in a job_file.\n\n"						\
-	   "Usage: pisces_run <enclave_dev> [options] <-f job_file | exe args...>\n" \
-	   " Options: \n"						           \
-	   "\t[-np <ranks>]               (default: 1)        : Number of ranks  \n" \
-	   "\t[--cpulist=<cpus>]          (default: 0,1,2...) : comma separated list of target CPUs \n"  \
-	   "\t[--use_large_pages]         (default: n)        : Use large pages  \n"		\
-	   "\t[--use_smartmap]            (default: n)        : Use smartmap     \n"	                   \
+    printf("launch_app: App Launch utility for Hobbes\n\n"		                                   \
+	   " Launches an application as specified in command line options or in a job_file.\n\n"           \
+	   "Usage: launch_app <enclave_name> [options] <-f job_file | exe args...>\n"                      \
+	   " Options: \n"						                                   \
+	   "\t[-np <ranks>]               (default: 1)        : Number of ranks  \n"                       \
+	   "\t[--cpulist=<cpus>]          (default: 0,1,2...) : comma separated list of target CPUs \n"	   \
+	   "\t[--use_large_pages]         (default: n)        : Use large pages  \n"                       \
+	   "\t[--use_smartmap]            (default: n)        : Use smartmap     \n"                       \
 	   "\t[--heap_size=<size in MB>]  (default: 16MB)     : Heap size in MB  \n"            	   \
 	   "\t[--stack_size=<size in MB>] (default: 256KB)    : Stack size in MB \n" 		           \
 	   "\t[--name=<name>]             (default: exe name) : Name of Job      \n"		           \
@@ -66,6 +66,7 @@ static void usage() {
 int launch_app_main(int argc, char ** argv) {
     int         use_job_file  =  0;
     hobbes_id_t enclave_id    = -1;
+    int         ret           =  0;
 
     /* Parse Options */
     {
@@ -95,8 +96,6 @@ int launch_app_main(int argc, char ** argv) {
 		    cmd_line_exe = 0;
 		    break;
 		case 0:
-		    printf("longoptindex=%d required_argument=%d\n", opt_index, required_argument);
-		    printf("option=%s arg=%s\n", long_options[opt_index].name, optarg);
 		    
 
 		    switch (opt_index) {
@@ -184,8 +183,6 @@ int launch_app_main(int argc, char ** argv) {
 
 	}
 	
-	printf("argc=%d, optind=%d\n", argc, optind);
-
 
 	/*  At this point we have <enclave> <exe_path> <exe_args> left 
 	 *  OR if a job file is set then just <enclave> left 
@@ -203,6 +200,8 @@ int launch_app_main(int argc, char ** argv) {
 	    
 	} else {
 	    int i = 0;
+
+	    printf("enclave = %s\n", argv[optind]);
 
 	    enclave_id = hobbes_get_enclave_id(argv[optind]);
 	    exe_path   = argv[optind + 1];
@@ -276,9 +275,10 @@ int launch_app_main(int argc, char ** argv) {
 
 	
 	printf("bla=%p, %d\n", app_spec, enclave_id);
-	//	return hobbes_launch_app(enclave_id, app_spec);
-			    
+	ret =  hobbes_launch_app(enclave_id, app_spec);
+		
+	hobbes_free_app_spec(app_spec);
     }
 
-    return -1;
+    return ret;
 }

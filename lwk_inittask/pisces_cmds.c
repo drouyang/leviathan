@@ -24,7 +24,7 @@
 #include "pisces_cmds.h"
 #include "palacios.h"
 #include "init.h"
-#include "job_launch.h"
+#include "app_launch.h"
 
 static struct hashtable * pisces_cmd_handlers = NULL;
 
@@ -208,7 +208,7 @@ __launch_job(int      pisces_fd,
     
     job_spec = &(job_cmd->spec);
 
-    ret = launch_job(job_spec->name,
+    ret = launch_app(job_spec->name,
 		     job_spec->exe_path, 
 		     job_spec->argv, 
 		     job_spec->envp, 

@@ -17,7 +17,7 @@ typedef union {
 }  job_flags_t;
 
 
-int launch_job(char        * name, 
+int launch_app(char        * name, 
 	       char        * exe_path, 
 	       char        * argv, 
 	       char        * envp, 

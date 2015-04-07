@@ -36,21 +36,27 @@ xemem_make(void          * vaddr,
 
 xemem_segid_t
 xemem_make_signalled(void   * vaddr, 
-		    size_t   size,
-		    int      permit_type,
-		    void   * permit_value, 
-		    char   * name, 
-		    int    * fd)
+		     size_t   size,
+		     int      permit_type,
+		     void   * permit_value, 
+		     char   * name, 
+		     int    * fd)
 {
     xemem_segid_t segid = 0;
+
     int tmp_fd = 0;
+    int flags  = 0;
 
     if (fd == NULL) {
 	ERROR("Invalid file descriptor pointer\n");
 	return (xemem_segid_t)-1;
     }
 
-    segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_MEM_MODE | XPMEM_SIG_MODE, 0, &tmp_fd);
+    if (size > 0) {
+	flags = XPMEM_MEM_MODE;
+    }
+
+    segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, flags | XPMEM_SIG_MODE, 0, &tmp_fd);
     
     if (segid <= 0) {
 	ERROR("Could not create xemem segment\n");
@@ -146,6 +152,26 @@ xemem_signal(xemem_apid_t apid)
 
     return ret;
 }
+
+int
+xemem_signal_segid(xemem_segid_t segid)
+{
+    xemem_apid_t apid = 0;
+    
+    apid = xemem_get(segid, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
+
+    if (apid <= 0) {
+	ERROR("Could not get APID for SEGID (%lu)\n", segid);
+	return -1;
+    }
+
+    xemem_signal(apid);
+
+    xemem_release(apid);
+    
+    return 0;
+}
+
 
 int 
 xemem_ack(int fd)

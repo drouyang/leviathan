@@ -1,10 +1,10 @@
-/* Hobbes Enclave Commands 
+/* Hobbes Enclave Command handler 
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
 
-#ifndef __HOBBES_CMDS_H__
-#define __HOBBES_CMDS_H__
+#ifndef __LWK_HOBBES_CMDS_H__
+#define __LWK_HOBBES_CMDS_H__
 
 #include <hobbes_cmd_queue.h>
 

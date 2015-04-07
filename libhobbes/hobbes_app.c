@@ -15,7 +15,6 @@
 #include "hobbes_app.h"
 
 
-#if 0
 
 static ezxml_t 
 open_xml_file(char * filename) 
@@ -56,14 +55,15 @@ get_val(ezxml_t   cfg,
 }
 
 
+/*
 static ezxml_t 
 get_subtree(ezxml_t   tree,
 	    char    * tag) 
 {
     return ezxml_child(tree, tag);
 }
+*/
 
-#endif
 
 
 hobbes_app_spec_t
@@ -154,16 +154,128 @@ hobbes_build_app_spec(char      * name,
     }
 
     free(tmp_str);
-    return root_xml;
+    return (hobbes_app_spec_t)root_xml;
 }
 
+
+hobbes_app_spec_t 
+hobbes_parse_app_spec(char * xml_str)
+{
+    ezxml_t   spec      = NULL;
+    char    * parse_str = NULL;
+   
+    parse_str = strdup(xml_str);
+    
+    if (!parse_str) {
+	ERROR("Could not duplication XML input\n");
+	return NULL;
+    }
+
+    spec = ezxml_parse_str(parse_str, strlen(parse_str) + 1);
+
+    free(parse_str);
+
+    if (spec == NULL) {
+	ERROR("Could not parse XML input string\n");
+    }
+
+    return (hobbes_app_spec_t)spec;
+}
+
+
+hobbes_app_spec_t
+hobbes_load_app_spec(char * filename)
+{
+    ezxml_t spec_xml = NULL;
+
+    spec_xml = open_xml_file(filename);
+
+    if (spec_xml == NULL) {
+	ERROR("Could not read spec file from disk\n");
+	return NULL;
+    }
+
+    if ( !get_val(spec_xml, "path") ) {
+	ERROR("Invalid App Spec file (missing path)\n");
+	return NULL;
+    }
+
+    return (hobbes_app_spec_t)spec_xml;
+}
+
+
+int 
+hobbes_save_app_spec(hobbes_app_spec_t   spec, 
+		     char              * filename)
+{
+    char * xml_str = NULL;
+    FILE * xml_fp  = NULL;
+
+
+    xml_fp = fopen(filename, "r+");
+
+    if (xml_fp == NULL) {
+	ERROR("Could not open file (%s) to save app spec\n", filename);
+	return -1;
+    }
+    
+    xml_str = ezxml_toxml(spec);
+
+    if (xml_str == NULL) {
+	ERROR("Could not convert app spec to XML string\n");
+	fclose(xml_fp);
+	return -1;
+    }
+
+    fprintf(xml_fp, "%s\n", xml_str);
+
+    fclose(xml_fp);
+
+    return 0;
+}
+
+void 
+hobbes_free_app_spec(hobbes_app_spec_t app_spec)
+{
+    ezxml_free(app_spec);
+}
 
 
 int 
 hobbes_launch_app(hobbes_id_t       enclave_id,
 		  hobbes_app_spec_t spec)
 {
+    hcq_handle_t  hcq      = hobbes_open_enclave_cmdq(enclave_id);
+    hcq_cmd_t     cmd      = HCQ_INVALID_CMD;
+    char        * spec_str = NULL;
+    int           ret      = 0;
 
+    printf("launching app\n");
 
-    return 0;
+    spec_str = ezxml_toxml(spec);
+    
+    if (spec_str == NULL) {
+	ERROR("Could not convert XML spec to string\n");
+	return -1;
+    }
+
+    printf("spec_str=%s\n", spec_str);
+
+    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_APP_LAUNCH, strlen(spec_str) + 1, spec_str);
+
+    printf("cmd returned\n");
+
+    printf("getting ret code\n");
+    ret = hcq_get_ret_code(hcq, cmd);
+    
+    printf("hcq cmd_complete\n");
+    hcq_cmd_complete(hcq, cmd);
+    
+    printf("hobbes_close enclave cmdq\n");
+    hobbes_close_enclave_cmdq(hcq);
+
+    printf("Returning from launch app\n");
+    return ret;
 }
+
+

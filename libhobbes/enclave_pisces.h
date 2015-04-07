@@ -94,9 +94,10 @@ create_pisces_enclave(ezxml_t   xml,
 
     /* Load Enclave OS files */
     {
-	char * kern    = get_val(xml, "kernel");
-	char * initrd  = get_val(xml, "init_task");
-	char * cmdline = get_val(xml, "cmd_line");
+	char * kern        = get_val(xml, "kernel");
+	char * initrd      = get_val(xml, "init_task");
+	char * cmdline     = get_val(xml, "cmd_line");
+	char * tmp_cmdline = NULL;
 
 	
 	if ( (kern == NULL) || (initrd == NULL) ) {
@@ -106,8 +107,13 @@ create_pisces_enclave(ezxml_t   xml,
 
 	    return -1;
 	} 
-	
-	pisces_id = pisces_load(kern, initrd, cmdline);
+
+	/* update command line to include appropriate environment variables */
+	asprintf(&tmp_cmdline, "%s init_envp=\"%s=%d\"", cmdline, HOBBES_ENV_ENCLAVE_ID, enclave_id);
+
+	pisces_id = pisces_load(kern, initrd, tmp_cmdline);
+
+	free(tmp_cmdline);
 
 	if (pisces_id < 0) {
 
@@ -116,7 +122,6 @@ create_pisces_enclave(ezxml_t   xml,
 	    ERROR("Could not load Pisces Enclave\n");
 	    ERROR("\tkernel  = %s\n", kern);
 	    ERROR("\tinitrd  = %s\n", initrd);
-	    ERROR("\tcmdline = %s\n", cmdline);
 	    return -1;
 	}
 

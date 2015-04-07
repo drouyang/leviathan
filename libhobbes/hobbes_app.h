@@ -26,6 +26,7 @@ hobbes_build_app_spec(char      * name,
 
 void hobbes_free_app_spec(hobbes_app_spec_t spec);
 
+hobbes_app_spec_t hobbes_parse_app_spec(char * xml_str);
 hobbes_app_spec_t hobbes_load_app_spec(char * filename);
 int hobbes_save_app_spec(hobbes_app_spec_t spec, char * filename);
 

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <poll.h>
 
 #include <dbapi.h>
 #include <dballoc.h>
@@ -57,11 +58,14 @@ struct cmd_queue {
     hcq_type_t type; 
     int fd;
 
+    xemem_segid_t client_segid;
+
     void  * db_addr;
     void  * db;
 
     xemem_segid_t segid;
     xemem_apid_t  apid;
+
 };
 
 
@@ -180,14 +184,24 @@ hcq_connect(xemem_segid_t segid)
     void             * db_addr = NULL;
     void             * db      = NULL;
 
+    xemem_segid_t client_segid = 0;
+    int           client_fd    = 0;
 
     struct xemem_addr addr;
+    
+    client_segid = xemem_make_signalled(NULL, 0, XPMEM_PERMIT_MODE, (void *)0600, NULL, &client_fd);
+    
+    if (client_segid <= 0) {
+	ERROR("Could not create client signal segid\n");
+	return HCQ_INVALID_HANDLE;
+    }
 
     apid = xemem_get(segid, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
     
     if (apid <= 0) {
+	xemem_remove(client_segid);
 	ERROR("Failed to get APID for command queue\n");
-	return cq;
+	return HCQ_INVALID_HANDLE;
     }
 
     addr.apid   = apid;
@@ -198,6 +212,7 @@ hcq_connect(xemem_segid_t segid)
     if (db_addr == MAP_FAILED) {
 	ERROR("Failed to attach to command queue\n");
 	xemem_release(apid);
+	xemem_remove(client_segid);
 	return HCQ_INVALID_HANDLE;
     }
 
@@ -208,17 +223,20 @@ hcq_connect(xemem_segid_t segid)
 	ERROR("Failed to attach command queue database\n");
 	xemem_detach(db_addr);
 	xemem_release(apid);
+	xemem_remove(client_segid);
 	return HCQ_INVALID_HANDLE;
     }
 
+
     cq = calloc(sizeof(struct cmd_queue), 1);
 
-    cq->type    = HCQ_CLIENT;
-    cq->fd      = -1;
-    cq->db_addr = db_addr;
-    cq->db      = db;
-    cq->segid   = segid;
-    cq->apid    = apid;
+    cq->type         = HCQ_CLIENT;
+    cq->fd           = client_fd;
+    cq->client_segid = client_segid;
+    cq->db_addr      = db_addr;
+    cq->db           = db;
+    cq->segid        = segid;
+    cq->apid         = apid;
 
     return cq;
 }
@@ -229,13 +247,22 @@ hcq_disconnect(hcq_handle_t hcq)
 {
     struct cmd_queue * cq = hcq;
 
+    printf("detach local\n");
     wg_detach_local_database(cq->db);
 
+    printf("xemem detach\n");
     xemem_detach(cq->db_addr);
+
+    printf("xemem release (apid=%lu)\n", cq->apid);
     xemem_release(cq->apid);
 
+    printf("xemem remove\n");
+    xemem_remove(cq->client_segid);
+
+    printf("free\n");
     free(cq);
 
+    printf("return\n");
     return;
 }
 
@@ -282,6 +309,11 @@ __cmd_issue(struct cmd_queue * cq,
     hcq_cmd_t  cmd_id  = HCQ_INVALID_CMD;
     uint64_t   cmd_cnt = 0;
 
+    if ((data_size > 0) && (data == NULL)) {
+	ERROR("NULL data pointer, but positive data size\n");
+	return HCQ_INVALID_CMD;
+    }
+
 
     hdr_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
     
@@ -301,14 +333,21 @@ __cmd_issue(struct cmd_queue * cq,
     wg_set_field(db, cmd_rec, HCQ_TYPE_FIELD,             wg_encode_int(db, HCQ_CMD_TYPE));
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_ID,           wg_encode_int(db, cmd_id));
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_CODE,     wg_encode_int(db, cmd_code));
-    wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID,        wg_encode_int(db, 0));  
+    wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID,        wg_encode_int(db, cq->client_segid));  
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_SIZE,     wg_encode_int(db, data_size));
-    wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_DATA,     wg_encode_blob(db, data, NULL, data_size)); 
+
+    if (data_size > 0) {
+	wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_DATA,     wg_encode_blob(db, data, NULL, data_size)); 
+    }
+
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_STATUS,       wg_encode_int(db, HCQ_CMD_PENDING)); 
 
     /* Activate in queue */
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_NEXT_AVAIL,   wg_encode_int(db, cmd_id  + 1));
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING,  wg_encode_int(db, cmd_cnt + 1));
+
+
+    printf("Signalling apid %lu\n", cq->apid);
 
     xemem_signal(cq->apid);
 
@@ -323,9 +362,10 @@ hcq_cmd_issue(hcq_handle_t hcq,
 	      uint32_t     data_size,
 	      void       * data)
 {
-    struct cmd_queue * cq = hcq;
+    struct cmd_queue * cq  = hcq;
+    hcq_cmd_t          cmd = HCQ_INVALID_CMD;
+
     wg_int    lock_id;
-    hcq_cmd_t cmd = HCQ_INVALID_CMD;
 
     lock_id = wg_start_write(cq->db);
 
@@ -340,6 +380,20 @@ hcq_cmd_issue(hcq_handle_t hcq,
 	ERROR("Apparently this is catastrophic...\n");
 	return HCQ_INVALID_CMD;
     }
+    
+    /* poll for completion */
+    {
+	struct pollfd ufd = {cq->fd, POLLIN, 0};
+
+	while (hcq_get_cmd_status(hcq, cmd) != HCQ_CMD_RETURNED) {
+	    if (poll(&ufd, 1, -1) == -1) { 
+		ERROR("poll() error\n");
+	    } else {
+		xemem_ack(cq->fd);
+	    }
+	}
+    }
+
 
     return cmd;
 }
@@ -456,7 +510,10 @@ __get_ret_data(struct cmd_queue * cq,
     }
 
     data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_CODE));
-    data      = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_DATA));
+
+    if (data_size > 0) {
+	data  = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_DATA));
+    }
 
     *size = data_size;
     return data;
@@ -658,7 +715,10 @@ __get_cmd_data(struct cmd_queue * cq,
     }
 
     data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_CODE));
-    data      = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_DATA));
+
+    if (data_size > 0) {
+	data  = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_DATA));
+    }
 
     *size = data_size;
     return data;
@@ -702,13 +762,17 @@ __cmd_return(struct cmd_queue * cq,
 	     uint32_t           data_size,
 	     void             * data)
 {
-    void     * db      = cq->db;
-    void     * hdr_rec = NULL;
-    void     * cmd_rec = NULL;
-    hcq_cmd_t  pending = HCQ_INVALID_CMD;
-    uint64_t   cmd_cnt = 0;
-
+    void        * db      = cq->db;
+    void        * hdr_rec = NULL;
+    void        * cmd_rec = NULL;
+    hcq_cmd_t     pending = HCQ_INVALID_CMD;
+    uint64_t      cmd_cnt = 0;
     
+    if ((data_size > 0) && (data == NULL)) {
+	ERROR("NULL Data pointer, but positive data size\n");
+	return -1;
+    }
+
     hdr_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
     
     if (!hdr_rec) {
@@ -733,7 +797,11 @@ __cmd_return(struct cmd_queue * cq,
 
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_RET_CODE, wg_encode_int(db, ret_code));
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_RET_SIZE, wg_encode_int(db, data_size));
-    wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_RET_DATA, wg_encode_blob(db, data, NULL, data_size));
+
+    if (data_size > 0) {
+	wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_RET_DATA, wg_encode_blob(db, data, NULL, data_size));
+    }
+
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_STATUS,   wg_encode_int(db, HCQ_CMD_RETURNED));
 
     /* Update the header fields */
@@ -741,7 +809,15 @@ __cmd_return(struct cmd_queue * cq,
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING,     wg_encode_int(db, pending + 1));
 
     /* Signal Client segid */
-    
+    {
+	xemem_segid_t segid   = 0;
+
+	segid = wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID));
+	
+	if (segid > 0) {
+	    xemem_signal_segid(segid);
+	}
+    }
 
     return 0;
 }	     
