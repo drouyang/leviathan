@@ -183,8 +183,6 @@ create_pisces_enclave(ezxml_t   xml,
     }
 
 
-
-
     /* Dynamically add additional memory (if requested) */
     {
 	ezxml_t memory_tree = get_subtree(xml, "memory");
