@@ -14,7 +14,7 @@
 #include <pet_log.h>
 
 #include "pisces.h"
-#include "pisces_cmds.h"
+#include "pisces_ctrl.h"
 
 
 /* Pisces device file IOCTLs */

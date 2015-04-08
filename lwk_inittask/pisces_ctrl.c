@@ -21,7 +21,7 @@
 #include <v3vee.h>
 
 #include "pisces.h"
-#include "pisces_cmds.h"
+#include "pisces_ctrl.h"
 #include "palacios.h"
 #include "init.h"
 #include "app_launch.h"

@@ -7,6 +7,7 @@
 #define __LWK_HOBBES_CMDS_H__
 
 #include <hobbes_cmd_queue.h>
+#include <hobbes_cmds.h>
 
 typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
                              hcq_cmd_t     cmd);

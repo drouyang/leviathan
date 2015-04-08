@@ -15,7 +15,7 @@
 
 #include <hobbes_enclave.h>
 
-#include "hobbes_cmds.h"
+#include "hobbes_ctrl.h"
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
