@@ -16,6 +16,7 @@
 #include <hobbes_enclave.h>
 
 #include "hobbes_ctrl.h"
+#include "app_launch.h"
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
@@ -107,53 +108,33 @@ register_hobbes_cmd(uint64_t        cmd,
 
 }
 
-/*
+
 static int
 __launch_app(hcq_handle_t hcq, 
 	     uint64_t     cmd)
 {
     uint32_t   data_size = 0;
     char     * xml_str   = NULL;
-    char     * prase_str = NULL;
-    ezml_t     spec      = NULL;
+
+    int ret = -1;
     
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
-    
+
     if (xml_str == NULL) {
 	ERROR("Could not read App spec\n");
-	hcq_cmd_return(hcq, cmd, -1, 0, NULL);
-	return 0;
-
+	goto out;
     }
 
-    parse_str = strdup(xml_str);
+    /* ensure null termination */
+    xml_str[data_size] = '\0';
 
-    spec = ezxml_parse(xml_str, data_size);
+    ret = launch_app_spec(xml_str);
 
-    free(parse_str);
-
-    if (!spec) {
-	ERROR("Invalid App spec\n");
-	hcq_cmd_return(hcq, cmd, -1, 0, NULL);
-	return 0;
-    }
-
-    {
-
-	
-
-
-
-
-
-    }
-
-    
-
+ out:
+    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;
 }
 
-*/
 hcq_handle_t
 hobbes_cmd_init(void)
 {
@@ -161,7 +142,7 @@ hobbes_cmd_init(void)
     hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
     
-    //    register_hobbes_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    register_hobbes_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
 
     return init_cmd_queue();
 }

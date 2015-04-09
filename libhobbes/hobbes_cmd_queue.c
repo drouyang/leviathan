@@ -815,6 +815,7 @@ __cmd_return(struct cmd_queue * cq,
 	segid = wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID));
 	
 	if (segid > 0) {
+	    printf("Sending signal to client segid (%lu)\n", segid);
 	    xemem_signal_segid(segid);
 	}
     }

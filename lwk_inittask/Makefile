@@ -9,12 +9,13 @@ AR = ar
 
 execs := lwk_init
 
-CFLAGS := 	-I$(KITTEN_PATH)/include \
+CFLAGS :=	-D_GNU_SOURCE            \
+		-Wall -Werror		 \
+	 	-I$(KITTEN_PATH)/include \
 	  	-I$(PALACIOS_PATH)/user  \
 		-I$(XPMEM_PATH)/include  \
 		-I$(LIBHOBBES_PATH)	 \
 		-I$(PETLIB_PATH)	 \
-		-Wall -Werror		 \
 		-static
 
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \

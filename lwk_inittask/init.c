@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -143,7 +141,7 @@ main(int argc, char ** argv, char * envp[])
 
 	    if (ret == -1) {
 		ERROR("Pisces handler fault\n");
-		return -1;
+		continue;
 	    }
 	}
 
@@ -156,7 +154,7 @@ main(int argc, char ** argv, char * envp[])
 
 	    if (ret == -1) {
 		ERROR("Hobbes handler fault\n");
-		return -1;
+		continue;
 		
 	    }
 	}

@@ -2,8 +2,8 @@
  * (c) 2015, Jack Lange, <jacklange@cs.pitt.edu>
  */
 
-#ifndef __JOB_LAUNCH_H__
-#define __JOB_LAUNCH_H__
+#ifndef __APP_LAUNCH_H__
+#define __APP_LAUNCH_H__
 
 
 typedef union {
@@ -28,6 +28,7 @@ int launch_app(char        * name,
 	       uint64_t      stack_size);
 
 
+int launch_app_spec(char * spec_str);
 
 
 #endif
