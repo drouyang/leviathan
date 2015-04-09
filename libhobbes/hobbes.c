@@ -21,13 +21,13 @@ static xemem_apid_t hobbes_db_apid;
 int 
 hobbes_client_init()
 {
-    void * db_addr = NULL;
+    void       * db_addr    = NULL;
 
     hobbes_db_apid = xemem_get(HDB_MASTER_DB_SEGID, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
 
     if (hobbes_db_apid <= 0) {
         printf("xpmem get failed\n");
-        return -1;
+	return -1;
     }
 
 
@@ -53,6 +53,7 @@ hobbes_client_init()
 	printf("Error: Could not connect to database\n");
 	return -1;
     }
+
 
 
 

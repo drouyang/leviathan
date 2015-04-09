@@ -89,24 +89,28 @@ main(int argc, char ** argv, char * envp[])
 	hobbes_client_init();
 	atexit(hobbes_exit);
 
+
 	printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());
    
 	printf("\tInitializing Hobbes Command Queue\n");
 
 	hcq = hobbes_cmd_init();
 
-	if (hcq != HCQ_INVALID_HANDLE) {
+	if (hcq == HCQ_INVALID_HANDLE) {
+	    ERROR("Could not initialize hobbes command queue\n");
+	    ERROR("Running in a degraded state with legacy pisces interface\n");
+	} else {
 
 	    printf("\t...done\n");
-
+	    
 	    /* Get File descriptors */    
 	    hcq_fd = hcq_get_fd(hcq);
 	    
 	    ufds[1].fd     = hcq_fd;
 	    ufds[1].events = POLLIN;
-	} else {
-	    ERROR("Could not initialize hobbes command queue\n");
-	    ERROR("Running in a degraded state with legacy pisces interface\n");
+	    
+	    /* Register that Hobbes userspace is running */
+	    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_RUNNING);
 	}
     }
     

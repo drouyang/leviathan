@@ -1,7 +1,7 @@
 #include <v3vee.h>
 
 #include <pet_numa.h>
-
+#include <pet_mem.h>
 
 #define PROC_PATH   "/proc/v3vee/"
 
@@ -144,8 +144,8 @@ destroy_linux_vm(hobbes_id_t enclave_id)
 
 
 static int 
-create_linux_vm(ezxml_t   xml, 
-		char    * name)
+create_linux_vm(pet_xml_t   xml, 
+		char      * name)
 {
     hobbes_id_t enclave_id = -1;
 
@@ -162,7 +162,7 @@ create_linux_vm(ezxml_t   xml,
     {
 
 	if (enclave_name == NULL) {
-	    enclave_name = get_val(xml, "name");
+	    enclave_name = pet_xml_get_val(xml, "name");
 	}
 
 	enclave_id = hdb_create_enclave(hobbes_master_db, 
@@ -184,8 +184,8 @@ create_linux_vm(ezxml_t   xml,
     printf("Allocating memory for VM\n");
     /* Allocate memory for VM */
     {
-	ezxml_t   mem_cfg  = get_subtree(xml,     "memory");
-	ezxml_t   numa_cfg = get_subtree(mem_cfg, "region");
+	pet_xml_t   mem_cfg  = pet_xml_get_subtree(xml,     "memory");
+	pet_xml_t   numa_cfg = pet_xml_get_subtree(mem_cfg, "region");
 
 	if (numa_cfg != NULL) {
 	    
@@ -193,8 +193,8 @@ create_linux_vm(ezxml_t   xml,
 	    memset(alloced_array, 0, sizeof(int) * pet_num_numa_nodes());
 
 	    while (numa_cfg) {
-		char * node_str = get_val(numa_cfg, "node");
-		char * size_str = get_val(numa_cfg, "size");
+		char * node_str = pet_xml_get_val(numa_cfg, "node");
+		char * size_str = pet_xml_get_val(numa_cfg, "size");
 
 		uint64_t mem_size  = 0;
 		uint64_t num_blks  = 0;
@@ -230,11 +230,11 @@ create_linux_vm(ezxml_t   xml,
 
 		alloced_array[numa_zone] = num_blks;
 
-		numa_cfg = ezxml_next(numa_cfg);
+		numa_cfg = pet_xml_get_next(numa_cfg);
 	    }
 
 	} else {
-	    char     * mem_str  = get_val(mem_cfg, "size");
+	    char     * mem_str  = pet_xml_get_val(mem_cfg, "size");
 	    uint64_t   mem_size = 0;
 	    uint64_t   num_blks = 0;
 	    

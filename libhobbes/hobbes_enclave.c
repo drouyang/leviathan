@@ -9,68 +9,19 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include <pisces.h>
-#include <pisces_ctrl.h>
 
-#include <pet_mem.h>
 #include <pet_log.h>
-#include <ezxml.h>
+#include <pet_xml.h>
 
 #include "hobbes.h"
 #include "hobbes_util.h"
 #include "hobbes_enclave.h"
+#include "pisces_enclave_ctrl.h"
 #include "hobbes_db.h"
 
 extern hdb_db_t hobbes_master_db;
 
 
-static ezxml_t 
-open_xml_file(char * filename) 
-{
-    ezxml_t xml_input = ezxml_parse_file(filename);
-    
-    if (xml_input == NULL) {
-	ERROR("Could not open XML input file (%s)\n", filename);
-	return NULL;
-    } else if (strcmp("", ezxml_error(xml_input)) != 0) {
-	ERROR("%s\n", ezxml_error(xml_input));
-	return NULL;
-    }
-
-    return xml_input;
-}
-
-
-
-static char * 
-get_val(ezxml_t   cfg,
-	char    * tag) 
-{
-    char   * attrib = (char *)ezxml_attr(cfg, tag);
-    ezxml_t  txt    = ezxml_child(cfg, tag);
-    char   * val    = NULL;
-
-    if ((txt != NULL) && (attrib != NULL)) {
-	ERROR("Invalid Cfg file: Duplicate value for %s (attr=%s, txt=%s)\n", 
-	       tag, attrib, ezxml_txt(txt));
-	return NULL;
-    }
-
-    val = (attrib == NULL) ? ezxml_txt(txt) : attrib;
-
-    /* An non-present value actually == "". So we check if the 1st char is '/0' and return NULL */
-    if (!*val) return NULL;
-
-    return val;
-}
-
-
-static ezxml_t 
-get_subtree(ezxml_t   tree,
-	    char    * tag) 
-{
-    return ezxml_child(tree, tag);
-}
 
 
 
@@ -104,7 +55,6 @@ read_file(int             fd,
 }
 */
 
-#include "enclave_pisces.h"
 #include "enclave_linux_vm.h"
 
 
@@ -112,10 +62,10 @@ int
 hobbes_create_enclave(char * cfg_file_name, 
 		      char * name)
 {
-    ezxml_t   xml  = NULL;
-    char    * type = NULL; 
+    pet_xml_t   xml  = NULL;
+    char      * type = NULL; 
 
-    xml = open_xml_file(cfg_file_name);
+    xml = pet_xml_open_file(cfg_file_name);
     
     if (xml == NULL) {
 	ERROR("Error loading Enclave config file (%s)\n", cfg_file_name);
@@ -123,12 +73,12 @@ hobbes_create_enclave(char * cfg_file_name,
     }
 
 
-    if (strncmp("enclave", ezxml_name(xml), strlen("enclave")) != 0) {
+    if (strncmp("enclave", pet_xml_tag_name(xml), strlen("enclave")) != 0) {
 	ERROR("Invalid XML Config: Not an enclave config\n");
 	return -1;
     }
 
-    type = get_val(xml, "type");
+    type = pet_xml_get_val(xml, "type");
     
     if (type == NULL) {
 	ERROR("Enclave type not specified\n");
@@ -139,10 +89,10 @@ hobbes_create_enclave(char * cfg_file_name,
     if (strncasecmp(type, "pisces", strlen("pisces")) == 0) {
 
 	DEBUG("Creating Pisces Enclave\n");
-	return create_pisces_enclave(xml, name);
+	return pisces_enclave_create(xml, name);
 
     } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
-	char * target = get_val(xml, "host_enclave");
+	char * target = pet_xml_get_val(xml, "host_enclave");
 	
 	if (!target) {
 	    DEBUG("Creating Palacios/Linux Enclave\n");
@@ -182,7 +132,7 @@ hobbes_destroy_enclave(hobbes_id_t enclave_id)
    
 
     if (enclave_type == PISCES_ENCLAVE) {
-	return destroy_pisces_enclave(enclave_id);
+	return pisces_enclave_destroy(enclave_id);
     } else if (enclave_type == LINUX_VM_ENCLAVE) {
 	return destroy_linux_vm(enclave_id);
 
@@ -209,6 +159,19 @@ char *
 hobbes_get_enclave_name(hobbes_id_t enclave_id)
 {
     return hdb_get_enclave_name(hobbes_master_db, enclave_id);
+}
+
+int 
+hobbes_set_enclave_state(hobbes_id_t     enclave_id, 
+			 enclave_state_t state) 
+{
+    return hdb_set_enclave_state(hobbes_master_db, enclave_id, state);
+}
+
+hobbes_id_t
+hobbes_get_enclave_state(hobbes_id_t     enclave_id) 
+{
+    return hdb_get_enclave_state(hobbes_master_db, enclave_id);
 }
 
 

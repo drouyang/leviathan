@@ -1,3 +1,28 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include <stdint.h>
+
+#include <pisces.h>
+#include <pisces_ctrl.h>
+
+#include <pet_mem.h>
+#include <pet_log.h>
+#include <pet_xml.h>
+
+#include "hobbes.h"
+#include "hobbes_db.h"
+#include "hobbes_util.h"
+#include "pisces_enclave_ctrl.h"
+
+
+extern hdb_db_t hobbes_master_db;
+
+
+
+
+
 static int
 add_cpus_to_pisces(int pisces_id,
 		   int num_cpus, 
@@ -68,9 +93,9 @@ add_mem_blocks_to_pisces(int pisces_id,
 	   
 
 
-static int 
-create_pisces_enclave(ezxml_t   xml, 
-		      char    * name)
+int 
+pisces_enclave_create(pet_xml_t   xml, 
+		      char      * name)
 {
     int         pisces_id  = -1;
     hobbes_id_t enclave_id = -1;
@@ -80,7 +105,7 @@ create_pisces_enclave(ezxml_t   xml,
 	char * enclave_name = name; 
 
 	if (enclave_name == NULL) {
-	    enclave_name = get_val(xml, "name");
+	    enclave_name = pet_xml_get_val(xml, "name");
 	}
 
 	enclave_id = hdb_create_enclave(hobbes_master_db, enclave_name, pisces_id, PISCES_ENCLAVE, 0);
@@ -94,9 +119,9 @@ create_pisces_enclave(ezxml_t   xml,
 
     /* Load Enclave OS files */
     {
-	char * kern        = get_val(xml, "kernel");
-	char * initrd      = get_val(xml, "init_task");
-	char * cmdline     = get_val(xml, "cmd_line");
+	char * kern        = pet_xml_get_val(xml, "kernel");
+	char * initrd      = pet_xml_get_val(xml, "init_task");
+	char * cmdline     = pet_xml_get_val(xml, "cmd_line");
 	char * tmp_cmdline = NULL;
 
 	
@@ -137,20 +162,20 @@ create_pisces_enclave(ezxml_t   xml,
 	int block_id   = -1;
 	int num_blocks =  1;
 
-	ezxml_t  boot_env_tree = get_subtree(xml, "boot_env");
+	pet_xml_t  boot_env_tree = pet_xml_get_subtree(xml, "boot_env");
 
 	if (boot_env_tree != NULL) {
-	    ezxml_t   mem_tree = get_subtree(boot_env_tree, "memory");
-	    char    * numa     = get_val(boot_env_tree, "numa");
-	    char    * cpu      = get_val(boot_env_tree, "cpu");
-	    char    * mem_blk  = get_val(boot_env_tree, "memory");
+	    pet_xml_t   mem_tree = pet_xml_get_subtree(boot_env_tree, "memory");
+	    char    * numa     = pet_xml_get_val(boot_env_tree, "numa");
+	    char    * cpu      = pet_xml_get_val(boot_env_tree, "cpu");
+	    char    * mem_blk  = pet_xml_get_val(boot_env_tree, "memory");
 
 	   numa_zone = smart_atoi(numa_zone, numa);
 	   boot_cpu  = smart_atoi(boot_cpu,  cpu);
 	   block_id  = smart_atoi(block_id,  mem_blk);
 
 	    if (mem_tree) {
-		char * mem_size = get_val(mem_tree, "size");
+		char * mem_size = pet_xml_get_val(mem_tree, "size");
 
 		if (mem_size) {
 		    int dflt_size_in_MB = pet_block_size() / (1024 * 1024);
@@ -179,23 +204,39 @@ create_pisces_enclave(ezxml_t   xml,
 	    return -1;
 	}
 
-	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
     }
 
+    /* Wait for 2 seconds for enclave userspace to initialize
+     *  Check every 1/10th of a second
+     */ 
+    {
+	int i = 0;
+
+	for (i = 0; i < 20; i++) {
+	    if (hdb_get_enclave_state(hobbes_master_db, enclave_id) == ENCLAVE_RUNNING) break;
+	    usleep(100000);
+	}
+
+	if (i == 20) {
+	    ERROR("ERROR: Enclave (%d)'s hobbes userspace did not initialize\n", enclave_id);
+	    ERROR("Control may be established using legacy Pisces interface\n");
+	    return -1;
+	}
+    }
 
     /* Dynamically add additional memory (if requested) */
     {
-	ezxml_t memory_tree = get_subtree(xml, "memory");
+	pet_xml_t memory_tree = pet_xml_get_subtree(xml, "memory");
 
 	if (memory_tree) {
-	    ezxml_t block_tree  = get_subtree(memory_tree, "block");
-	    ezxml_t blocks_tree = get_subtree(memory_tree, "blocks");
-	    ezxml_t node_tree   = get_subtree(memory_tree, "node");
+	    pet_xml_t block_tree  = pet_xml_get_subtree(memory_tree, "block");
+	    pet_xml_t blocks_tree = pet_xml_get_subtree(memory_tree, "blocks");
+	    pet_xml_t node_tree   = pet_xml_get_subtree(memory_tree, "node");
 
 	    while (block_tree) {
 		int block_id = -1;
 		
-		block_id = smart_atoi(block_id, ezxml_txt(block_tree));
+		block_id = smart_atoi(block_id, pet_xml_tag_str(block_tree));
 
 		if (block_id != -1) {
 		    if (add_mem_block_to_pisces(pisces_id, block_id) != 0) {
@@ -204,18 +245,18 @@ create_pisces_enclave(ezxml_t   xml,
 		    }
 		} else {
 		    WARN("Invalid Block ID (%s) in memory configuration for enclave (%d), continuing...\n",
-			 ezxml_txt(block_tree), pisces_id);
+			 pet_xml_tag_str(block_tree), pisces_id);
 		}
 		    
 			   
 
-		block_tree = ezxml_next(block_tree);
+		block_tree = pet_xml_get_next(block_tree);
 	    }
 	    
 	    while (node_tree) {
 		int numa_node = -1;
 		
-		numa_node = smart_atoi(numa_node, ezxml_txt(node_tree));
+		numa_node = smart_atoi(numa_node, pet_xml_tag_str(node_tree));
 
 		if (numa_node != -1) {
 		    if (add_mem_node_to_pisces(pisces_id, numa_node) != 0) {
@@ -224,10 +265,10 @@ create_pisces_enclave(ezxml_t   xml,
 		    } 
 		} else {
 		    WARN("Invalid NUMA node (%s) in memory configuration for enclave (%d), continuing...\n",
-			 ezxml_txt(node_tree), pisces_id);
+			 pet_xml_tag_str(node_tree), pisces_id);
 		}
 
-		node_tree = ezxml_next(node_tree);
+		node_tree = pet_xml_get_next(node_tree);
 	    }
 
 	    
@@ -236,9 +277,9 @@ create_pisces_enclave(ezxml_t   xml,
 		int num_blocks =  0;
 		int contig     =  0;
 
-		numa_node  = smart_atoi(numa_node,  get_val(blocks_tree, "numa"));
-		contig     = smart_atoi(contig,     get_val(blocks_tree, "contig"));
-		num_blocks = smart_atoi(num_blocks, ezxml_txt(blocks_tree));		
+		numa_node  = smart_atoi(numa_node,  pet_xml_get_val(blocks_tree, "numa"));
+		contig     = smart_atoi(contig,     pet_xml_get_val(blocks_tree, "contig"));
+		num_blocks = smart_atoi(num_blocks, pet_xml_tag_str(blocks_tree));		
 		
 		if (num_blocks > 0) {
 		    if (add_mem_blocks_to_pisces(pisces_id, numa_node, num_blocks, contig) != 0) {
@@ -247,11 +288,11 @@ create_pisces_enclave(ezxml_t   xml,
 		    }
 		} else {
 		    WARN("Invalid number of blocks (%s) in enclave configuration. Ignoring...\n", 
-			 ezxml_txt(blocks_tree));
+			 pet_xml_tag_str(blocks_tree));
 		}
 		
 
-		blocks_tree = ezxml_next(blocks_tree);
+		blocks_tree = pet_xml_get_next(blocks_tree);
 	    }
 
 
@@ -260,17 +301,17 @@ create_pisces_enclave(ezxml_t   xml,
 
     /* Dynamically add additional CPUs (if requested) */
     {
-	ezxml_t cpus_tree = get_subtree(xml, "cpus");
+	pet_xml_t cpus_tree = pet_xml_get_subtree(xml, "cpus");
 
 	if (cpus_tree) {
-	    ezxml_t core_tree  = get_subtree(cpus_tree, "core");
-	    ezxml_t cores_tree = get_subtree(cpus_tree, "cores");
+	    pet_xml_t core_tree  = pet_xml_get_subtree(cpus_tree, "core");
+	    pet_xml_t cores_tree = pet_xml_get_subtree(cpus_tree, "cores");
 	    
 
 	    while (core_tree) {
 		int target = -1;
 
-		target = smart_atoi(target, ezxml_txt(core_tree));
+		target = smart_atoi(target, pet_xml_tag_str(core_tree));
 		
 		if (target >= 0) {
 		    if (add_cpu_to_pisces(pisces_id, target) != 0) {
@@ -279,18 +320,18 @@ create_pisces_enclave(ezxml_t   xml,
 		    }
 		} else {
 		    WARN("Invalid CPU index (%s) in enclave configuration. Ignoring...\n", 
-			 ezxml_txt(core_tree));
+			 pet_xml_tag_str(core_tree));
 		}
 
-		core_tree = ezxml_next(core_tree);
+		core_tree = pet_xml_get_next(core_tree);
 	    } 
 
 	    while (cores_tree) {
 		int numa_node  = -1;
 		int core_count = -1;
 
-		numa_node  = smart_atoi(numa_node,  get_val(cores_tree, "numa"));
-		core_count = smart_atoi(core_count, ezxml_txt(cores_tree));
+		numa_node  = smart_atoi(numa_node,  pet_xml_get_val(cores_tree, "numa"));
+		core_count = smart_atoi(core_count, pet_xml_tag_str(cores_tree));
 
 		if (core_count > 0) {
 		    if (add_cpus_to_pisces(pisces_id, core_count, numa_node) != 0) {
@@ -299,10 +340,10 @@ create_pisces_enclave(ezxml_t   xml,
 		    }
 		} else {
 		    WARN("Invalid CPU core count (%s) in enclave configuration. Ignoring...\n", 
-			 ezxml_txt(cores_tree));
+			 pet_xml_tag_str(cores_tree));
 		}
 
-		cores_tree = ezxml_next(cores_tree);
+		cores_tree = pet_xml_get_next(cores_tree);
 	    }
 
 	}
@@ -322,8 +363,8 @@ create_pisces_enclave(ezxml_t   xml,
 }
 
 
-static int
-destroy_pisces_enclave(hobbes_id_t enclave_id)
+int
+pisces_enclave_destroy(hobbes_id_t enclave_id)
 {
 
     char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);
