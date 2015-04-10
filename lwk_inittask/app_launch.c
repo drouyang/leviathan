@@ -21,7 +21,7 @@
 
 
 #include <pet_log.h>
-#include <ezxml.h>
+#include <pet_xml.h>
 
 #include <hobbes_util.h>
 #include <hobbes_cmd_queue.h>
@@ -41,28 +41,6 @@ extern cpu_set_t enclave_cpus;
 #define DEFAULT_ARGV            ""
 
 
-
-static char * 
-get_val(ezxml_t   cfg,
-	char    * tag) 
-{
-    char   * attrib = (char *)ezxml_attr(cfg, tag);
-    ezxml_t  txt    = ezxml_child(cfg, tag);
-    char   * val    = NULL;
-
-    if ((txt != NULL) && (attrib != NULL)) {
-	ERROR("Invalid Cfg file: Duplicate value for %s (attr=%s, txt=%s)\n", 
-	       tag, attrib, ezxml_txt(txt));
-	return NULL;
-    }
-
-    val = (attrib == NULL) ? ezxml_txt(txt) : attrib;
-
-    /* An non-present value actually == "". So we check if the 1st char is '/0' and return NULL */
-    if (!*val) return NULL;
-
-    return val;
-}
 
 
 int 
@@ -276,17 +254,15 @@ launch_app(char        * name,
 int 
 launch_app_spec(char * spec_str)
 {
-    ezxml_t   spec      = NULL;
-    char    * parse_str = NULL;
-    int       ret       = -1;    /* This is only set to 0 if the function completes successfully */
+    pet_xml_t spec = NULL;
+    int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
 
-    parse_str = strdup(spec_str);
 
-    spec = ezxml_parse_str(spec_str, strlen(spec_str) + 1);
+    spec = pet_xml_parse_str(spec_str);
 
     if (!spec) {
 	ERROR("Invalid App spec\n");
-	goto out;
+	return -1;
     }
 
     {
@@ -304,7 +280,7 @@ launch_app_spec(char * spec_str)
 
 
 	/* Executable Path Name */
-	val_str = get_val(spec, "path");
+	val_str = pet_xml_get_val(spec, "path");
 
 	if (val_str) {
 	    exe_path = val_str;
@@ -314,7 +290,7 @@ launch_app_spec(char * spec_str)
 	}
 
 	/* Process Name */
-	val_str = get_val(spec, "name");
+	val_str = pet_xml_get_val(spec, "name");
 
 	if (val_str) {
 	    name = val_str;
@@ -324,28 +300,28 @@ launch_app_spec(char * spec_str)
 
 
 	/* ARGV */
-	val_str = get_val(spec, "argv");
+	val_str = pet_xml_get_val(spec, "argv");
 
 	if (val_str) {
 	    argv = val_str;
 	}
 
 	/* ENVP */
-	val_str = get_val(spec, "envp");
+	val_str = pet_xml_get_val(spec, "envp");
 
 	if (val_str) {
 	    envp = val_str;
 	}
 
 	/* Ranks */
-	val_str = get_val(spec, "ranks");
+	val_str = pet_xml_get_val(spec, "ranks");
 	
 	if (val_str) { 
 	    num_ranks = smart_atoi(DEFAULT_NUM_RANKS, val_str);
 	}
 	
 	/* CPU Mask */
-	val_str = get_val(spec, "cpu_list");
+	val_str = pet_xml_get_val(spec, "cpu_list");
 	
 	if (val_str) {
 	    char * iter_str = NULL;
@@ -367,7 +343,7 @@ launch_app_spec(char * spec_str)
 
 	
 	/* Large page flag */
-	val_str = get_val(spec, "use_large_pages");
+	val_str = pet_xml_get_val(spec, "use_large_pages");
 
 	if (val_str) {
 	    flags.use_large_pages = DEFAULT_USE_LARGE_PAGES;
@@ -375,21 +351,21 @@ launch_app_spec(char * spec_str)
 
 
 	/* Use SmartMap */
-	val_str = get_val(spec, "use_smartmap");
+	val_str = pet_xml_get_val(spec, "use_smartmap");
 
 	if (val_str) {
 	    flags.use_smartmap = DEFAULT_USE_SMARTMAP;
 	}
 
 	/* Heap Size */
-	val_str = get_val(spec, "heap_size");
+	val_str = pet_xml_get_val(spec, "heap_size");
 	
 	if (val_str) {
 	    heap_size = smart_atoi(DEFAULT_HEAP_SIZE, val_str);
 	}
 
 	/* Stack Size */
-	val_str = get_val(spec, "stack_size");
+	val_str = pet_xml_get_val(spec, "stack_size");
 
 	if (val_str) {
 	    stack_size = smart_atoi(DEFAULT_STACK_SIZE, val_str);
@@ -415,7 +391,6 @@ launch_app_spec(char * spec_str)
 
 
  out:
-    ezxml_free(spec);
-    free(parse_str);
+    pet_xml_free(spec);
     return ret;
 }
