@@ -5,11 +5,12 @@
 #ifndef __ENCLAVE_PISCES_H__
 #define __ENCLAVE_PISCES_H__
 
-#include <ezxml.h>
+
+#include <pet_xml.h>
 
 #include "hobbes.h"
 
-int pisces_enclave_create(ezxml_t xml, char * name);
+int pisces_enclave_create(pet_xml_t xml, char * name);
 int pisces_enclave_destroy(hobbes_id_t enclave_id);
 
 

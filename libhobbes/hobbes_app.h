@@ -6,11 +6,11 @@
 #define __HOBBES_APP_H__
 
 #include <stdint.h>
-#include <ezxml.h>
+#include <pet_xml.h>
 
 #include "hobbes.h"
 
-typedef ezxml_t hobbes_app_spec_t;
+typedef pet_xml_t hobbes_app_spec_t;
 
 hobbes_app_spec_t
 hobbes_build_app_spec(char      * name, 
