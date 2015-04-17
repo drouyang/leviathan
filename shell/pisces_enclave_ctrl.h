@@ -2,8 +2,8 @@
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
-#ifndef __ENCLAVE_PISCES_H__
-#define __ENCLAVE_PISCES_H__
+#ifndef __PISCES_ENCLAVE_CTRL_H__
+#define __PISCES_ENCLAVE_CTRL_H__
 
 
 #include <pet_xml.h>

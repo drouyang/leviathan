@@ -279,6 +279,8 @@ launch_app_spec(char * spec_str)
 	char * val_str = NULL;
 
 
+	printf("App spec str = (%s)\n", spec_str);
+
 	/* Executable Path Name */
 	val_str = pet_xml_get_val(spec, "path");
 

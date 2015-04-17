@@ -14,6 +14,8 @@
 #include <hobbes_app.h>
 #include <hobbes_db.h>
 
+#include <pet_log.h>
+
 #define DEFAULT_NUM_RANKS       1
 #define DEFAULT_CPU_LIST        NULL
 #define DEFAULT_USE_LARGE_PAGES 0
@@ -272,12 +274,13 @@ int launch_app_main(int argc, char ** argv) {
 							    stack_size);
 
 
-
-	
-	printf("bla=%p, %d\n", app_spec, enclave_id);
 	ret =  hobbes_launch_app(enclave_id, app_spec);
-		
+	
 	hobbes_free_app_spec(app_spec);
+
+	if (ret != 0) {
+	    ERROR("Error launching application on remote enclave\n");
+	}
     }
 
     return ret;

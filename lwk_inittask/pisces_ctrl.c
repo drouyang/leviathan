@@ -304,12 +304,12 @@ pisces_cmd_init( void )
 {
     pisces_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
-    register_pisces_cmd(ENCLAVE_CMD_ADD_MEM,    __add_memory );
-    register_pisces_cmd(ENCLAVE_CMD_ADD_CPU,    __add_cpu    );
-    register_pisces_cmd(ENCLAVE_CMD_REMOVE_CPU, __remove_cpu );
-    register_pisces_cmd(ENCLAVE_CMD_LAUNCH_JOB, __launch_job );
-    register_pisces_cmd(ENCLAVE_CMD_LOAD_FILE,  __load_file  );
-    register_pisces_cmd(ENCLAVE_CMD_SHUTDOWN,   __shutdown   );
+    register_pisces_cmd(PISCES_CMD_ADD_MEM,    __add_memory );
+    register_pisces_cmd(PISCES_CMD_ADD_CPU,    __add_cpu    );
+    register_pisces_cmd(PISCES_CMD_REMOVE_CPU, __remove_cpu );
+    register_pisces_cmd(PISCES_CMD_LAUNCH_JOB, __launch_job );
+    register_pisces_cmd(PISCES_CMD_LOAD_FILE,  __load_file  );
+    register_pisces_cmd(PISCES_CMD_SHUTDOWN,   __shutdown   );
 
     return 0;
 }
@@ -366,7 +366,7 @@ register_pisces_cmd(uint64_t        cmd,
 #if 0
 
 			
-		    case ENCLAVE_CMD_CREATE_VM: {
+		    case PISCES_CMD_CREATE_VM: {
 			    struct pisces_user_file_info * file_info = NULL;
 			    struct cmd_create_vm vm_cmd;
 			    struct pmem_region rgn;
@@ -455,7 +455,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    send_resp(pisces_fd, vm_id);
 			    break;
 		    }
-		    case ENCLAVE_CMD_FREE_VM: {
+		    case PISCES_CMD_FREE_VM: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -475,7 +475,7 @@ register_pisces_cmd(uint64_t        cmd,
 
 			    break;
 		    }
-		    case ENCLAVE_CMD_ADD_V3_PCI: {
+		    case PISCES_CMD_ADD_V3_PCI: {
 			    struct cmd_add_pci_dev cmd;
 			    struct v3_hw_pci_dev   v3_pci_spec;
 			    int ret = 0;
@@ -507,7 +507,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    send_resp(pisces_fd, 0);
 			    break;
 		    }
-		    case ENCLAVE_CMD_FREE_V3_PCI: {
+		    case PISCES_CMD_FREE_V3_PCI: {
 			    struct cmd_add_pci_dev cmd;
 			    struct v3_hw_pci_dev   v3_pci_spec;
 			    int ret = 0;
@@ -539,7 +539,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    send_resp(pisces_fd, 0);
 			    break;
 		    }
-		    case ENCLAVE_CMD_LAUNCH_VM: {
+		    case PISCES_CMD_LAUNCH_VM: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -567,7 +567,7 @@ register_pisces_cmd(uint64_t        cmd,
 
 			    break;
 		    }
-		    case ENCLAVE_CMD_STOP_VM: {
+		    case PISCES_CMD_STOP_VM: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -588,7 +588,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    break;
 		    }
 
-		    case ENCLAVE_CMD_PAUSE_VM: {
+		    case PISCES_CMD_PAUSE_VM: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -608,7 +608,7 @@ register_pisces_cmd(uint64_t        cmd,
 
 			    break;
 		    }
-		    case ENCLAVE_CMD_CONTINUE_VM: {
+		    case PISCES_CMD_CONTINUE_VM: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -628,7 +628,7 @@ register_pisces_cmd(uint64_t        cmd,
 
 			    break;
 		    }
-		    case ENCLAVE_CMD_VM_CONS_CONNECT: {
+		    case PISCES_CMD_VM_CONS_CONNECT: {
 			    struct cmd_vm_ctrl vm_cmd;
 			    uint64_t cons_ring_buf = 0;
 
@@ -653,7 +653,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    break;
 		    }
 
-		    case ENCLAVE_CMD_VM_CONS_DISCONNECT: {
+		    case PISCES_CMD_VM_CONS_DISCONNECT: {
 			    struct cmd_vm_ctrl vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
@@ -674,7 +674,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    break;
 		    }
 
-		    case ENCLAVE_CMD_VM_CONS_KEYCODE: {
+		    case PISCES_CMD_VM_CONS_KEYCODE: {
 			    struct cmd_vm_cons_keycode vm_cmd;
 
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_cons_keycode));
@@ -694,7 +694,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    break;
 		    }
 
-		    case ENCLAVE_CMD_VM_DBG: {
+		    case PISCES_CMD_VM_DBG: {
 			    struct cmd_vm_debug pisces_cmd;
 			    struct v3_debug_cmd v3_cmd;
 			    

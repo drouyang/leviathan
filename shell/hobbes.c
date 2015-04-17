@@ -6,86 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <xpmem.h>
 #include <pet_log.h>
 
-#include <hobbes_enclave.h>
 #include <hobbes.h>
+#include <xemem.h>
 
 static const char * hobbes_prog_version = "Hobbes Runtime Shell 0.1";
 static const char * bug_email_addr      = "<jacklange@cs.pitt.edu>";
 
-
-
-
-static int
-create_enclave_handler(int argc, char ** argv) 
-{
-    char * cfg_file = NULL;
-    char * name     = NULL;
-
-    if (argc < 1) {
-	printf("Usage: hobbes create_enclave <cfg_file> [name] [-t <host_enclave>]\n");
-	return -1;
-    }
-
-    cfg_file = argv[1];
-    
-    if (argc >= 2) {
-	name = argv[2];
-    }
-
-    return hobbes_create_enclave(cfg_file, name);
-}
-
-
-static int 
-destroy_enclave_handler(int argc, char ** argv)
-{
-    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
-
-    if (argc < 1) {
-	printf("Usage: hobbes destroy_enclave <enclave name>\n");
-	return -1;
-    }
-    
-    enclave_id = hobbes_get_enclave_id(argv[1]);
-    
-
-    return hobbes_destroy_enclave(enclave_id);
-}
-
-
-
-static int
-list_enclaves_handler(int argc, char ** argv)
-{
-    struct enclave_info * enclaves = NULL;
-    int num_enclaves = -1;
-    int i = 0;
-
-    enclaves = hobbes_get_enclave_list(&num_enclaves);
-
-    if (enclaves == NULL) {
-	ERROR("Could not retrieve enclave list\n");
-	return -1;
-    }
-	
-    printf("%d Active Enclaves:\n", num_enclaves);
- 
-    for (i = 0; i < num_enclaves; i++) {
-	printf("%d: %-*s [%-*s] <%s>\n", 
-	       enclaves[i].id,
-	       35, enclaves[i].name,
-	       16, enclave_type_to_str(enclaves[i].type), 
-	       enclave_state_to_str(enclaves[i].state));
-
-    }
-
-    free(enclaves);
-
-    return 0;
-}
 
 static int
 list_segments_handler(int argc, char ** argv)
@@ -127,12 +55,15 @@ struct hobbes_cmd {
     char * desc;
 };
 
-extern int launch_app_main(int argc, char ** argv);
+extern int      launch_app_main(int argc, char ** argv);
+extern int  create_enclave_main(int argc, char ** argv);
+extern int destroy_enclave_main(int argc, char ** argv);
+extern int   list_enclaves_main(int argc, char ** argv);
 
 static struct hobbes_cmd cmds[] = {
-    {"create_enclave",  create_enclave_handler,  "Create Native Enclave"},
-    {"destroy_enclave", destroy_enclave_handler, "Destroy Native Enclave"},
-    {"list_enclaves",   list_enclaves_handler,   "List all running enclaves"},
+    {"create_enclave",  create_enclave_main,     "Create Native Enclave"},
+    {"destroy_enclave", destroy_enclave_main,    "Destroy Native Enclave"},
+    {"list_enclaves",   list_enclaves_main,      "List all running enclaves"},
     {"list_segments",   list_segments_handler,   "List all exported xpmem segments"},
     {"launch_app",      launch_app_main,         "Launch an application in an enclave"},
     {0, 0, 0}

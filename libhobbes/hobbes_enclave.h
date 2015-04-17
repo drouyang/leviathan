@@ -28,8 +28,6 @@ typedef enum {
 
 
 
-int hobbes_create_enclave(char * cfg_file_name, char * name);
-int hobbes_destroy_enclave(hobbes_id_t enclave_id);
 
 
 hobbes_id_t hobbes_get_enclave_id(char * enclave_name);

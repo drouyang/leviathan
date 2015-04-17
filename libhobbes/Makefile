@@ -27,7 +27,6 @@ libhobbes_objs := 	xemem.o  \
 			hobbes_db.o \
 			hobbes_cmd_queue.o \
 			hobbes_enclave.o \
-			pisces_enclave_ctrl.o \
 			hobbes_app.o 
 
 

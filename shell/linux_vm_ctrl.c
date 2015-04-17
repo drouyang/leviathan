@@ -2,15 +2,22 @@
 
 #include <pet_numa.h>
 #include <pet_mem.h>
+#include <pet_log.h>
+#include <pet_xml.h>
+
+
+#include <hobbes.h>
+#include <hobbes_db.h>
+#include <hobbes_util.h>
 
 #define PROC_PATH   "/proc/v3vee/"
 
 #define MEM_HDR_STR       "BASE MEMORY REGIONS ([0-9]+)"
 #define MEM_REGEX_STR     "[0-9]+: ([0-9A-Fa-f]{16}) - ([0-9A-Fa-f]{16})"
 
+extern hdb_db_t hobbes_master_db;
 
-
-static int
+int
 destroy_linux_vm(hobbes_id_t enclave_id)
 {
     int  * numa_block_list = NULL;
@@ -143,7 +150,7 @@ destroy_linux_vm(hobbes_id_t enclave_id)
 
 
 
-static int 
+int 
 create_linux_vm(pet_xml_t   xml, 
 		char      * name)
 {

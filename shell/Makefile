@@ -18,8 +18,12 @@ libs  := 	../libhobbes/libhobbes.a
 execs := 	hobbes
 
 
-hobbes_objs := 	hobbes.o \
-		app_launch.o
+hobbes_objs := 	hobbes.o		\
+		app_launch.o		\
+		enclave.o		\
+		linux_vm_ctrl.o		\
+		pisces_enclave_ctrl.o
+
 
 build = \
 	@if [ -z "$V" ]; then \

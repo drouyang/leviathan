@@ -16,7 +16,6 @@
 #include "hobbes.h"
 #include "hobbes_util.h"
 #include "hobbes_enclave.h"
-#include "pisces_enclave_ctrl.h"
 #include "hobbes_db.h"
 
 extern hdb_db_t hobbes_master_db;
@@ -55,98 +54,7 @@ read_file(int             fd,
 }
 */
 
-#include "enclave_linux_vm.h"
 
-
-int 
-hobbes_create_enclave(char * cfg_file_name, 
-		      char * name)
-{
-    pet_xml_t   xml  = NULL;
-    char      * type = NULL; 
-
-    xml = pet_xml_open_file(cfg_file_name);
-    
-    if (xml == NULL) {
-	ERROR("Error loading Enclave config file (%s)\n", cfg_file_name);
-	return -1;
-    }
-
-
-    if (strncmp("enclave", pet_xml_tag_name(xml), strlen("enclave")) != 0) {
-	ERROR("Invalid XML Config: Not an enclave config\n");
-	return -1;
-    }
-
-    type = pet_xml_get_val(xml, "type");
-    
-    if (type == NULL) {
-	ERROR("Enclave type not specified\n");
-	return -1;
-    }
-
-    
-    if (strncasecmp(type, "pisces", strlen("pisces")) == 0) {
-
-	DEBUG("Creating Pisces Enclave\n");
-	return pisces_enclave_create(xml, name);
-
-    } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
-	char * target = pet_xml_get_val(xml, "host_enclave");
-	
-	if (!target) {
-	    DEBUG("Creating Palacios/Linux Enclave\n");
-	    
-	    // run locally
-	    create_linux_vm(xml, name);
-	} else {
-	    DEBUG("Creating Palacios/Pisces Enclave\n");
-	    // run on pisces enclave
-
-	}
-
-    } else {
-	ERROR("Invalid Enclave Type (%s)\n", type);
-	return -1;
-    }
-
-
-
-    return 0;
-
-}
-
-
-
-int 
-hobbes_destroy_enclave(hobbes_id_t enclave_id)
-{
-    enclave_type_t enclave_type = INVALID_ENCLAVE;
-
-    enclave_type = hdb_get_enclave_type(hobbes_master_db, enclave_id);
-
-    if (enclave_type == INVALID_ENCLAVE) {
-	ERROR("Could not find enclave (%d)\n", enclave_id);
-	return -1;
-    }
-   
-
-    if (enclave_type == PISCES_ENCLAVE) {
-	return pisces_enclave_destroy(enclave_id);
-    } else if (enclave_type == LINUX_VM_ENCLAVE) {
-	return destroy_linux_vm(enclave_id);
-
-	/*
-	  } else if (enclave.type == PISCES_VM_ENCLAVE) { 
-	*/
-    } else {
-	ERROR("Invalid Enclave Type (%d)\n", enclave_type);
-	return -1;
-    }
-
-    return 0;
-    
-}
 
 
 hobbes_id_t

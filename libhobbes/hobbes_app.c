@@ -201,18 +201,11 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
     
     free(spec_str);
 
-    printf("cmd returned\n");
-
-    printf("getting ret code\n");
     ret = hcq_get_ret_code(hcq, cmd);
-    
-    printf("hcq cmd_complete\n");
+
     hcq_cmd_complete(hcq, cmd);
-    
-    printf("hobbes_close enclave cmdq\n");
     hobbes_close_enclave_cmdq(hcq);
 
-    printf("Returning from launch app\n");
     return ret;
 }
 

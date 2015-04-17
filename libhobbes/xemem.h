@@ -1,6 +1,8 @@
 #ifndef __XEMEM_H__
 #define __XEMEM_H__
 
+#include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define XEMEM_SEG_NAME_LEN 64
