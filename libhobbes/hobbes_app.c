@@ -13,6 +13,7 @@
 
 #include "hobbes_db.h"
 #include "hobbes_app.h"
+#include "hobbes_util.h"
 
 
 
@@ -197,7 +198,7 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
 
     printf("spec_str=%s\n", spec_str);
 
-    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_APP_LAUNCH, strlen(spec_str) + 1, spec_str);
+    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_APP_LAUNCH, smart_strlen(spec_str) + 1, spec_str);
     
     free(spec_str);
 

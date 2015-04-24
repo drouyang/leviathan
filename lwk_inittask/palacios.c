@@ -3,6 +3,7 @@
 #include <hobbes.h>
 #include <hobbes_cmd_queue.h>
 #include <hobbes_db.h>
+#include <hobbes_util.h>
 
 #include <v3vee.h>
 #include <pet_log.h>
@@ -28,19 +29,22 @@ __hobbes_launch_vm(hcq_handle_t hcq,
     int         vm_id         = -1;
 
     int         ret           = -1;
+    char      * err_str       = NULL;
 
 
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
 
-    if (xml_str == NULL) {
-	ERROR("Could not read VM spec\n");
-	goto out;
+    if ((xml_str == NULL) || (xml_str[data_size] != '\0')) {
+	err_str = "Received invalid command string";
+	goto out2;
     }
 
-    /* ensure null termination */
-    xml_str[data_size] = '\0';
-
     xml = pet_xml_parse_str(xml_str);
+
+    if (!xml) {
+	err_str = "Invalid VM Spec";
+	goto out2;
+    }
 
     /* Add VM to the Master DB */
     {
@@ -54,8 +58,8 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 					0);
 
 	if (enclave_id == -1) {
-            ERROR("Could not create enclave in database\n");
-	    goto out;
+	    err_str = "Could not create enclave in database";
+	    goto out1;
 	}
 
 	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
@@ -73,10 +77,11 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	    vm_id = v3_create_vm(enclave_name, img_data, img_size);
 	    
 	    if (vm_id == -1) {
+		err_str = "Could not create VM";
 		ERROR("Could not create VM (%s)\n", enclave_name);
 	    }
 	} else {
-	    ERROR("Could not build VM image from xml\n");
+	   err_str = "Could not build VM image from xml";
 	}
 
 
@@ -84,11 +89,9 @@ __hobbes_launch_vm(hcq_handle_t hcq,
        	if ((img_data == NULL) || 
 	    (vm_id    == -1)) {
 
-	    printf("Creation error\n");
-
 	    hdb_delete_enclave(hobbes_master_db, enclave_id);
 	    
-	    goto out;
+	    goto out1;
 	}
 
 
@@ -101,19 +104,24 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	ret = v3_launch_vm(vm_id);
 
 	if (ret != 0) {
-	    ERROR("Could not launch VM enclave (%d)\n", vm_id);
+	    err_str = "Could not launch VM enclave";
 	    ERROR("ERROR ERROR ERROR: We really need to implement this: v3_free(vm_id);\n");
 
 	    hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_CRASHED);
 	    
-	    goto out;
+	    goto out1;
 	}
 
 	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
     }
 
-out:
-    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
+ out1:
+    pet_xml_free(xml);
+    
+ out2:
+    if (err_str) ERROR("%s\n", err_str);
+
+    hcq_cmd_return(hcq, cmd, ret, smart_strlen(err_str) + 1, err_str);
     return 0;
 }
 

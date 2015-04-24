@@ -19,9 +19,11 @@
 #define HOBBES_CMD_STORE_FILE          1101
 
 /* VM controls */
+
+
 #define ENCLAVE_CMD_CREATE_VM          1500
 #define ENCLAVE_CMD_FREE_VM            1501
-#define ENCLAVE_CMD_LAUNCH_VM          1502
+#define ENCLAVE_CMD_LAUNCH_VM           1502
 #define ENCLAVE_CMD_STOP_VM            1503
 #define ENCLAVE_CMD_PAUSE_VM           1504
 #define ENCLAVE_CMD_CONTINUE_VM        1505

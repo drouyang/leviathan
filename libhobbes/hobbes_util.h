@@ -33,4 +33,15 @@ smart_atoi(int dflt, char * str)
 }
 
 
+static inline int
+smart_strlen(char * str) 
+{
+    if (str == NULL) {
+	return -1;
+    }
+
+    return strlen(str);
+}
+
+
 #endif
