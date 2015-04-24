@@ -1,0 +1,16 @@
+<app name="test_app">
+
+  <path>/home/jarusl/omp_test</path>
+  <argv>1 2 4</argv>
+  <envp>OMP_NUM_THREADS=2</envp>
+  
+ 
+  <ranks>2</ranks>
+  <cpu_list>0,1,2</cpu_list>
+  
+  <use_large_pages>1</use_large_pages>
+  <use_smartmap>1</use_smartmap>
+  <heap_size>16</heap_size>
+  <stack_size>4</stack_size>
+
+</app>
