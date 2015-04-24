@@ -16,13 +16,12 @@ fi
 IFS="
 " # no, you can't actually use "\n" to specify a newline....
 
-for cfg in `cat ./build.cfg`; do
+for cfg in `grep -v '^#' < ./build.cfg | grep -e '^$' -v`; do
     if  [ ! -z ${cfg} ]; then
         eval "export ${cfg}"
     fi
 done
 IFS=" "
-
 
 
 echo "Inserting XPMEM Module."
