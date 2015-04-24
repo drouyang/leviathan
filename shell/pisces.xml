@@ -1,4 +1,4 @@
-<enclave type="pisces">
+<pisces>
     <kernel>/home/jarusl/pisces/kitten/vmlwk.bin</kernel>
     <init_task>/home/jarusl/pisces/kitten/user/pisces/pisces</init_task>
     <cmd_line>console=pisces</cmd_line>
@@ -37,4 +37,4 @@
     </devices>
 
 
-</enclave>
+</pisces>

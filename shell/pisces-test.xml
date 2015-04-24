@@ -1,4 +1,4 @@
-<enclave type="pisces">
+<pisces name="pisces-test">
     <kernel>/home/jarusl/kitten/vmlwk.bin</kernel>
     <init_task>/home/jarusl/hobbes/lwk_inittask/lwk_init</init_task>
     <cmd_line>console=pisces</cmd_line>
@@ -9,7 +9,7 @@
     </boot_env>
    
     <memory>
-        <blocks contig="0">2</blocks>
+        <blocks contig="0">4</blocks>
     </memory>
     
     <cpus>
@@ -30,4 +30,4 @@
     </devices>
 
 
-</enclave>
+</pisces>

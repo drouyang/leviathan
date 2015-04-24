@@ -39,6 +39,8 @@
 
 
 #define HOBBES_CMD_APP_LAUNCH          2000
+#define HOBBES_CMD_VM_LAUNCH           2001
+
 #define HOBBES_CMD_SHUTDOWN            2100
 
 

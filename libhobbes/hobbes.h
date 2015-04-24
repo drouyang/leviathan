@@ -19,7 +19,7 @@
 typedef int hobbes_id_t;
 
 
-bool hobbes_is_enabled( void );
+bool hobbes_is_available( void );
 
 char *      hobbes_get_my_enclave_name( void );
 char *      hobbes_get_my_process_name( void );

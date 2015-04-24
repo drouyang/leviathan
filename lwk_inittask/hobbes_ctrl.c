@@ -10,13 +10,17 @@
 
 #include <pet_hashtable.h>
 #include <pet_log.h>
+#include <pet_xml.h>
 
 #include <v3vee.h>
 
 #include <hobbes_enclave.h>
 
+#include "init.h"
 #include "hobbes_ctrl.h"
 #include "app_launch.h"
+
+
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
@@ -79,7 +83,7 @@ init_cmd_queue( void )
     segid = hcq_get_segid(hcq);
 
     enclave_id = hobbes_get_my_enclave_id();
-
+ 
     if (hobbes_register_enclave_cmdq(enclave_id, segid) != 0) {
 	ERROR("Could not register command queue\n");
 	hcq_free_queue(hcq);
@@ -135,6 +139,47 @@ __launch_app(hcq_handle_t hcq,
     return 0;
 }
 
+
+static int
+__load_file(hcq_handle_t hcq,
+	    uint64_t     cmd)
+{
+    uint32_t   data_size = 0;
+    char     * xml_str   = NULL;
+    pet_xml_t  xml       = NULL;
+
+    char     * src_file  = NULL;
+    char     * dst_file  = NULL;
+
+    int ret = -1;
+
+    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    if (xml_str == NULL) {
+	ERROR("Could not read File spec\n");
+	goto out;
+    }
+
+    /* ensure null termination */
+    xml_str[data_size] = '\0';
+
+    xml = pet_xml_parse_str(xml_str);
+
+    src_file = pet_xml_get_val(xml, "src_file");
+    dst_file = pet_xml_get_val(xml, "dst_file");
+    
+    if ((src_file == NULL) || (dst_file == NULL)) {
+	ERROR("Invalid File spec\n");
+ 	goto out;
+    }
+    
+    ret = load_remote_file(src_file, dst_file);
+    
+ out:
+    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
+    return 0;
+}
+
 hcq_handle_t
 hobbes_cmd_init(void)
 {
@@ -143,6 +188,7 @@ hobbes_cmd_init(void)
     
     
     register_hobbes_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    register_hobbes_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);
 
     return init_cmd_queue();
 }

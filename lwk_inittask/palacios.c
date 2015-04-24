@@ -1,10 +1,148 @@
+#include <stdint.h>
+
+#include <hobbes.h>
+#include <hobbes_cmd_queue.h>
+#include <hobbes_db.h>
+
 #include <v3vee.h>
 #include <pet_log.h>
+#include <pet_xml.h>
 
-bool v3_enabled = false;
+#include "palacios.h"
+#include "hobbes_ctrl.h"
+
+
+extern hdb_db_t hobbes_master_db;
+
+static int
+__hobbes_launch_vm(hcq_handle_t hcq,
+		   uint64_t     cmd)
+{
+    hobbes_id_t enclave_id    = -1;
+
+    pet_xml_t   xml           =  NULL;
+    char      * xml_str       =  NULL;
+    uint32_t    data_size     =  0;
+
+    char      * enclave_name  =  NULL;
+    int         vm_id         = -1;
+
+    int         ret           = -1;
+
+
+    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    if (xml_str == NULL) {
+	ERROR("Could not read VM spec\n");
+	goto out;
+    }
+
+    /* ensure null termination */
+    xml_str[data_size] = '\0';
+
+    xml = pet_xml_parse_str(xml_str);
+
+    /* Add VM to the Master DB */
+    {
+
+	enclave_name = pet_xml_get_val(xml, "name");
+
+	enclave_id = hdb_create_enclave(hobbes_master_db, 
+					enclave_name, 
+					vm_id, 
+					PISCES_VM_ENCLAVE, 
+					0);
+
+	if (enclave_id == -1) {
+            ERROR("Could not create enclave in database\n");
+	    goto out;
+	}
+
+	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
+
+    }
+
+    /* Load VM Image */
+    {
+	u8 * img_data = NULL;
+	u32  img_size = 0;
+
+	img_data = v3_build_vm_image(xml, &img_size);
+
+	if (img_data) {
+	    vm_id = v3_create_vm(enclave_name, img_data, img_size);
+	    
+	    if (vm_id == -1) {
+		ERROR("Could not create VM (%s)\n", enclave_name);
+	    }
+	} else {
+	    ERROR("Could not build VM image from xml\n");
+	}
+
+
+	/* Cleanup if there was an error */
+       	if ((img_data == NULL) || 
+	    (vm_id    == -1)) {
+
+	    printf("Creation error\n");
+
+	    hdb_delete_enclave(hobbes_master_db, enclave_id);
+	    
+	    goto out;
+	}
+
+
+	hdb_set_enclave_dev_id(hobbes_master_db, enclave_id, vm_id);
+    }
+
+    
+    /* Launch VM */
+    {
+	ret = v3_launch_vm(vm_id);
+
+	if (ret != 0) {
+	    ERROR("Could not launch VM enclave (%d)\n", vm_id);
+	    ERROR("ERROR ERROR ERROR: We really need to implement this: v3_free(vm_id);\n");
+
+	    hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_CRASHED);
+	    
+	    goto out;
+	}
+
+	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
+    }
+
+out:
+    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
+    return 0;
+}
+
+int
+palacios_init(void)
+{
+
+    // Register Hobbes commands
+    if (hobbes_enabled) {
+	register_hobbes_cmd(HOBBES_CMD_VM_LAUNCH, __hobbes_launch_vm);
+
+	
+    }
+
+    // Register Pisces commands
+
+    return 0;
+}
+
+bool 
+palacios_is_available(void)
+{
+    return (v3_is_vmm_present() != 0);
+}
 
 
 
+/* Legacy Pisces Interfaces */
+#if 0
 
 	    case ENCLAVE_CMD_CREATE_VM: {
 		struct pisces_user_file_info * file_info = NULL;
@@ -322,3 +460,8 @@ bool v3_enabled = false;
 		send_resp(pisces_fd, 0);
 		break;
 	    }
+
+
+
+
+#endif

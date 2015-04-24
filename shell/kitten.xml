@@ -1,4 +1,4 @@
-<enclave type="vm" class="PC">
+<vm class="PC" host_enclave="pisces-test">
 	<memory size="512" />
 
 	<telemetry>enable</telemetry>
@@ -94,7 +94,7 @@
 		</device>
 -->
 		<device class="FILEDISK" id="CD0" writable="0">
-			<path>/home/jarusl/kitten/arch/x86_64/boot/image.iso</path>
+			<path>/home/jarusl/guests/image.iso</path>
 			<frontend tag="ide">
 				<model>V3Vee CDROM</model>
 				<type>CDROM</type>
@@ -138,4 +138,4 @@
        </devices>
 
 
-</enclave>
+</vm>

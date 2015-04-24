@@ -18,10 +18,10 @@
 
 #include <v3vee.h>
 
+#include "init.h"
 #include "pisces.h"
 #include "pisces_ctrl.h"
 #include "palacios.h"
-#include "init.h"
 #include "app_launch.h"
 
 static struct hashtable * pisces_cmd_handlers = NULL;
@@ -133,7 +133,7 @@ __add_cpu(int      pisces_fd,
 			   
     
 #if 0
-    if (v3vee_enabled) {
+    if (palacios_enabled) {
 
 	/* Notify Palacios of New CPU */
 
@@ -223,37 +223,7 @@ __launch_job(int      pisces_fd,
     return 0;
 }
 
-static int
-load_file(char * lnx_file, 
-	  char * lwk_file)
-{
-	size_t file_size = 0;
-	char * file_buf  = NULL;
 
-
-	file_size = pisces_file_stat(lnx_file);
-
-	file_buf  = (char *)malloc(file_size);
-
-	if (!file_buf) {
-	    printf("Error: Could not allocate space for file (%s)\n", lnx_file);
-	    return -1;
-	}
-
-	pisces_file_load(lnx_file, file_buf);
-
-	{
-	    FILE * new_file = fopen(lwk_file, "w+");
-	    
-	    fwrite(file_buf, file_size, 1, new_file);
-
-	    fclose(new_file);
-	}
-
-	free(file_buf);
-
-	return 0;
-}
 
 
 static int
@@ -274,8 +244,9 @@ __load_file(int      pisces_fd,
 	return 0;
     }
     
-    ret = load_file(load_cmd->file_pair.lnx_file, load_cmd->file_pair.lwk_file);
-
+    ret = load_remote_file(load_cmd->file_pair.lnx_file, 
+			   load_cmd->file_pair.lwk_file);
+    
     free(load_cmd);
 
     send_resp(pisces_fd, ret);
@@ -286,7 +257,7 @@ static int
 __shutdown(int      pisces_fd, 
 	   uint64_t cmd)
 {
-    if (v3vee_enabled) {
+    if (palacios_enabled) {
 	v3_shutdown();
     }
 

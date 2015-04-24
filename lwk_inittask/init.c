@@ -35,12 +35,8 @@ cpu_set_t   enclave_cpus;
 char      * enclave_name =  NULL; 
 
 
-bool hobbes_enabled = true;
-bool v3vee_enabled  = false;
-
-
-
-
+bool hobbes_enabled   = false;
+bool palacios_enabled = false;
 
 static void hobbes_exit( void ) {
     hobbes_client_deinit();
@@ -84,9 +80,13 @@ main(int argc, char ** argv, char * envp[])
 
     printf("Checking for Hobbes environment...\n");
     /* Set up Hobbes interface */
-    if (hobbes_is_enabled()) {
+    if (hobbes_is_available()) {
     
-	hobbes_client_init();
+	if (hobbes_client_init() != 0) {
+	    ERROR("Could not initialize hobbes client interface\n");
+	    goto hobbes_init_out;
+	}
+
 	atexit(hobbes_exit);
 
 
@@ -99,6 +99,7 @@ main(int argc, char ** argv, char * envp[])
 	if (hcq == HCQ_INVALID_HANDLE) {
 	    ERROR("Could not initialize hobbes command queue\n");
 	    ERROR("Running in a degraded state with legacy pisces interface\n");
+	    goto hobbes_init_out;
 	} else {
 
 	    printf("\t...done\n");
@@ -111,20 +112,30 @@ main(int argc, char ** argv, char * envp[])
 	    
 	    /* Register that Hobbes userspace is running */
 	    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_RUNNING);
+
+	    hobbes_enabled = true;
 	}
     }
-    
+ hobbes_init_out:
+
     
     /* Setup v3vee interface */
     printf("Checking for Palacios...\n");
-    if (v3_is_vmm_present()) {
+    if (palacios_is_available()) {
 
-	v3vee_enabled = true;
+	if (palacios_init() != 0) {
+	    ERROR("Could not initialize Palacios interface\n");
+	    goto palacios_init_out;
+	}
 
-	// setup V3vee handlers 
-
+	palacios_enabled = true;
     }
+ palacios_init_out:
 
+
+
+    printf("Hobbes:   %s\n", (hobbes_enabled   ?  "ENABLED" : "DISABLED"));
+    printf("Palacios: %s\n", (palacios_enabled ?  "ENABLED" : "DISABLED"));
 
     /* Command Loop */
     printf("Entering Command Loop\n");
@@ -166,7 +177,35 @@ main(int argc, char ** argv, char * envp[])
     
     
     return 0;
- }
+}
 		
+int 
+load_remote_file(char * remote_file,
+		 char * local_file)
+{
+    size_t file_size = 0;
+    char * file_buf  = NULL;
 
+    file_size = pisces_file_stat(remote_file);
 
+    file_buf  = (char *)malloc(file_size);
+
+    if (!file_buf) {
+	printf("Error: Could not allocate space for file (%s)\n", remote_file);
+	return -1;
+    }
+
+    pisces_file_load(remote_file, file_buf);
+
+    {
+	FILE * new_file = fopen(local_file, "w+");
+	    
+	fwrite(file_buf, file_size, 1, new_file);
+
+	fclose(new_file);
+    }
+
+    free(file_buf);
+
+    return 0;
+}

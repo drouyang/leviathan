@@ -9,6 +9,9 @@
 #include <hobbes_cmd_queue.h>
 #include <hobbes_cmds.h>
 
+
+extern bool hobbes_enabled;
+
 typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
                              hcq_cmd_t     cmd);
 

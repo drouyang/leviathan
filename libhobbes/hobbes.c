@@ -80,7 +80,7 @@ hobbes_client_deinit()
 
 
 bool 
-hobbes_is_enabled( void )
+hobbes_is_available( void )
 {
     char * name = NULL;
     /* First check environment variables  (LWK init + Hobbes Apps)*/
@@ -103,7 +103,7 @@ hobbes_get_my_enclave_id( void )
     hobbes_id_t  enclave_id = HOBBES_INVALID_ID;
     char       * id_str     = NULL;
 
-    if (!hobbes_is_enabled()) {
+    if (!hobbes_is_available()) {
 	return HOBBES_INVALID_ID;
     }
     
@@ -140,7 +140,7 @@ hobbes_get_my_process_id( void )
     hobbes_id_t  process_id = HOBBES_INVALID_ID;
     char       * id_str     = NULL;
 
-    if (!hobbes_is_enabled()) {
+    if (!hobbes_is_available()) {
 	return HOBBES_INVALID_ID;
     }
 
