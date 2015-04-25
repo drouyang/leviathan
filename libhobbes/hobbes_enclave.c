@@ -69,6 +69,18 @@ hobbes_get_enclave_name(hobbes_id_t enclave_id)
     return hdb_get_enclave_name(hobbes_master_db, enclave_id);
 }
 
+hobbes_id_t 
+hobbes_get_enclave_parent(hobbes_id_t enclave_id)
+{
+    return hdb_get_enclave_parent(hobbes_master_db, enclave_id);
+}
+
+enclave_type_t
+hobbes_get_enclave_type(hobbes_id_t enclave_id)
+{
+    return hdb_get_enclave_type(hobbes_master_db, enclave_id);
+}
+
 int 
 hobbes_set_enclave_state(hobbes_id_t     enclave_id, 
 			 enclave_state_t state) 
@@ -76,11 +88,25 @@ hobbes_set_enclave_state(hobbes_id_t     enclave_id,
     return hdb_set_enclave_state(hobbes_master_db, enclave_id, state);
 }
 
-hobbes_id_t
-hobbes_get_enclave_state(hobbes_id_t     enclave_id) 
+enclave_state_t
+hobbes_get_enclave_state(hobbes_id_t enclave_id) 
 {
     return hdb_get_enclave_state(hobbes_master_db, enclave_id);
 }
+
+int 
+hobbes_get_enclave_dev_id(hobbes_id_t enclave_id)
+{
+    return hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
+}
+
+int 
+hobbes_set_enclave_dev_id(hobbes_id_t enclave_id,
+			  int         dev_id)
+{
+    return hdb_set_enclave_dev_id(hobbes_master_db, enclave_id, dev_id);
+}
+
 
 
 hcq_handle_t 

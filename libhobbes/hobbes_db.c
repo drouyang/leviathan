@@ -386,6 +386,50 @@ hdb_get_enclave_dev_id(hdb_db_t    db,
     return ret;
 }
 
+static hobbes_id_t
+__get_enclave_parent(hdb_db_t    db,
+		     hobbes_id_t enclave_id)
+{
+    hdb_enclave_t enclave   = NULL;
+    hobbes_id_t   parent_id = HOBBES_INVALID_ID;
+
+    enclave = __get_enclave_by_id(db, enclave_id);
+
+    if (enclave == NULL) {
+	ERROR("could not find enclave (id: %d)\n", enclave_id);
+	return HOBBES_INVALID_ID;
+    }
+
+    parent_id = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_PARENT));
+
+    return parent_id;
+}
+
+
+hobbes_id_t
+hdb_get_enclave_parent(hdb_db_t    db,
+		       hobbes_id_t enclave_id)
+{
+    wg_int      lock_id;
+    hobbes_id_t parent_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    parent_id = __get_enclave_parent(db, enclave_id);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return parent_id;
+}
+
 
 static int 
 __set_enclave_dev_id(hdb_db_t    db, 

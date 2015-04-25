@@ -71,18 +71,16 @@ hobbes_destroy_enclave(hobbes_id_t enclave_id)
 	return -1;
     }
    
-
-    if (enclave_type == PISCES_ENCLAVE) {
-	return pisces_enclave_destroy(enclave_id);
-    } else if (enclave_type == LINUX_VM_ENCLAVE) {
-	return destroy_linux_vm(enclave_id);
-
-	/*
-	  } else if (enclave.type == PISCES_VM_ENCLAVE) { 
-	*/
-    } else {
-	ERROR("Invalid Enclave Type (%d)\n", enclave_type);
-	return -1;
+    switch (enclave_type) {
+	case PISCES_ENCLAVE:
+	    return pisces_enclave_destroy(enclave_id);
+	case LINUX_VM_ENCLAVE:
+	    return destroy_linux_vm(enclave_id);
+	case PISCES_VM_ENCLAVE:
+	    return destroy_pisces_vm(enclave_id);
+	default:
+	    ERROR("Invalid Enclave Type (%d)\n", enclave_type);
+	    return -1;
     }
 
     return 0;

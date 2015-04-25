@@ -30,15 +30,22 @@ typedef enum {
 
 
 
-hobbes_id_t  hobbes_get_enclave_id(char * enclave_name);
-char *       hobbes_get_enclave_name(hobbes_id_t enclave_id);
+hobbes_id_t     hobbes_get_enclave_id(char * enclave_name);
+char *          hobbes_get_enclave_name(hobbes_id_t enclave_id);
 
-hobbes_id_t  hobbes_get_enclave_state(hobbes_id_t enclave_id);
-int          hobbes_set_enclave_state(hobbes_id_t enclave_id, enclave_state_t state);
+hobbes_id_t     hobbes_get_enclave_parent(hobbes_id_t enclave_id);
 
-hcq_handle_t hobbes_open_enclave_cmdq(hobbes_id_t enclave_id);
-void         hobbes_close_enclave_cmdq(hcq_handle_t hcq);
-int          hobbes_register_enclave_cmdq(hobbes_id_t enclave_id, xemem_segid_t segid);
+enclave_type_t  hobbes_get_enclave_type(hobbes_id_t enclave_id);
+
+enclave_state_t hobbes_get_enclave_state(hobbes_id_t enclave_id);
+int             hobbes_set_enclave_state(hobbes_id_t enclave_id, enclave_state_t state);
+
+int             hobbes_get_enclave_dev_id(hobbes_id_t enclave_id);
+int             hobbes_set_enclave_dev_id(hobbes_id_t enclave_id, int dev_id);
+
+hcq_handle_t    hobbes_open_enclave_cmdq(hobbes_id_t enclave_id);
+void            hobbes_close_enclave_cmdq(hcq_handle_t hcq);
+int             hobbes_register_enclave_cmdq(hobbes_id_t enclave_id, xemem_segid_t segid);
 
 struct enclave_info {
     hobbes_id_t id;

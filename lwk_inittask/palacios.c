@@ -17,7 +17,7 @@ extern hdb_db_t hobbes_master_db;
 
 static int
 __hobbes_launch_vm(hcq_handle_t hcq,
-		   uint64_t     cmd)
+		   hcq_cmd_t    cmd)
 {
     hobbes_id_t enclave_id    = -1;
 
@@ -125,13 +125,82 @@ __hobbes_launch_vm(hcq_handle_t hcq,
     return 0;
 }
 
+static int
+__hobbes_destroy_vm(hcq_handle_t hcq, 
+		    hcq_cmd_t    cmd)
+{
+    enclave_type_t type       =  INVALID_ENCLAVE;
+    hobbes_id_t  * enclave_id =  NULL;
+    uint32_t       data_size  =  0;
+
+    int            vm_id      = -1; 
+    
+    int            ret        = -1;
+    char         * err_str    =  NULL;
+
+
+    enclave_id = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    if (data_size != sizeof(hobbes_id_t)) {
+	err_str = "Enclave ID is corrupt";
+	goto out;
+    } 
+   
+    /* Double check the enclave type is correct */
+
+    type = hobbes_get_enclave_type(*enclave_id);
+
+    if (type != PISCES_VM_ENCLAVE) {
+	err_str = "Enclave is not a VM";
+	goto out;
+    }
+
+    /* Get local VM ID */
+
+    vm_id = hobbes_get_enclave_dev_id(*enclave_id);
+    
+    if (vm_id == -1) {
+	err_str = "Could not find VM instance";
+	goto out;
+    }
+
+    /* Stop VM */
+
+    ret = v3_stop_vm(vm_id);
+    
+    if (ret == -1) {
+	err_str = "Could not stop VM";
+	goto out;
+    }
+
+    /* Free VM */
+    
+    ret = v3_free_vm(vm_id);
+
+    if (ret == -1) {
+	err_str = "Could not free VM";
+	goto out;
+    }
+
+
+ out:
+    if (err_str) ERROR("%s\n", err_str);
+
+    hcq_cmd_return(hcq, cmd, ret, smart_strlen(err_str) + 1, err_str);
+    return 0;
+
+}
+
+
+
 int
 palacios_init(void)
 {
 
     // Register Hobbes commands
     if (hobbes_enabled) {
-	register_hobbes_cmd(HOBBES_CMD_VM_LAUNCH, __hobbes_launch_vm);
+	register_hobbes_cmd(HOBBES_CMD_VM_LAUNCH,  __hobbes_launch_vm);
+	register_hobbes_cmd(HOBBES_CMD_VM_DESTROY, __hobbes_destroy_vm);
 
 	
     }

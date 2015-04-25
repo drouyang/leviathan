@@ -49,57 +49,57 @@ static inline void * hdb_get_db_addr(hdb_db_t db) {
  *  Creating/deleting enclave records
  */
 
- hobbes_id_t hdb_create_enclave(hdb_db_t       db, 
-				char         * name, 
-				int            mgmt_dev_id, 
-				enclave_type_t type, 
-				hobbes_id_t    parent);
+ hobbes_id_t    hdb_create_enclave(hdb_db_t       db, 
+				   char         * name, 
+				   int            mgmt_dev_id, 
+				   enclave_type_t type, 
+				   hobbes_id_t    parent);
 
-int hdb_delete_enclave(hdb_db_t    db,
-		       hobbes_id_t enclave_id);
+int             hdb_delete_enclave(hdb_db_t    db,
+				   hobbes_id_t enclave_id);
 
 
-hobbes_id_t * hdb_get_enclaves(hdb_db_t   db, 
-			       int      * num_enclaves);
+hobbes_id_t *   hdb_get_enclaves(hdb_db_t   db, 
+				 int      * num_enclaves);
 
 /*
  * Enclave field Accessors 
  */
-int hdb_get_enclave_dev_id(hdb_db_t    db,
-			   hobbes_id_t enclave_id);
+int             hdb_get_enclave_dev_id(hdb_db_t    db,
+				       hobbes_id_t enclave_id);
 
-int hdb_set_enclave_dev_id(hdb_db_t    db,
-			   hobbes_id_t enclave_id, 
-			   int         dev_id);
+int             hdb_set_enclave_dev_id(hdb_db_t    db,
+				       hobbes_id_t enclave_id, 
+				       int         dev_id);
 
-enclave_type_t hdb_get_enclave_type(hdb_db_t    db, 
-				    hobbes_id_t enclave_id);
+hobbes_id_t     hdb_get_enclave_parent(hdb_db_t    db, 
+				       hobbes_id_t enclave_id);
+
+enclave_type_t  hdb_get_enclave_type(hdb_db_t    db, 
+				     hobbes_id_t enclave_id);
 
 
 enclave_state_t hdb_get_enclave_state(hdb_db_t    db,
 				      hobbes_id_t enclave_id);
 
-int hdb_set_enclave_state(hdb_db_t        db,
-			  hobbes_id_t     enclave_id, 
-			  enclave_state_t state);
+int             hdb_set_enclave_state(hdb_db_t        db,
+				      hobbes_id_t     enclave_id, 
+				      enclave_state_t state);
 
 
-xemem_segid_t 
-hdb_get_enclave_cmdq(hdb_db_t    db,
-		     hobbes_id_t enclave_id);
+xemem_segid_t   hdb_get_enclave_cmdq(hdb_db_t    db,
+				     hobbes_id_t enclave_id);
 
-int
-hdb_set_enclave_cmdq(hdb_db_t      db,
-		     hobbes_id_t   enclave_id, 
-		     xemem_segid_t segid);
-
-char * hdb_get_enclave_name(hdb_db_t    db, 
-			    hobbes_id_t enclave_id);
+int             hdb_set_enclave_cmdq(hdb_db_t      db,
+				     hobbes_id_t   enclave_id, 
+				     xemem_segid_t segid);
 
 
+char *          hdb_get_enclave_name(hdb_db_t    db, 
+				     hobbes_id_t enclave_id);
 
-hobbes_id_t hdb_get_enclave_id(hdb_db_t   db, 
-			       char     * enclave_name);
+hobbes_id_t     hdb_get_enclave_id(hdb_db_t   db, 
+				   char     * enclave_name);
 
 
 
@@ -107,20 +107,20 @@ hobbes_id_t hdb_get_enclave_id(hdb_db_t   db,
  *  XEMEM segments
  */
 
-int hdb_create_xemem_segment(hdb_db_t        db,
-			     xemem_segid_t   segid,
-			     char          * name);
+int             hdb_create_xemem_segment(hdb_db_t        db,
+					 xemem_segid_t   segid,
+					 char          * name);
 
-int hdb_delete_xemem_segment(hdb_db_t      db,
-			     xemem_segid_t segid);
-
-
-xemem_segid_t hdb_get_xemem_segid(hdb_db_t   db, 
-				  char     * name);
+int             hdb_delete_xemem_segment(hdb_db_t      db,
+					 xemem_segid_t segid);
 
 
-char * hdb_get_xemem_name(hdb_db_t      db, 
-			  xemem_segid_t segid);
+xemem_segid_t   hdb_get_xemem_segid(hdb_db_t   db, 
+				    char     * name);
+
+
+char *          hdb_get_xemem_name(hdb_db_t      db, 
+				   xemem_segid_t segid);
 
 
 
