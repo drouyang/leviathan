@@ -138,7 +138,7 @@ hcq_create_queue(char * name)
 
     segid = xemem_make_signalled(db_addr, CMD_QUEUE_SIZE, 
 				 XPMEM_PERMIT_MODE, (void *)0600,
-				 NULL, &fd);
+				 name, &fd);
 
     if (segid <= 0) {
         ERROR("Could not register XEMEM segment for command queue\n");

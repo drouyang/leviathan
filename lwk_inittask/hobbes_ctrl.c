@@ -70,9 +70,14 @@ init_cmd_queue( void )
 {
     hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
     xemem_segid_t segid;
+    char * hcq_name = NULL; 
 
-    hcq = hcq_create_queue();
+    asprintf(&hcq_name, "%s-cmdq", hobbes_get_my_enclave_name());
+
+    hcq = hcq_create_queue(hcq_name);
     
+    free(hcq_name);
+
     if (hcq == HCQ_INVALID_HANDLE) {
 	ERROR("Could not create command queue\n");
 	return hcq;

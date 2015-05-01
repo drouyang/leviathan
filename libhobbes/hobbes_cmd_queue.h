@@ -23,7 +23,7 @@ typedef enum {
 typedef void *   hcq_handle_t;
 typedef uint64_t hcq_cmd_t;
 
-hcq_handle_t hcq_create_queue();
+hcq_handle_t hcq_create_queue(char * name);
 void hcq_free_queue(hcq_handle_t hcq);
 
 xemem_segid_t hcq_get_segid(hcq_handle_t hcq);
