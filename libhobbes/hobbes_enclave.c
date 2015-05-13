@@ -173,9 +173,10 @@ hobbes_get_enclave_list(int * num_enclaves)
 
     for (i = 0; i < id_cnt; i++) {
 	info_arr[i].id    = id_arr[i];
-	info_arr[i].type  = hdb_get_enclave_type(hobbes_master_db, id_arr[i]);
-	info_arr[i].state = hdb_get_enclave_state(hobbes_master_db, id_arr[i]);
 
+	info_arr[i].type  = hdb_get_enclave_type  ( hobbes_master_db, id_arr[i] );
+	info_arr[i].state = hdb_get_enclave_state ( hobbes_master_db, id_arr[i] );
+ 
 	strncpy(info_arr[i].name, hdb_get_enclave_name(hobbes_master_db, id_arr[i]), 31);
     }
 

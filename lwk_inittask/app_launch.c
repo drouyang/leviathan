@@ -23,8 +23,13 @@
 #include <pet_log.h>
 #include <pet_xml.h>
 
+#include <hobbes.h>
+#include <hobbes_process.h>
+#include <hobbes_db.h>
 #include <hobbes_util.h>
 #include <hobbes_cmd_queue.h>
+
+extern hdb_db_t hobbes_master_db;
 
 extern cpu_set_t enclave_cpus;
 
@@ -44,15 +49,15 @@ extern cpu_set_t enclave_cpus;
 
 
 int 
-launch_app(char        * name, 
-	   char        * exe_path, 
-	   char        * argv, 
-	   char        * envp, 
-	   job_flags_t   flags,
-	   uint8_t       num_ranks, 
-	   uint64_t      cpu_mask,
-	   uint64_t      heap_size,
-	   uint64_t      stack_size)
+launch_lwk_app(char        * name, 
+	       char        * exe_path, 
+	       char        * argv, 
+	       char        * envp, 
+	       job_flags_t   flags,
+	       uint8_t       num_ranks, 
+	       uint64_t      cpu_mask,
+	       uint64_t      heap_size,
+	       uint64_t      stack_size)
 {
     uint32_t page_size = (flags.use_large_pages ? VM_PAGE_2MB : VM_PAGE_4KB);
 
@@ -167,7 +172,7 @@ launch_app(char        * name,
 
 
 	for (rank = 0; rank < num_ranks; rank++) {
-	    int cpu = 0;
+	    int cpu = ANY_ID;
 	    int i   = 0;
 	    
 	    for (i = 0; i < CPU_SETSIZE; i++) {
@@ -182,7 +187,7 @@ launch_app(char        * name,
 	    printf("Loading Rank %d on CPU %d\n", rank, cpu);
 	    
 	    start_state[rank].task_id  = ANY_ID;
-	    start_state[rank].cpu_id   = ANY_ID;
+	    start_state[rank].cpu_id   = cpu;
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
 	    
@@ -252,10 +257,12 @@ launch_app(char        * name,
 
 
 int 
-launch_app_spec(char * spec_str)
+launch_hobbes_lwk_app(char * spec_str)
 {
     pet_xml_t spec = NULL;
     int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
+
+    hobbes_id_t hobbes_process_id = HOBBES_INVALID_ID;
 
 
     spec = pet_xml_parse_str(spec_str);
@@ -265,18 +272,23 @@ launch_app_spec(char * spec_str)
 	return -1;
     }
 
+
+
+
     {
 	char        * name       = NULL; 
 	char        * exe_path   = NULL; 
 	char        * argv       = DEFAULT_ARGV;
 	char        * envp       = DEFAULT_ENVP; 
+	char        * hobbes_env = NULL;
 	job_flags_t   flags      = {0};
 	uint8_t       num_ranks  = DEFAULT_NUM_RANKS; 
 	uint64_t      cpu_mask   = DEFAULT_CPU_MASK;
 	uint64_t      heap_size  = DEFAULT_HEAP_SIZE;
 	uint64_t      stack_size = DEFAULT_STACK_SIZE;
 	
-	char * val_str = NULL;
+	char        * val_str    = NULL;
+
 
 
 	printf("App spec str = (%s)\n", spec_str);
@@ -314,6 +326,9 @@ launch_app_spec(char * spec_str)
 	if (val_str) {
 	    envp = val_str;
 	}
+
+
+
 
 	/* Ranks */
 	val_str = pet_xml_get_val(spec, "ranks");
@@ -374,16 +389,42 @@ launch_app_spec(char * spec_str)
 	}
 
 
+	/* Register as a hobbes process */
+	{
+	    	    
+	    int ret = 0;
+
+	    hobbes_process_id = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
+
+
+	    /* Hobbes enabled ENVP */
+	    ret = asprintf(&hobbes_env, 
+			   "%s=%u, %s=%u, %s", 
+			   HOBBES_ENV_PROCESS_ID,
+			   hobbes_process_id, 
+			   HOBBES_ENV_ENCLAVE_ID,
+			   hobbes_get_my_enclave_id(), 
+			   envp);
+
+	    if (ret == -1) {
+		ERROR("Failed to allocate envp string for application (%s)\n", name);
+		goto out;
+	    }
+	    
+	}
+	
 	/* Launch App */
-	ret = launch_app(name, 
-			 exe_path, 
-			 argv,
-			 envp,
-			 flags,
-			 num_ranks,
-			 cpu_mask,
-			 heap_size,
-			 stack_size);
+	ret = launch_lwk_app(name, 
+			     exe_path, 
+			     argv,
+			     hobbes_env,
+			     flags,
+			     num_ranks,
+			     cpu_mask,
+			     heap_size,
+			     stack_size);
+
+	free(hobbes_env);
 
 	if (ret == -1) {
 	    ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);

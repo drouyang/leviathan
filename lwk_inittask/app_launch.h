@@ -17,18 +17,18 @@ typedef union {
 }  job_flags_t;
 
 
-int launch_app(char        * name, 
-	       char        * exe_path, 
-	       char        * argv, 
-	       char        * envp, 
-	       job_flags_t   flags,
-	       uint8_t       ranks, 
-	       uint64_t      cpu_mask,
-	       uint64_t      heap_size,
-	       uint64_t      stack_size);
+int launch_lwk_app(char        * name, 
+		   char        * exe_path, 
+		   char        * argv, 
+		   char        * envp, 
+		   job_flags_t   flags,
+		   uint8_t       ranks, 
+		   uint64_t      cpu_mask,
+		   uint64_t      heap_size,
+		   uint64_t      stack_size);
 
 
-int launch_app_spec(char * spec_str);
+int launch_hobbes_lwk_app(char * spec_str);
 
 
 #endif

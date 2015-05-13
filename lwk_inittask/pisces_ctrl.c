@@ -206,15 +206,15 @@ __launch_job(int      pisces_fd,
     
     job_spec = &(job_cmd->spec);
 
-    ret = launch_app(job_spec->name,
-		     job_spec->exe_path, 
-		     job_spec->argv, 
-		     job_spec->envp, 
-		     (job_flags_t)job_spec->flags, 
-		     job_spec->num_ranks, 
-		     job_spec->cpu_mask, 
-		     job_spec->heap_size, 
-		     job_spec->stack_size);
+    ret = launch_lwk_app(job_spec->name,
+			 job_spec->exe_path, 
+			 job_spec->argv, 
+			 job_spec->envp, 
+			 (job_flags_t)job_spec->flags, 
+			 job_spec->num_ranks, 
+			 job_spec->cpu_mask, 
+			 job_spec->heap_size, 
+			 job_spec->stack_size);
 
     free(job_cmd);
 			

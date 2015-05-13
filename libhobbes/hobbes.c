@@ -15,8 +15,63 @@
 #include "hobbes_db.h"
 #include "hobbes_enclave.h"
 
+
+
 hdb_db_t hobbes_master_db = NULL;
 static xemem_apid_t hobbes_db_apid;
+static bool         hobbes_enabled;
+
+
+static void 
+__attribute__((constructor))
+hobbes_auto_init() {
+
+    printf("Initializing Hobbes\n");
+
+    /* Check is hobbes is available */
+    if (!hobbes_is_available()) {
+	ERROR("Hobbes is not available\n");
+	return;
+    }
+
+    /* Check if we are a hobbes process */
+    if (!getenv(HOBBES_ENV_PROCESS_ID)) {
+	ERROR("This is not a Hobbes process\n");
+	return;
+    }
+  
+    /* Initialize hobbes */
+    if (hobbes_client_init() == -1) {
+	ERROR("Failed to initialize hobbes\n");
+	return;
+    }
+
+    /* Hobbes is initialized, so we signal that we are now running */
+    hdb_set_process_state(hobbes_master_db, PROCESS_RUNNING, hobbes_get_my_process_id());
+    
+    /* Mark hobbes as enabled */
+    hobbes_enabled = true;
+}
+
+
+static void 
+__attribute__((destructor))
+hobbes_auto_deinit()
+{
+
+    printf("Deinitializing Hobbes\n");
+
+    if (!hobbes_enabled) {
+	return;
+    }
+
+    hdb_set_process_state(hobbes_master_db, PROCESS_STOPPED, hobbes_get_my_process_id());
+
+    hobbes_client_deinit();
+
+    hobbes_enabled = false;
+}
+
 
 int 
 hobbes_client_init()
@@ -26,7 +81,7 @@ hobbes_client_init()
     hobbes_db_apid = xemem_get(HDB_MASTER_DB_SEGID, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
 
     if (hobbes_db_apid <= 0) {
-        printf("xpmem get failed\n");
+        ERROR("xpmem get failed\n");
 	return -1;
     }
 
@@ -39,7 +94,7 @@ hobbes_client_init()
 
         db_addr = xemem_attach(addr, HDB_MASTER_DB_SIZE, NULL);
         if (db_addr == MAP_FAILED) {
-            printf("xpmem attach failed\n");
+            ERROR("xpmem attach failed\n");
             xemem_release(hobbes_db_apid);
             return -1;
         }
@@ -50,12 +105,9 @@ hobbes_client_init()
     hobbes_master_db  = hdb_attach(db_addr);
 
     if (hobbes_master_db == NULL) {
-	printf("Error: Could not connect to database\n");
+	ERROR("Error: Could not connect to database\n");
 	return -1;
     }
-
-
-
 
     return 0;
 }
@@ -84,7 +136,7 @@ hobbes_is_available( void )
 {
     char * name = NULL;
     /* First check environment variables  (LWK init + Hobbes Apps)*/
-    name = getenv("HOBBES_ENCLAVE_ID");
+    name = getenv(HOBBES_ENV_ENCLAVE_ID);
 
     if (name) {
 	return true;
@@ -94,6 +146,12 @@ hobbes_is_available( void )
 
     return false;
 
+}
+
+bool
+hobbes_is_enabled( void )
+{
+    return hobbes_enabled;
 }
 
 

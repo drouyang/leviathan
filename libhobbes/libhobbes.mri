@@ -4,6 +4,7 @@ addmod hobbes.o
 addmod hobbes_db.o
 addmod hobbes_cmd_queue.o
 addmod hobbes_enclave.o
+addmod hobbes_process.o
 addmod hobbes_app.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../palacios/user/libv3vee_user.a

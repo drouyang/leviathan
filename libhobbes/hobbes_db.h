@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "hobbes_enclave.h"
+#include "hobbes_process.h"
 #include "hobbes.h"
 #include "xemem.h"
 
@@ -126,6 +127,42 @@ char *          hdb_get_xemem_name(hdb_db_t      db,
 
 xemem_segid_t * hdb_get_segments(hdb_db_t   db, 
 				 int      * num_segments);
+
+
+
+/* 
+ * Processes
+ */
+
+hobbes_id_t     hdb_create_process(hdb_db_t     db, 
+				   char       * name,
+				   hobbes_id_t  enclave_id);
+				   
+
+
+int             hdb_delete_process(hdb_db_t    db,
+				   hobbes_id_t process_id);
+
+hobbes_id_t *   hdb_get_processes(hdb_db_t   db,
+				  int      * num_processes);
+
+
+/* Process field accessors */
+hobbes_id_t     hdb_get_process_enclave(hdb_db_t      db,
+					hobbes_id_t   process_id);
+
+process_state_t hdb_get_process_state(hdb_db_t        db,
+				      hobbes_id_t     process_id);
+
+int             hdb_set_process_state(hdb_db_t        db,
+				      hobbes_id_t     process_id,
+				      process_state_t state);
+
+char *          hdb_get_process_name(hdb_db_t    db,
+				     hobbes_id_t process_id);
+
+hobbes_id_t     hdb_get_process_id(hdb_db_t db,
+				   char *   process_name);
 
 
 #endif

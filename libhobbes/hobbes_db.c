@@ -25,7 +25,7 @@
 #define HDB_REC_PROCESS          1
 #define HDB_REC_SEGMENT          2
 #define HDB_REC_ENCLAVE_HDR      3
-#define HDB_REC_NEXT_PROCESS     4
+#define HDB_REC_PROCESS_HDR      4
 #define HDB_REC_XEMEM_HDR        5
 #define HDB_REC_XEMEM_SEGMENT    6
 #define HDB_REC_XEMEM_ATTACHMENT 7
@@ -60,6 +60,16 @@
 /* Columns for XEMEM segment records */
 #define HDB_SEGMENT_SEGID    1
 #define HDB_SEGMENT_NAME     2
+
+/* Columns for process header */
+#define HDB_PROCESS_HDR_NEXT 1
+#define HDB_PROCESS_HDR_CNT  2
+
+/* Columns for process records */
+#define HDB_PROCESS_ID       1
+#define HDB_PROCESS_NAME     2
+#define HDB_PROCESS_STATE    3
+#define HDB_PROCESS_ENCLAVE  4
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -107,14 +117,17 @@ hdb_init_master_db(hdb_db_t db)
 {
     void * rec = NULL;
     
+    /* Create Enclave Header */
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_ENCLAVE_HDR));
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_NEXT, wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT , wg_encode_int(db, 0));
     
+    /* Create Process Header */
     rec = wg_create_record(db, 2);
-    wg_set_field(db, rec, HDB_TYPE_FIELD, wg_encode_int(db, HDB_REC_NEXT_PROCESS));
-    wg_set_field(db, rec, 1, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS_HDR));
+    wg_set_field(db, rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_PROCESS_HDR_CNT,  wg_encode_int(db, 0));
     
     /* Create XEMEM header */
     rec = wg_create_record(db, 2);
@@ -208,7 +221,7 @@ __create_enclave_record(hdb_db_t         db,
 			hobbes_id_t      parent)
 {
     void       * hdr_rec       = NULL;
-    hobbes_id_t  enclave_id    = 0;
+    hobbes_id_t  enclave_id    = HOBBES_INVALID_ID;
     uint32_t     enclave_cnt   = 0;
     char         auto_name[32] = {[0 ... 31] = 0};
 
@@ -219,7 +232,7 @@ __create_enclave_record(hdb_db_t         db,
     
     if (!hdr_rec) {
 	ERROR("malformed database. Missing enclave Header\n");
-	return -1;
+	return HOBBES_INVALID_ID;
     }
     
     /* Get Next Available enclave ID and enclave count */
@@ -258,20 +271,20 @@ hdb_create_enclave(hdb_db_t         db,
 		   hobbes_id_t      parent)
 {
     wg_int      lock_id;
-    hobbes_id_t enclave_id = -1;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
 
     lock_id = wg_start_write(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return -1;
+	return HOBBES_INVALID_ID;
     }
 
     enclave_id = __create_enclave_record(db, name, mgmt_dev_id, type, parent);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
-	return -1;
+	return HOBBES_INVALID_ID;
     }
     
 
@@ -337,7 +350,7 @@ hdb_delete_enclave(hdb_db_t    db,
     
 
     return ret;
- }
+}
 
 
 
@@ -488,7 +501,7 @@ __get_enclave_type(hdb_db_t    db,
     
     if (enclave == NULL) {
 	ERROR("Could not find enclave (id: %d)\n", enclave_id);
-	return -1;
+	return INVALID_ENCLAVE;
     }
 
     type = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_TYPE));
@@ -501,20 +514,20 @@ hdb_get_enclave_type(hdb_db_t    db,
 		     hobbes_id_t enclave_id)
 {
     wg_int lock_id;
-    enclave_type_t type = 0;
+    enclave_type_t type = INVALID_ENCLAVE;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return -1;
+	return INVALID_ENCLAVE;
     }
 
     type = __get_enclave_type(db, enclave_id);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
-	return -1;
+	return INVALID_ENCLAVE;
     }
     
 
@@ -536,7 +549,7 @@ __get_enclave_state(hdb_db_t    db,
     
     if (enclave == NULL) {
 	ERROR("Could not find enclave (id: %d)\n", enclave_id);
-	return -1;
+	return ENCLAVE_ERROR;
     }
 
     state = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_STATE));
@@ -549,20 +562,20 @@ hdb_get_enclave_state(hdb_db_t    db,
 		      hobbes_id_t enclave_id)
 {
     wg_int lock_id;
-    enclave_state_t state = 0;
+    enclave_state_t state = ENCLAVE_ERROR;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return -1;
+	return ENCLAVE_ERROR;
     }
 
     state = __get_enclave_state(db, enclave_id);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
-	return -1;
+	return ENCLAVE_ERROR;
     }
     
 
@@ -757,13 +770,13 @@ __get_enclave_id(hdb_db_t   db,
 		 char     * enclave_name)
 {
     hdb_enclave_t enclave    = NULL;
-    hobbes_id_t   enclave_id = -1;
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
 
     enclave = __get_enclave_by_name(db, enclave_name);
     
     if (enclave == NULL) {
 	ERROR("Could not find enclave (name: %s)\n", enclave_name);
-	return -1;
+	return HOBBES_INVALID_ID;
     }
 
     enclave_id = wg_decode_int(db, wg_get_field(db, enclave, HDB_ENCLAVE_ID));
@@ -776,20 +789,20 @@ hdb_get_enclave_id(hdb_db_t   db,
 		   char     * enclave_name)
 {
     wg_int      lock_id;
-    hobbes_id_t enclave_id = -1;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return -1;
+	return HOBBES_INVALID_ID;
     }
 
    enclave_id = __get_enclave_id(db, enclave_name);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
-	return -1;
+	return HOBBES_INVALID_ID;
     }
     
     return enclave_id;
@@ -868,15 +881,11 @@ hdb_get_enclaves(hdb_db_t   db,
 
 
 
-
-
-
-
-
-
-
-
-
+/* *******
+ * 
+ *  XEMEM 
+ * 
+ * *******/
 
 static hdb_segment_t
 __get_segment_by_segid(hdb_db_t      db, 
@@ -1233,3 +1242,513 @@ hdb_get_segments(hdb_db_t db,
 
     return segid_arr;
 }
+
+
+
+
+/* *******
+ * 
+ *  Processes
+ * 
+ * *******/
+
+
+/**
+ * Get an process handle from an process id
+ *  - Returns NULL if no process is found 
+ **/
+static hdb_process_t
+__get_process_by_id(hdb_db_t    db, 
+		    hobbes_id_t process_id) 
+{
+    hdb_process_t process  = NULL;
+    wg_query    * query    = NULL;
+    wg_query_arg  arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PROCESS);    
+
+    arglist[1].column = HDB_PROCESS_ID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, process_id);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    process = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return process;
+}
+
+
+
+
+
+/**
+ * Get an process handle from an process name
+ *  - Returns NULL if no process is found 
+ **/
+static hdb_process_t
+__get_process_by_name(hdb_db_t   db, 
+		      char     * name)
+{
+    hdb_process_t   process  = NULL;
+    wg_query      * query    = NULL;
+    wg_query_arg    arglist[2];    
+ 
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PROCESS);    
+
+    arglist[1].column = HDB_PROCESS_NAME;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    process = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return process;
+}
+
+
+
+
+static hobbes_id_t
+__create_process_record(hdb_db_t      db,
+			char        * name, 
+			hobbes_id_t   enclave_id)
+{
+    void       * hdr_rec       = NULL;
+    hobbes_id_t  process_id    = HOBBES_INVALID_ID;
+    uint32_t     process_cnt   = 0;
+    char         auto_name[32] = {[0 ... 31] = 0};
+
+    hdb_process_t process   = NULL;
+
+    
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);
+    
+    if (!hdr_rec) {
+	ERROR("malformed database. Missing process Header\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+    /* Get Next Available process ID and process count */
+    process_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_NEXT));
+    process_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+    
+    if (name == NULL) {
+	snprintf(auto_name, 31, "process-%d", process_id);
+	name = auto_name;
+    }
+    
+    /* Insert process into the db */
+    process = wg_create_record(db, 8);
+    wg_set_field(db, process, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS));
+    wg_set_field(db, process, HDB_PROCESS_ID,       wg_encode_int(db, process_id));
+    wg_set_field(db, process, HDB_PROCESS_STATE,    wg_encode_int(db, PROCESS_INITTED));
+    wg_set_field(db, process, HDB_PROCESS_NAME,     wg_encode_str(db, name, NULL));
+    wg_set_field(db, process, HDB_PROCESS_ENCLAVE,  wg_encode_int(db, enclave_id));
+
+    
+    /* Update the process Header information */
+    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, process_id  + 1));
+    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_CNT,  wg_encode_int(db, process_cnt + 1));
+
+    return process_id;
+}
+
+hobbes_id_t 
+hdb_create_process(hdb_db_t    db,
+		   char      * name, 
+		   hobbes_id_t enclave_id)
+{
+    wg_int      lock_id;
+    hobbes_id_t process_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    process_id = __create_process_record(db, name, enclave_id);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+
+    return process_id;
+}
+
+
+static int
+__delete_process(hdb_db_t    db,
+		 hobbes_id_t process_id)
+{
+    uint32_t      process_cnt = 0;
+    void        * hdr_rec     = NULL;
+    hdb_process_t process     = NULL;
+
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);
+    
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing process Header\n");
+	return -1;
+    }
+    
+    process = __get_process_by_id(db, process_id);
+  
+    if (!process) {
+	ERROR("Could not find process (id: %d)\n", process_id);
+	return -1;
+    }
+
+    if (wg_delete_record(db, process) != 0) {
+	ERROR("Could not delete process from database\n");
+	return -1;
+    }
+
+    process_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_CNT, wg_encode_int(db, process_cnt - 1));
+
+    return 0;
+}
+
+
+
+int 
+hdb_delete_process(hdb_db_t    db,
+		   hobbes_id_t process_id)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __delete_process(db, process_id);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return ret;
+}
+
+
+static hobbes_id_t 
+__get_process_enclave(hdb_db_t    db,
+		      hobbes_id_t process_id)
+{
+    hdb_process_t process    = NULL;
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
+
+
+    process = __get_process_by_id(db, process_id);
+    
+    if (process == NULL) {
+	ERROR("Could not find process (id: %d)\n", process_id);
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_ENCLAVE));
+
+    return enclave_id;
+}
+
+hobbes_id_t
+hdb_get_process_enclave(hdb_db_t    db,
+			hobbes_id_t process_id)
+{
+    wg_int      lock_id;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = __get_process_enclave(db, process_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+
+    return enclave_id;
+}
+
+static process_state_t
+__get_process_state(hdb_db_t    db, 
+		    hobbes_id_t process_id)
+{
+    hdb_process_t   process = NULL;
+    process_state_t state   = PROCESS_ERROR;
+
+    process = __get_process_by_id(db, process_id);
+    
+    if (process == NULL) {
+	ERROR("Could not find process (id: %d)\n", process_id);
+	return PROCESS_ERROR;
+    }
+
+    state = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_STATE));
+
+    return state;
+}
+
+process_state_t
+hdb_get_process_state(hdb_db_t    db, 
+		      hobbes_id_t process_id)
+{
+    wg_int lock_id;
+    process_state_t state = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return PROCESS_ERROR;
+    }
+
+    state = __get_process_state(db, process_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return PROCESS_ERROR;
+    }
+    
+
+    return state;
+}
+
+
+static int
+__set_process_state(hdb_db_t        db, 
+		    hobbes_id_t     process_id, 
+		    process_state_t state)
+{
+    hdb_process_t process = NULL;
+
+    process = __get_process_by_id(db, process_id);
+    
+    if (process == NULL) {
+	ERROR("Could not find process (id: %d)\n", process_id);
+	return -1;
+    }
+
+    wg_set_field(db, process, HDB_PROCESS_STATE, wg_encode_int(db, state));
+
+    return 0;
+}
+
+int
+hdb_set_process_state(hdb_db_t        db, 
+		      hobbes_id_t     process_id, 
+		      process_state_t state)
+{
+    wg_int lock_id;
+    int ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __set_process_state(db, process_id, state);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+
+    return ret;
+}
+
+
+
+static char *
+__get_process_name(hdb_db_t    db, 
+		   hobbes_id_t process_id)
+{
+    hdb_process_t process = NULL;
+
+    char * name = NULL;
+
+    process = __get_process_by_id(db, process_id);
+    
+    if (process == NULL) {
+	ERROR("Could not find process (id: %d)\n", process_id);
+	return NULL;
+    }
+
+    name = wg_decode_str(db, wg_get_field(db, process, HDB_PROCESS_NAME));
+
+    return name;
+}
+
+char * 
+hdb_get_process_name(hdb_db_t    db, 
+		     hobbes_id_t process_id)
+{
+    wg_int lock_id;
+    char * name = NULL;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+   name = __get_process_name(db, process_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return NULL;
+    }
+    
+    return name;
+}
+
+
+
+
+static hobbes_id_t
+__get_process_id(hdb_db_t   db, 
+		 char     * process_name)
+{
+    hdb_process_t process    = NULL;
+    hobbes_id_t   process_id = HOBBES_INVALID_ID;
+
+    process = __get_process_by_name(db, process_name);
+    
+    if (process == NULL) {
+	ERROR("Could not find process (name: %s)\n", process_name);
+	return HOBBES_INVALID_ID;
+    }
+
+    process_id = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_ID));
+
+    return process_id;
+}
+
+hobbes_id_t
+hdb_get_process_id(hdb_db_t   db, 
+		   char     * process_name)
+{
+    wg_int      lock_id;
+    hobbes_id_t process_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+   process_id = __get_process_id(db, process_name);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+    return process_id;
+}
+
+static hobbes_id_t *
+__get_processes(hdb_db_t   db,
+	      int       * num_processes)
+{
+    hobbes_id_t * id_arr  = NULL;
+    void        * db_rec  = NULL;
+    void        * hdr_rec = NULL;
+    int           cnt     = 0;
+    int           i       = 0;
+    
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);    
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing process Header\n");
+	return NULL;
+    }
+
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+
+    id_arr = calloc(sizeof(hobbes_id_t), cnt);
+
+    for (i = 0; i < cnt; i++) {
+	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS, db_rec);
+	
+
+	if (!db_rec) {
+	    ERROR("Process Header state mismatch\n");
+	    cnt = i;
+	    break;
+	}
+
+	id_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_PROCESS_ID));
+
+    }
+
+    *num_processes = cnt;
+    return id_arr;
+}
+
+
+hobbes_id_t * 
+hdb_get_processes(hdb_db_t   db,
+		 int      * num_processes)
+{
+    hobbes_id_t * id_arr = NULL;
+    wg_int        lock_id;
+
+    if (!num_processes) {
+	return NULL;
+    }
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    id_arr = __get_processes(db, num_processes);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return NULL;
+    }
+
+    return id_arr;
+}
+
+
