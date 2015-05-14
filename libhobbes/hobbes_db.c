@@ -60,6 +60,8 @@
 /* Columns for XEMEM segment records */
 #define HDB_SEGMENT_SEGID    1
 #define HDB_SEGMENT_NAME     2
+#define HDB_SEGMENT_ENCLAVE  3
+#define HDB_SEGMENT_PROCESS  4
 
 /* Columns for process header */
 #define HDB_PROCESS_HDR_NEXT 1
@@ -124,9 +126,9 @@ hdb_init_master_db(hdb_db_t db)
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT , wg_encode_int(db, 0));
     
     /* Create Process Header */
-    rec = wg_create_record(db, 2);
+    rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS_HDR));
-    wg_set_field(db, rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, 1));
     wg_set_field(db, rec, HDB_PROCESS_HDR_CNT,  wg_encode_int(db, 0));
     
     /* Create XEMEM header */
@@ -945,7 +947,9 @@ __get_segment_by_name(hdb_db_t   db,
 static int 
 __create_segment_record(hdb_db_t        db,
 			xemem_segid_t   segid,
-			char          * name)
+			char          * name,
+			hobbes_id_t     enclave_id,
+			hobbes_id_t     process_id)
 {
     void * hdr_rec        = NULL;
     void * rec            = NULL;
@@ -978,10 +982,12 @@ __create_segment_record(hdb_db_t        db,
     }
 
     /* Insert segment into the db */
-    rec = wg_create_record(db, 3);
-    wg_set_field(db, rec, HDB_TYPE_FIELD,    wg_encode_int(db, HDB_REC_XEMEM_SEGMENT));
-    wg_set_field(db, rec, HDB_SEGMENT_SEGID, wg_encode_int(db, segid));
-    wg_set_field(db, rec, HDB_SEGMENT_NAME,  wg_encode_str(db, name, NULL));
+    rec = wg_create_record(db, 5);
+    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_XEMEM_SEGMENT));
+    wg_set_field(db, rec, HDB_SEGMENT_SEGID,    wg_encode_int(db, segid));
+    wg_set_field(db, rec, HDB_SEGMENT_NAME,     wg_encode_str(db, name, NULL));
+    wg_set_field(db, rec, HDB_SEGMENT_ENCLAVE,  wg_encode_int(db, enclave_id));
+    wg_set_field(db, rec, HDB_SEGMENT_PROCESS,  wg_encode_int(db, process_id));
 
     /* Update the xemem Header information */
     segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT));
@@ -994,7 +1000,9 @@ __create_segment_record(hdb_db_t        db,
 int
 hdb_create_xemem_segment(hdb_db_t      db,
 			 xemem_segid_t segid,
-			 char        * name)
+			 char        * name, 
+			 hobbes_id_t   enclave_id,
+			 hobbes_id_t   process_id)
 {
     wg_int lock_id;
     int    ret;
@@ -1005,7 +1013,7 @@ hdb_create_xemem_segment(hdb_db_t      db,
         return -1;
     }
 
-    ret = __create_segment_record(db, segid, name);
+    ret = __create_segment_record(db, segid, name, enclave_id, process_id);
 
     if (!wg_end_write(db, lock_id)) {
         ERROR("Apparently this is catastrophic...\n");
@@ -1087,13 +1095,13 @@ __get_xemem_segid(hdb_db_t   db,
 		  char     * name)
 {
     hdb_segment_t segment = NULL;
-    xemem_segid_t segid;
+    xemem_segid_t segid   = XEMEM_INVAID_SEGID;
 
     segment = __get_segment_by_name(db, name);
 
     if (segment == NULL) {
 	ERROR("Could not find XEMEM segment (name: %s)\n", name);
-	return -1;
+	return XEMEM_INVALID_SEGID;
     }
 
     segid = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_SEGID));
@@ -1107,20 +1115,20 @@ hdb_get_xemem_segid(hdb_db_t   db,
 		    char     * name)
 {
     wg_int lock_id;
-    xemem_segid_t segid;
+    xemem_segid_t segid = XEMEM_INVALID_SEGID;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
         ERROR("Could not lock database\n");
-        return -1;
+        return XEMEM_INVALID_SEGID;
     }
 
     segid = __get_xemem_segid(db, name);
 
     if (!wg_end_read(db, lock_id)) {
         ERROR("Catastrophic database locking error\n");
-	return -1;
+	return XEMEM_INVALID_SEGID;
     }
 
     return segid;
@@ -1173,7 +1181,93 @@ hdb_get_xemem_name(hdb_db_t      db,
 
 
 
+hobbes_id_t
+__get_xemem_enclave(hdb_db_t        db,
+		    xemem_segid_t   segid)
+{
+    hdb_segment_t segment    = NULL;
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
 
+    segment = __get_segment_by_segid(db, segid);
+
+    if (segment == NULL) {
+	ERROR("Could not find XEMEM segment (id: %ld)\n", segid);
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_ENCLAVE));
+
+    return enclave_id;
+}
+
+
+hobbes_id_t
+hdb_get_xemem_enclave(hdb_db_t      db,
+		      xemem_segid_t segid)
+{
+    wg_int lock_id;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = __get_xemem_enclave(db, segid);
+
+    if (!wg_end_read(db, lock_id)) {
+        ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return enclave_id;
+}
+
+hobbes_id_t
+__get_xemem_process(hdb_db_t        db,
+		    xemem_segid_t   segid)
+{
+    hdb_segment_t segment    = NULL;
+    hobbes_id_t   process_id = HOBBES_INVALID_ID;
+
+    segment = __get_segment_by_segid(db, segid);
+
+    if (segment == NULL) {
+	ERROR("Could not find XEMEM segment (id: %ld)\n", segid);
+	return HOBBES_INVALID_ID;
+    }
+
+    process_id = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_PROCESS));
+
+    return process_id;
+}
+
+
+hobbes_id_t
+hdb_get_xemem_process(hdb_db_t      db,
+		      xemem_segid_t segid)
+{
+    wg_int lock_id;
+    hobbes_id_t process_id = HOBBES_INVALID_ID;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+        ERROR("Could not lock database\n");
+        return HOBBES_INVALID_ID;
+    }
+
+    process_id = __get_xemem_process(db, segid);
+
+    if (!wg_end_read(db, lock_id)) {
+        ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return process_id;
+}
 
 
 
@@ -1352,7 +1446,7 @@ __create_process_record(hdb_db_t      db,
     }
     
     /* Insert process into the db */
-    process = wg_create_record(db, 8);
+    process = wg_create_record(db, 5);
     wg_set_field(db, process, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS));
     wg_set_field(db, process, HDB_PROCESS_ID,       wg_encode_int(db, process_id));
     wg_set_field(db, process, HDB_PROCESS_STATE,    wg_encode_int(db, PROCESS_INITTED));

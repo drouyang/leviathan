@@ -55,15 +55,22 @@ hobbes_get_process_list(int * num_processes)
     struct process_info * info_arr = NULL;
     hobbes_id_t         * id_arr   = NULL;
 
-    int id_cnt = 0;
-    int i      = 0;
+    int id_cnt = -1;
+    int i      =  0;
 
     id_arr = hdb_get_processes(hobbes_master_db, &id_cnt);
     
-    if (id_arr == NULL) {
+    if (id_cnt == -1) {
 	ERROR("could not retrieve list of process IDs\n");
 	return NULL;
     }
+    
+    *num_processes = id_cnt;
+
+    if (id_cnt == 0) {
+	return NULL;
+    }
+
 
     info_arr = calloc(sizeof(struct process_info), id_cnt);
 
@@ -73,12 +80,10 @@ hobbes_get_process_list(int * num_processes)
 	info_arr[i].state      = hdb_get_process_state  ( hobbes_master_db, id_arr[i] );
 	info_arr[i].enclave_id = hdb_get_process_enclave( hobbes_master_db, id_arr[i] );
 
-	strncpy(info_arr[i].name, hdb_get_enclave_name(hobbes_master_db, id_arr[i]), 31);
+	strncpy(info_arr[i].name, hdb_get_process_name(hobbes_master_db, id_arr[i]), 31);
     }
 
     free(id_arr);
-
-    *num_processes = id_cnt;
     
     return info_arr;
 }

@@ -3,13 +3,13 @@
 # boilerplate junk
 IFS=
 
-#if [ -f hobbes.pid ]; then
-#    echo "PID file exists. Is Hobbes already running?"
+#if [ -f leviathan.pid ]; then
+#    echo "PID file exists. Is Leviathan already running?"
 #    exit
 #fi
 
 if [ ! -f ./build.cfg ]; then
-    echo "Hobbes configuration file (build.cfg) not present."
+    echo "Leviathan configuration file (build.cfg) not present."
     exit
 fi
 
@@ -41,7 +41,6 @@ echo "Inserting Pisces Module."
 insmod $PISCES_PATH/pisces.ko
 
 
-echo "Launching Hobbes Node Manager."
-#$HOBBES_PATH/hobbes/master ${@:1} 1> hobbes.log&
-$HOBBES_PATH/master_init/master ${@:1} &
-echo $! > hobbes.pid
+echo "Launching Leviathan Node Manager."
+$LEVIATHAN_PATH/master_init/master ${@:1} &
+echo $! > leviathan.pid

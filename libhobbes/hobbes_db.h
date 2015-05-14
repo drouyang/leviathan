@@ -110,7 +110,9 @@ hobbes_id_t     hdb_get_enclave_id(hdb_db_t   db,
 
 int             hdb_create_xemem_segment(hdb_db_t        db,
 					 xemem_segid_t   segid,
-					 char          * name);
+					 char          * name,
+					 hobbes_id_t     enclave_id,
+					 hobbes_id_t     process_id);
 
 int             hdb_delete_xemem_segment(hdb_db_t      db,
 					 xemem_segid_t segid);
@@ -123,6 +125,12 @@ xemem_segid_t   hdb_get_xemem_segid(hdb_db_t   db,
 char *          hdb_get_xemem_name(hdb_db_t      db, 
 				   xemem_segid_t segid);
 
+
+hobbes_id_t     hdb_get_xemem_enclave(hdb_db_t      db,
+				      xemem_segid_t segid);
+
+hobbes_id_t     hdb_get_xemem_process(hdb_db_t      db,
+				      xemem_segid_t segid);
 
 
 xemem_segid_t * hdb_get_segments(hdb_db_t   db, 

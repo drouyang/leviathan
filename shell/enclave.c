@@ -142,15 +142,20 @@ list_enclaves_main(int argc, char ** argv)
     }
 	
     printf("%d Active Enclaves:\n", num_enclaves);
+    printf("--------------------------------------------------------------------------------\n");
+    printf("| ID       | Enclave name                     | Type             | State       |\n");
+    printf("--------------------------------------------------------------------------------\n");
+
  
     for (i = 0; i < num_enclaves; i++) {
-	printf("%d: %-*s [%-*s] <%s>\n", 
-	       enclaves[i].id,
-	       35, enclaves[i].name,
+	printf("| %-*d | %-*s | %-*s | %-*s |\n", 
+	       8, enclaves[i].id,
+	       32, enclaves[i].name,
 	       16, enclave_type_to_str(enclaves[i].type), 
-	       enclave_state_to_str(enclaves[i].state));
-
+	       11, enclave_state_to_str(enclaves[i].state));
     }
+
+    printf("--------------------------------------------------------------------------------\n");
 
     free(enclaves);
 

@@ -396,10 +396,12 @@ launch_hobbes_lwk_app(char * spec_str)
 
 	    hobbes_process_id = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
 
+	    printf("Launching App (Hobbes process ID = %u) (EnclaveID=%d)\n", hobbes_process_id, hobbes_get_my_enclave_id() );
+	    printf("process Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
 	    ret = asprintf(&hobbes_env, 
-			   "%s=%u, %s=%u, %s", 
+			   "%s=%u %s=%u %s", 
 			   HOBBES_ENV_PROCESS_ID,
 			   hobbes_process_id, 
 			   HOBBES_ENV_ENCLAVE_ID,

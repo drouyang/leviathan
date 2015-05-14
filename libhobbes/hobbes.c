@@ -14,17 +14,19 @@
 #include "hobbes_util.h"
 #include "hobbes_db.h"
 #include "hobbes_enclave.h"
+#include "hobbes_process.h"
 
 
 
-hdb_db_t hobbes_master_db = NULL;
+hdb_db_t            hobbes_master_db = NULL;
 static xemem_apid_t hobbes_db_apid;
-static bool         hobbes_enabled;
+static bool         hobbes_enabled   = false;
 
 
 static void 
 __attribute__((constructor))
 hobbes_auto_init() {
+    hobbes_id_t process_id = HOBBES_INVALID_ID;
 
     printf("Initializing Hobbes\n");
 
@@ -39,6 +41,14 @@ hobbes_auto_init() {
 	ERROR("This is not a Hobbes process\n");
 	return;
     }
+
+    process_id = hobbes_get_my_process_id();
+
+    if (process_id == HOBBES_INVALID_ID) {
+	ERROR("Invalid Hobbes Process ID\n");
+	return;
+    }
+
   
     /* Initialize hobbes */
     if (hobbes_client_init() == -1) {
@@ -46,8 +56,10 @@ hobbes_auto_init() {
 	return;
     }
 
+
+
     /* Hobbes is initialized, so we signal that we are now running */
-    hdb_set_process_state(hobbes_master_db, PROCESS_RUNNING, hobbes_get_my_process_id());
+    hobbes_set_process_state(process_id, PROCESS_RUNNING);
     
     /* Mark hobbes as enabled */
     hobbes_enabled = true;
@@ -65,7 +77,7 @@ hobbes_auto_deinit()
 	return;
     }
 
-    hdb_set_process_state(hobbes_master_db, PROCESS_STOPPED, hobbes_get_my_process_id());
+    hobbes_set_process_state(hobbes_get_my_process_id(), PROCESS_STOPPED);
 
     hobbes_client_deinit();
 
@@ -205,7 +217,6 @@ hobbes_get_my_process_id( void )
     id_str = getenv(HOBBES_ENV_PROCESS_ID);
 
     if (id_str == NULL) {
-	ERROR("Hobbes: Missing process ID environment variable\n");
 	return HOBBES_INVALID_ID;
     }
 
@@ -225,7 +236,7 @@ hobbes_get_my_process_name( void )
 	return NULL;
     }
 
-    // name = hobbes_get_process_name(process_id);
+    name = hobbes_get_process_name(process_id);
 
     return name;
 }

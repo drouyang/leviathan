@@ -5,7 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "hobbes.h"
+
 #define XEMEM_SEG_NAME_LEN 64
+
+#define XEMEM_INVALID_SEGID ((xemem_segid_t)-1)
 
 typedef int64_t xemem_segid_t;
 typedef int64_t xemem_apid_t;
@@ -25,6 +29,8 @@ typedef int64_t xemem_apid_t;
 struct xemem_segment {
     xemem_segid_t segid;
     char          name[XEMEM_SEG_NAME_LEN];
+    hobbes_id_t   enclave_id;
+    hobbes_id_t   process_id;
 };
 
 

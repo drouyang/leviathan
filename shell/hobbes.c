@@ -37,12 +37,19 @@ list_segments_handler(int argc, char ** argv)
     }
 
     printf("%d segments:\n", num_segments);
+    printf("---------------------------------------------------------------------------\n");
+    printf("| SEGID      | Segment Name                     | Enclave ID | Process ID |\n");
+    printf("---------------------------------------------------------------------------\n");
 
     for (i = 0; i < num_segments; i++) {
-        printf("%s: %lu\n",
-            seg_arr[i].name,
-            seg_arr[i].segid);
+        printf("| %-*lu | %-*s | %-*d | %-*d |\n",
+	       10, seg_arr[i].segid,
+	       32, seg_arr[i].name,
+	       10, seg_arr[i].enclave_id,
+	       10, seg_arr[i].process_id);
     }
+
+    printf("---------------------------------------------------------------------------\n");
 
     free(seg_arr);
 
@@ -54,26 +61,36 @@ static int
 list_processes_main(int argc, char ** argv)
 {
     struct process_info * processes = NULL;
-    int num_processes = 0;
+    int num_processes = -1;
     int i = 0;
 
     processes = hobbes_get_process_list(&num_processes);
     
-    if (processes == NULL) {
+    if (num_processes == -1) {
 	ERROR("could not retrieve process list\n");
 	return -1;
     }
 
     printf("%d Processes\n", num_processes);
 
+    if (num_processes == 0) {
+	return 0;
+    }
+
+    printf("------------------------------------------------------------------------------------------------\n");
+    printf("| HPID     | Enclave                          | Process                          | State       |\n");
+    printf("------------------------------------------------------------------------------------------------\n");
+
     for (i = 0; i < num_processes; i++) {
-	printf("%d: (%-*s) %-*s <%s>\n",
-	       processes[i].id,
-	       35, hobbes_get_enclave_name(processes[i].enclave_id),
-	       35, processes[i].name,
-	       process_state_to_str(processes[i].state));
+	printf("| %-*d | %-*s | %-*s | %-*s |\n",
+	       8,  processes[i].id,
+	       32, hobbes_get_enclave_name(processes[i].enclave_id),
+	       32, processes[i].name,
+	       11, process_state_to_str(processes[i].state));
     }
     
+    printf("------------------------------------------------------------------------------------------------\n");
+
     free(processes);
 
     return 0;

@@ -19,7 +19,7 @@ xemem_make(void          * vaddr,
 	   void          * permit_value, 
 	   char          * name)
 {
-    xemem_segid_t segid = 0;
+    xemem_segid_t segid = XEMEM_INVALID_SEGID;
 
     segid = xpmem_make(vaddr, size, permit_type, permit_value);
     
@@ -28,7 +28,11 @@ xemem_make(void          * vaddr,
 	return segid;
     }
 
-    hdb_create_xemem_segment(hobbes_master_db, segid, name);
+    hdb_create_xemem_segment(hobbes_master_db, 
+			     segid, name,
+			     hobbes_get_my_enclave_id(), 
+			     hobbes_get_my_process_id());
+
 
     return segid;
 }
@@ -42,14 +46,14 @@ xemem_make_signalled(void   * vaddr,
 		     char   * name, 
 		     int    * fd)
 {
-    xemem_segid_t segid = 0;
+    xemem_segid_t segid = XEMEM_INVALID_SEGID;
 
     int tmp_fd = 0;
     int flags  = 0;
 
     if (fd == NULL) {
 	ERROR("Invalid file descriptor pointer\n");
-	return (xemem_segid_t)-1;
+	return XEMEM_INVALID_SEGID;
     }
 
     if (size > 0) {
@@ -63,7 +67,10 @@ xemem_make_signalled(void   * vaddr,
 	return segid;
     }
 
-    hdb_create_xemem_segment(hobbes_master_db, segid, name);
+    hdb_create_xemem_segment(hobbes_master_db, 
+			     segid, name, 
+			     hobbes_get_my_enclave_id(), 
+			     hobbes_get_my_process_id());
 
     *fd = tmp_fd;
     return segid;
@@ -77,7 +84,7 @@ xemem_make_segid(void          * vaddr,
 		 char          * name,
 		 xemem_segid_t   segid)
 {
-    xemem_segid_t tmp_segid = 0;
+    xemem_segid_t tmp_segid = XEMEM_INVALID_SEGID;
 
     tmp_segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_REQUEST_MODE, segid, NULL);
     
@@ -86,7 +93,11 @@ xemem_make_segid(void          * vaddr,
 	return -1;
     }
 
-    hdb_create_xemem_segment(hobbes_master_db, segid, name);
+    hdb_create_xemem_segment(hobbes_master_db, 
+			     segid, name,
+			     hobbes_get_my_enclave_id(), 
+			     hobbes_get_my_process_id());
+
 
     return 0;
 
@@ -227,21 +238,29 @@ xemem_get_segment_list(int * num_segments)
     struct xemem_segment * seg_arr = NULL;
     xemem_segid_t        * id_arr  = NULL;
 
-    int num_segs = 0;
-    int i        = 0;
-
+    int num_segs = -1;
+    int i        =  0;
 
     id_arr = hdb_get_segments(hobbes_master_db, &num_segs);
     
-    if (id_arr == NULL) {
+    if (num_segs == -1) {
 	ERROR("Could not retrieve segment list from database\n");
+	return NULL;
+    }
+
+    *num_segments = num_segs;
+
+    if (num_segs == 0) {
 	return NULL;
     }
 
     seg_arr = calloc(sizeof(struct xemem_segment), num_segs);
 
     for (i = 0; i < num_segs; i++) {
-	seg_arr[i].segid = id_arr[i];
+	seg_arr[i].segid      = id_arr[i];
+
+	seg_arr[i].enclave_id = hdb_get_xemem_enclave(hobbes_master_db, id_arr[i]);
+	seg_arr[i].process_id = hdb_get_xemem_process(hobbes_master_db, id_arr[i]);
 
 	strncpy(seg_arr[i].name, 
 		hdb_get_xemem_name(hobbes_master_db, id_arr[i]), 
@@ -250,16 +269,17 @@ xemem_get_segment_list(int * num_segments)
 
     free(id_arr);
 
-    *num_segments = num_segs;
     return seg_arr;
 }
 
 
 int
 xemem_export_segment(xemem_segid_t  segid,
-		     char         * name)
+		     char         * name,
+		     hobbes_id_t    enclave_id,
+		     hobbes_id_t    process_id)
 {
-    return hdb_create_xemem_segment(hobbes_master_db, segid, name);
+    return hdb_create_xemem_segment(hobbes_master_db, segid, name, enclave_id, process_id);
 }
 
 
