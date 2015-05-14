@@ -1685,7 +1685,7 @@ hdb_get_process_id(hdb_db_t   db,
 
 static hobbes_id_t *
 __get_processes(hdb_db_t   db,
-	      int       * num_processes)
+		int       * num_processes)
 {
     hobbes_id_t * id_arr  = NULL;
     void        * db_rec  = NULL;
@@ -1701,6 +1701,11 @@ __get_processes(hdb_db_t   db,
     }
 
     cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+
+    if (cnt == 0) {
+	*num_processes = 0;
+	return NULL;
+    }
 
     id_arr = calloc(sizeof(hobbes_id_t), cnt);
 
