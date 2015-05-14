@@ -187,7 +187,7 @@ launch_lwk_app(char        * name,
 	    printf("Loading Rank %d on CPU %d\n", rank, cpu);
 	    
 	    start_state[rank].task_id  = ANY_ID;
-	    start_state[rank].cpu_id   = cpu;
+	    start_state[rank].cpu_id   = ANY_ID; /* Why does this not work if set to 'cpu'? */
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
 	    

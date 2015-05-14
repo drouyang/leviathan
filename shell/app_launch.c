@@ -190,6 +190,8 @@ int launch_app_main(int argc, char ** argv) {
 	 *  OR if a job file is set then just <enclave> left 
 	 */
 
+	
+
 	if (use_job_file) {
 	    printf("Error Job files not supported yet\n");
 	    exit(0);
@@ -202,6 +204,11 @@ int launch_app_main(int argc, char ** argv) {
 	    
 	} else {
 	    int i = 0;
+
+
+	    if (optind + 2 > argc) {
+		usage();
+	    }
 
 	    printf("enclave = %s\n", argv[optind]);
 
