@@ -9,10 +9,11 @@
 
 #define XEMEM_SEG_NAME_LEN 64
 
-#define XEMEM_INVALID_SEGID ((xemem_segid_t)-1)
 
 typedef int64_t xemem_segid_t;
 typedef int64_t xemem_apid_t;
+
+#define XEMEM_INVALID_SEGID ((xemem_segid_t)-1)
 
 /*
  * flags for segment permissions
@@ -37,24 +38,18 @@ struct xemem_segment {
 xemem_segid_t 
 xemem_make(void   * vaddr, 
 	   size_t   size,
-	   int      permit_type,
-	   void   * permit_value, 
 	   char   * name);
 
 
 xemem_segid_t 
 xemem_make_signalled(void   * vaddr, 
-		    size_t   size,
-		    int      permit_type,
-		    void   * permit_value, 
-		    char   * name, 
-		    int    * fd);
+		     size_t   size,
+		     char   * name, 
+		     int    * fd);
 
 int 
 xemem_make_segid(void          * vaddr, 
 		 size_t          size,
-		 int             permit_type,
-		 void          * permit_value, 
 		 char          * name,
 		 xemem_segid_t   request);
 
@@ -64,9 +59,7 @@ int xemem_remove(xemem_segid_t segid);
 
 
 xemem_apid_t xemem_get(xemem_segid_t  segid,
-		       int            flags, 
-		       int            permit_type, 
-		       void         * permit_value);
+		       int            flags);
 
 
 int xemem_release(xemem_apid_t apid);

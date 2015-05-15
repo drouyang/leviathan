@@ -90,7 +90,7 @@ hobbes_client_init()
 {
     void       * db_addr    = NULL;
 
-    hobbes_db_apid = xemem_get(HDB_MASTER_DB_SEGID, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
+    hobbes_db_apid = xemem_get(HDB_MASTER_DB_SEGID, XEMEM_RDWR);
 
     if (hobbes_db_apid <= 0) {
         ERROR("xpmem get failed\n");

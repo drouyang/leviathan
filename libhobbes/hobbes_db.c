@@ -1095,7 +1095,7 @@ __get_xemem_segid(hdb_db_t   db,
 		  char     * name)
 {
     hdb_segment_t segment = NULL;
-    xemem_segid_t segid   = XEMEM_INVAID_SEGID;
+    xemem_segid_t segid   = XEMEM_INVALID_SEGID;
 
     segment = __get_segment_by_name(db, name);
 

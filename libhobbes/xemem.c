@@ -15,13 +15,11 @@ extern hdb_db_t hobbes_master_db;
 xemem_segid_t
 xemem_make(void          * vaddr, 
 	   size_t          size,
-	   int             permit_type,
-	   void          * permit_value, 
 	   char          * name)
 {
     xemem_segid_t segid = XEMEM_INVALID_SEGID;
 
-    segid = xpmem_make(vaddr, size, permit_type, permit_value);
+    segid = xpmem_make(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0);
     
     if (segid <= 0) {
 	ERROR("Could not create xemem segment\n");
@@ -41,8 +39,6 @@ xemem_make(void          * vaddr,
 xemem_segid_t
 xemem_make_signalled(void   * vaddr, 
 		     size_t   size,
-		     int      permit_type,
-		     void   * permit_value, 
 		     char   * name, 
 		     int    * fd)
 {
@@ -60,7 +56,7 @@ xemem_make_signalled(void   * vaddr,
 	flags = XPMEM_MEM_MODE;
     }
 
-    segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, flags | XPMEM_SIG_MODE, 0, &tmp_fd);
+    segid = xpmem_make_ext(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0, flags | XPMEM_SIG_MODE, 0, &tmp_fd);
     
     if (segid <= 0) {
 	ERROR("Could not create xemem segment\n");
@@ -79,14 +75,12 @@ xemem_make_signalled(void   * vaddr,
 int
 xemem_make_segid(void          * vaddr, 
 		 size_t          size,
-		 int             permit_type,
-		 void          * permit_value, 
 		 char          * name,
 		 xemem_segid_t   segid)
 {
     xemem_segid_t tmp_segid = XEMEM_INVALID_SEGID;
 
-    tmp_segid = xpmem_make_ext(vaddr, size, permit_type, permit_value, XPMEM_REQUEST_MODE, segid, NULL);
+    tmp_segid = xpmem_make_ext(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0, XPMEM_REQUEST_MODE, segid, NULL);
     
     if (tmp_segid != segid) {
 	ERROR("Could not create xemem segment for segid (%ld)\n", segid);
@@ -127,15 +121,13 @@ xemem_remove(xemem_segid_t segid)
 
 xemem_apid_t 
 xemem_get(xemem_segid_t segid, 
-	  int           flags,
-	  int           permit_type,
-	  void        * permit_value)
+	  int           flags)
 {
     xemem_apid_t apid = 0;
 
     /* Do we need to do any DB updates? */
 
-    apid = xpmem_get(segid, flags, permit_type, permit_value);
+    apid = xpmem_get(segid, flags, XPMEM_GLOBAL_MODE, (void *)0);
 
     return apid;
 }
@@ -169,7 +161,7 @@ xemem_signal_segid(xemem_segid_t segid)
 {
     xemem_apid_t apid = 0;
     
-    apid = xemem_get(segid, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
+    apid = xemem_get(segid, XEMEM_RDWR);
 
     if (apid <= 0) {
 	ERROR("Could not get APID for SEGID (%lu)\n", segid);
