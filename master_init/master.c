@@ -279,7 +279,7 @@ create_master_db(unsigned int size)
     printf("HDB SegID = %d\n", (int)segid);
     //segid = xpmem_make(db_addr, size, XPMEM_REQUEST_MODE, (void *)segid);
     segid = xpmem_make_ext(db_addr, size, 
-			      XPMEM_PERMIT_MODE, (void *)0600,
+			      XPMEM_GLOBAL_MODE, (void *)0,
 			      XPMEM_MEM_MODE | XPMEM_REQUEST_MODE, segid, 
 			      NULL);
 
