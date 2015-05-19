@@ -136,8 +136,7 @@ hcq_create_queue(char * name)
 
     db_addr = get_db_addr(db);
 
-    segid = xemem_make_signalled(db_addr, CMD_QUEUE_SIZE, 
-				 XPMEM_PERMIT_MODE, (void *)0600,
+    segid = xemem_make_signalled(db_addr, CMD_QUEUE_SIZE,
 				 name, &fd);
 
     if (segid <= 0) {
@@ -189,14 +188,14 @@ hcq_connect(xemem_segid_t segid)
 
     struct xemem_addr addr;
     
-    client_segid = xemem_make_signalled(NULL, 0, XPMEM_PERMIT_MODE, (void *)0600, NULL, &client_fd);
+    client_segid = xemem_make_signalled(NULL, 0, NULL, &client_fd);
     
     if (client_segid <= 0) {
 	ERROR("Could not create client signal segid\n");
 	return HCQ_INVALID_HANDLE;
     }
 
-    apid = xemem_get(segid, XEMEM_RDWR, XEMEM_PERMIT_MODE, NULL);
+    apid = xemem_get(segid, XEMEM_RDWR);
     
     if (apid <= 0) {
 	xemem_remove(client_segid);
