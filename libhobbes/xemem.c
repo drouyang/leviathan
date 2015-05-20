@@ -13,9 +13,9 @@ extern hdb_db_t hobbes_master_db;
 
 
 xemem_segid_t
-xemem_make(void          * vaddr, 
-	   size_t          size,
-	   char          * name)
+xemem_make(void   * vaddr, 
+	   size_t   size,
+	   char   * name)
 {
     xemem_segid_t segid = XEMEM_INVALID_SEGID;
 

@@ -11,7 +11,10 @@ CFLAGS = -Wall -Werror -D_GNU_SOURCE -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/includ
 CC = gcc
 AR = ar
 
-libs  := 	../libhobbes/libhobbes.a
+libs  := 	../libhobbes/libhobbes.a \
+		$(PISCES_PATH)/linux_usr/libpisces.a \
+		$(PALACIOS_PATH)/user/libv3vee_user.a \
+		$(PETLIB_PATH)/petlib.a
 
 
 

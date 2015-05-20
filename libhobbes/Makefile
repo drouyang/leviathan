@@ -12,10 +12,7 @@ CC = gcc
 AR = ar
 
 libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
-		$(PALACIOS_PATH)/user/libv3vee_user.a     \
-		$(PISCES_PATH)/linux_usr/libpisces.a           \
-		$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
-		$(PETLIB_PATH)/petlib.a              
+		$(WHITEDB_PATH)/Main/.libs/libwgdb.a
 
 
 
@@ -42,8 +39,6 @@ build = \
 
 
 
-
-
 % : %.c $(libs)
 	$(call build,CC,$(CC) $(CFLAGS)  $<  $(libs) /usr/lib64/libm.a -o $@)
 
@@ -61,9 +56,6 @@ libhobbes.mri: FORCE
 
 libhobbes.a: $(libhobbes_objs) $(libs) libhobbes.mri
 	$(call build,AR,$(AR) -M < libhobbes.mri)
-
-
-
 
 
 

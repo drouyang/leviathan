@@ -19,7 +19,9 @@ CFLAGS :=	-D_GNU_SOURCE            \
 		-static
 
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
-		$(LIBHOBBES_PATH)/libhobbes.a
+		$(LIBHOBBES_PATH)/libhobbes.a \
+		$(PALACIOS_PATH)/user/libv3vee_user.a \
+		$(PETLIB_PATH)/petlib.a 
 
 init_objs :=	init.o \
 		pisces.o \
