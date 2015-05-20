@@ -64,6 +64,37 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 
 	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
 
+
+	{
+	    /* Temporary extension modification 
+	       This will move to config generation library when its done
+	    */
+	    
+	    pet_xml_t ext_tree = pet_xml_get_subtree(xml, "extensions");
+	    pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
+	    char * id_str = NULL;
+
+	    while (ext_iter != NULL) {
+		char * ext_name = pet_xml_get_val(ext_iter, "name");
+		
+		if (strncasecmp("HOBBES_ENV", ext_name, strlen("HOBBES_ENV")) == 0) {
+		    break;
+		}
+
+		ext_iter = pet_xml_get_next(ext_iter);
+	    }
+	    
+	    if (ext_iter == NULL) {
+		ext_iter = pet_xml_add_subtree(ext_tree, "extension");
+		pet_xml_add_val(ext_iter, "name", "HOBBES_ENV");
+	    }
+
+	    asprintf(&id_str, "%u", enclave_id);
+	    pet_xml_add_val(ext_iter, "enclave_id", id_str);
+
+	    free(id_str);
+	}
+
     }
 
     /* Load VM Image */
