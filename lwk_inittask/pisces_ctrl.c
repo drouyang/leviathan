@@ -264,6 +264,9 @@ __shutdown(int      pisces_fd,
     /* Perform additional Cleanup is necessary */
     
     send_resp(pisces_fd, 0);
+
+    sleep(5); /* Hack to avoid disabling the xbuf before the resp has been received */
+	      /* TODO: Put the enclave into a halt loop */
     
     close(pisces_fd);
     exit(0);

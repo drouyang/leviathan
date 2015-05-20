@@ -16,11 +16,31 @@
 #include "hobbes_enclave.h"
 #include "hobbes_process.h"
 
+#define HOBBES_CPUID_LEAF (0x41000000)
+#define HOBBES_MAGIC      (0x40bbe5)
+#define HOBBES_VERSION    (1)
 
 
 hdb_db_t            hobbes_master_db = NULL;
 static xemem_apid_t hobbes_db_apid;
 static bool         hobbes_enabled   = false;
+
+
+static int
+cpuid(uint32_t   op,
+      uint32_t * eax, 
+      uint32_t * ebx, 
+      uint32_t * ecx, 
+      uint32_t * edx)
+{
+  
+    __asm__("cpuid\r\n"
+	    : "+a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+	    : 
+	    :);
+    
+    return 0;
+}
 
 
 static void 
@@ -38,7 +58,7 @@ hobbes_auto_init() {
 
     /* Check if we are a hobbes process */
     if (!getenv(HOBBES_ENV_PROCESS_ID)) {
-	ERROR("This is not a Hobbes process\n");
+	printf("This is not a Hobbes process\n");
 	return;
     }
 
@@ -146,18 +166,36 @@ hobbes_client_deinit()
 bool 
 hobbes_is_available( void )
 {
-    char * name = NULL;
-    /* First check environment variables  (LWK init + Hobbes Apps)*/
-    name = getenv(HOBBES_ENV_ENCLAVE_ID);
+    char * id_str = NULL;
 
-    if (name) {
+    /* First check environment variables  (LWK init + Hobbes Apps)*/
+    id_str = getenv(HOBBES_ENV_ENCLAVE_ID);
+    
+    if (id_str) {
 	return true;
     }
 
-    /* If not set, check for a hobbes device (Linux VM Init task) */
+    /* If not set, check for a Hobbes CPUID (VM environment) */
+    {
+	uint32_t eax = 0;
+	uint32_t ebx = 0;
+	uint32_t ecx = 0;
+	uint32_t edx = 0;
+	
+	cpuid(HOBBES_CPUID_LEAF, &eax, &ebx, &ecx, &edx);
+	
+	if (ebx == HOBBES_MAGIC) {
+	    char * tmp_str = NULL;
+	    
+	    asprintf(&tmp_str, "%u", edx);	    
+	    setenv(HOBBES_ENV_ENCLAVE_ID, tmp_str, 0);
+	    free(tmp_str);
+
+	    return true;
+	}
+    }
 
     return false;
-
 }
 
 bool
