@@ -14,7 +14,6 @@ AR = ar
 libs := 	../libhobbes/libhobbes.a \
 		$(PISCES_PATH)/linux_usr/libpisces.a \
 		$(PALACIOS_PATH)/user/libv3vee_user.a \
-		$(PETLIB_PATH)/petlib.a
 
 execs :=    	master
 

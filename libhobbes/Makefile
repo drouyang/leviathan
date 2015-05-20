@@ -12,7 +12,8 @@ CC = gcc
 AR = ar
 
 libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
-		$(WHITEDB_PATH)/Main/.libs/libwgdb.a
+		$(WHITEDB_PATH)/Main/.libs/libwgdb.a \
+		$(PETLIB_PATH)/petlib.a
 
 
 

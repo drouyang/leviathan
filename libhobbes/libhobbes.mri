@@ -8,5 +8,6 @@ addmod hobbes_process.o
 addmod hobbes_app.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../whitedb-0.7.3/Main/.libs/libwgdb.a
+addlib ../petlib/petlib.a
 save
 end
