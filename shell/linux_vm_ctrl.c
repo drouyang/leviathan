@@ -191,8 +191,14 @@ create_linux_vm(pet_xml_t   xml,
 	    */
 	    
 	    pet_xml_t ext_tree = pet_xml_get_subtree(xml, "extensions");
-	    pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
-	    char * id_str = NULL;
+	    pet_xml_t ext_iter = NULL;
+	    char    * id_str   = NULL;
+
+	    if (ext_tree == NULL) {
+		ext_tree = pet_xml_add_subtree(xml, "extensions");		
+	    }
+
+	    ext_iter = pet_xml_get_subtree(ext_tree, "extension");
 
 	    while (ext_iter != NULL) {
 		char * ext_name = pet_xml_get_val(ext_iter, "name");
@@ -215,6 +221,42 @@ create_linux_vm(pet_xml_t   xml,
 	    free(id_str);
 	}
 
+	{
+	    /* Temporarily add the XPMEM device if it is not present. 
+	       This will move to config generation library when its done
+	    */
+	    
+	    pet_xml_t dev_tree = pet_xml_get_subtree(xml,      "devices");
+	    pet_xml_t dev_iter = NULL;
+
+	    if (dev_tree == NULL) {
+		ERROR("Invalid VM config syntax. Missing devices section\n");
+		return -1;
+	    }
+
+	    dev_iter = pet_xml_get_subtree(dev_tree, "device");
+
+	    while (dev_iter != NULL) {
+		char * dev_class = pet_xml_get_val(dev_iter, "class");
+		
+		if (strncasecmp("XPMEM", dev_class, strlen("XPMEM")) == 0) {
+		    break;
+		}
+
+		dev_iter = pet_xml_get_next(dev_iter);
+	    }
+	    
+	    if (dev_iter == NULL) {
+		dev_iter = pet_xml_add_subtree_tail(dev_tree, "device");
+		pet_xml_add_val(dev_iter, "class", "XPMEM");
+		pet_xml_add_val(dev_iter, "id",    "XPMEM");
+		pet_xml_add_val(dev_iter, "bus",   "pci0");
+	    }
+
+	}
+
+
+	printf("%s\n", pet_xml_get_str(xml));
     }
 
 
@@ -294,6 +336,8 @@ create_linux_vm(pet_xml_t   xml,
 
 	}
     }
+
+
 
 
     printf("Creating VM (%s)\n", enclave_name);
