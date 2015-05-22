@@ -19,7 +19,8 @@ CFLAGS :=	-D_GNU_SOURCE            \
 libs  :=	$(LIBHOBBES_PATH)/libhobbes.a
 
 init_objs :=	init.o \
-		hobbes_ctrl.o 
+		hobbes_ctrl.o \
+		app_launch.o
 
 
 build = \
