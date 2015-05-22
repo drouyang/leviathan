@@ -35,8 +35,8 @@ cpuid(uint32_t   op,
 {
   
     __asm__("cpuid\r\n"
-	    : "+a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-	    : 
+	    : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+	    : "0" (op)
 	    :);
     
     return 0;
