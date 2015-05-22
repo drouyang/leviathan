@@ -136,8 +136,13 @@ ping_enclave_main(int argc, char ** argv)
 	printf("Usage: hobbes ping_enclave <enclave name>\n");
 	return -1;
     }
-	   
+
     enclave_id = hobbes_get_enclave_id(argv[1]);
+
+    if (enclave_id == HOBBES_INVALID_ID) {
+	printf("Invalid Enclave\n");
+	return -1;
+    }
 
     return hobbes_ping_enclave(enclave_id);
 }

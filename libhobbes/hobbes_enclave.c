@@ -144,7 +144,7 @@ hobbes_ping_enclave(hobbes_id_t enclave_id)
     char         * resp      = NULL;
     uint32_t       resp_size = 0;
 
-    printf("%s: ping\n", hobbes_get_enclave_name(enclave_id));
+    printf("%s: ping\n", hobbes_get_my_enclave_name());
     
     cmd = hcq_cmd_issue(hcq, HOBBES_CMD_PING, 0, NULL);
 

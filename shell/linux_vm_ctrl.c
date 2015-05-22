@@ -406,8 +406,6 @@ create_linux_vm(pet_xml_t   xml,
 	    
 	    return -1;
 	}
-
-	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
     }
     
 

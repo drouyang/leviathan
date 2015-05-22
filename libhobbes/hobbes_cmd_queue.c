@@ -188,6 +188,8 @@ hcq_connect(xemem_segid_t segid)
 
     struct xemem_addr addr;
     
+    printf("HCQ SEGID = %ld\n", segid);
+
     client_segid = xemem_make_signalled(NULL, 0, NULL, &client_fd);
     
     if (client_segid <= 0) {
@@ -346,7 +348,7 @@ __cmd_issue(struct cmd_queue * cq,
     wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING,  wg_encode_int(db, cmd_cnt + 1));
 
 
-    printf("Signalling apid %lu\n", cq->apid);
+    //printf("Signalling apid %lu\n", cq->apid);
 
     xemem_signal(cq->apid);
 
@@ -508,7 +510,7 @@ __get_ret_data(struct cmd_queue * cq,
 	return NULL;
     }
 
-    data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_CODE));
+    data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_SIZE));
 
     if (data_size > 0) {
 	data  = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_RET_DATA));

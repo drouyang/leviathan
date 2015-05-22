@@ -143,7 +143,6 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	    goto out1;
 	}
 
-	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
     }
 
  out1:
