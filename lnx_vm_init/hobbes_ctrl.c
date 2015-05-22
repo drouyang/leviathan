@@ -141,6 +141,7 @@ static int
 __ping(hcq_handle_t hcq,
        uint64_t     cmd)
 {
+    printf("Ping\n");
     hcq_cmd_return(hcq, cmd, 0, strlen("pong") + 1, "pong");
     return 0;
 }

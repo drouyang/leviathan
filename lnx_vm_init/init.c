@@ -36,8 +36,8 @@ static void hobbes_exit( void ) {
 static void
 sig_term_handler(int sig)
 {
-    printf("Caught sigterm\n");
-    hobbes_exit();
+    printf("Caught sigterm\n");	
+    exit(-1);
 }
 
 
@@ -47,8 +47,7 @@ main(int argc, char ** argv, char * envp[])
 {
     hcq_handle_t hcq    = HCQ_INVALID_HANDLE;
     int          hcq_fd = 0;
-
-    struct pollfd ufds[1] = {{-1, 0, 0}};
+    fd_set       cmd_fds;
 
 
     {
@@ -57,13 +56,16 @@ main(int argc, char ** argv, char * envp[])
 	memset(&action, 0, sizeof(struct sigaction));
 	action.sa_handler = sig_term_handler;
 
-	if (sigaction(SIGTERM, &action, 0)) {
+	if (sigaction(SIGINT, &action, 0)) {
 	    perror("sigaction");
 	    return -1;
 	}
     }
 
+    FD_ZERO(&cmd_fds);
+
     printf("Checking for Hobbes environment...\n");
+    
 
     /* Set up Hobbes interface */
     if (hobbes_is_available()) {
@@ -93,8 +95,7 @@ main(int argc, char ** argv, char * envp[])
 	    /* Get File descriptors */    
 	    hcq_fd = hcq_get_fd(hcq);
 	    
-	    ufds[1].fd     = hcq_fd;
-	    ufds[1].events = POLLIN;
+	    FD_SET(hcq_fd, &cmd_fds);	    
 	    
 	    /* Register that Hobbes userspace is running */
 	    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_RUNNING);
@@ -112,10 +113,12 @@ main(int argc, char ** argv, char * envp[])
     /* Command Loop */
     printf("Entering Command Loop\n");
     while (1) {
-	int    ret  = 0;
+	int    ret  = 0;	
+	fd_set rset = cmd_fds;
 
-	ret = poll(ufds, 1, -1);
+	ret = select(hcq_fd + 1, &rset, NULL, NULL, NULL);
 
+	printf("select returned\n");
 	if (ret == -1) {
 	    ERROR("Select() error\n");
 	    break;
@@ -124,7 +127,7 @@ main(int argc, char ** argv, char * envp[])
 
 	/* Handle Hobbes commands */
 	if ( ( hobbes_enabled ) && 
-	     ( ufds[0].revents & POLLIN ) ) {
+	     ( FD_ISSET(hcq_fd, &rset)) ) {
 
 	    ret = hobbes_handle_cmd(hcq);
 

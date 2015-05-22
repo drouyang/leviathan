@@ -16,8 +16,7 @@ CFLAGS :=	-D_GNU_SOURCE            \
 		-I$(PETLIB_PATH)	 \
 		-static
 
-libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
-		$(LIBHOBBES_PATH)/libhobbes.a
+libs  :=	$(LIBHOBBES_PATH)/libhobbes.a
 
 init_objs :=	init.o \
 		hobbes_ctrl.o 
