@@ -66,9 +66,9 @@ static void usage() {
 
 
 int launch_app_main(int argc, char ** argv) {
-    int         use_job_file  =  0;
-    hobbes_id_t enclave_id    = -1;
-    int         ret           =  0;
+    int         use_job_file  = 0;
+    hobbes_id_t enclave_id    = HOBBES_INVALID_ID;
+    int         ret           = 0;
 
     /* Parse Options */
     {

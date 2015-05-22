@@ -22,7 +22,11 @@
 char * enclave_name   =  NULL; 
 bool   hobbes_enabled = false;
 
+
+
 static void hobbes_exit( void ) {
+    hobbes_cmd_exit();
+
     hobbes_client_deinit();
 }
 
@@ -31,9 +35,8 @@ static void hobbes_exit( void ) {
 int
 main(int argc, char ** argv, char * envp[]) 
 {
-    hcq_handle_t hcq = HCQ_INVALID_HANDLE;
-
-    int hcq_fd    = 0;
+    hcq_handle_t hcq    = HCQ_INVALID_HANDLE;
+    int          hcq_fd = 0;
 
 
     struct pollfd ufds[1] = {{-1, 0, 0}};

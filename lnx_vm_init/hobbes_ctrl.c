@@ -24,10 +24,6 @@ static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 static struct hashtable * hobbes_cmd_handlers = NULL;
 
 
-static void hcq_exit( void ) {
-    printf("Freeing Hobbes Command Queue\n");
-    hcq_free_queue(hcq);
-}
 
 static uint32_t 
 handler_hash_fn(uintptr_t key)
@@ -79,8 +75,6 @@ init_cmd_queue( void )
 	ERROR("Could not create command queue\n");
 	return hcq;
     }
-
-    atexit(hcq_exit);
 
     segid = hcq_get_segid(hcq);
 
@@ -151,6 +145,13 @@ __ping(hcq_handle_t hcq,
     return 0;
 }
 
+
+void 
+hobbes_cmd_exit( void ) 
+{
+    printf("Freeing Hobbes Command Queue\n");
+    hcq_free_queue(hcq);
+}
 
 hcq_handle_t
 hobbes_cmd_init(void)
