@@ -27,6 +27,7 @@ bool   hobbes_enabled = false;
 
 static void hobbes_exit( void ) {
     if (hobbes_enabled) {
+	printf("Shutting down hobbes\n");
 	hobbes_cmd_exit();
 	hobbes_client_deinit();
     }
@@ -35,6 +36,7 @@ static void hobbes_exit( void ) {
 static void
 sig_term_handler(int sig)
 {
+    printf("Caught sigterm\n");
     hobbes_exit();
 }
 
