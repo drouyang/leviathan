@@ -135,6 +135,41 @@ hobbes_close_enclave_cmdq(hcq_handle_t hcq)
 }
 
 
+int 
+hobbes_ping_enclave(hobbes_id_t enclave_id)
+{
+    hcq_handle_t   hcq       = hobbes_open_enclave_cmdq(enclave_id);
+    hcq_cmd_t      cmd       = HCQ_INVALID_CMD;
+    int            ret       = 0;
+    char         * resp      = NULL;
+    uint32_t       resp_size = 0;
+
+    printf("%s: ping\n", hobbes_get_enclave_name(enclave_id));
+    
+    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_PING, 0, NULL);
+
+    if (cmd == HCQ_INVALID_CMD) {
+	printf("No Response\n");
+	return -1;
+    }
+
+    ret = hcq_get_ret_code(hcq, cmd);
+
+    if (ret != 0) {
+	printf("Ping Error\n");
+	return -1;
+    }
+
+    resp = hcq_get_ret_data(hcq, cmd, &resp_size);
+
+    printf("%s: %s\n", hobbes_get_enclave_name(enclave_id), resp);
+    
+    hcq_cmd_complete(hcq, cmd);
+    hobbes_close_enclave_cmdq(hcq);
+
+    return 0;
+}
+
 
 int 
 hobbes_register_enclave_cmdq(hobbes_id_t   enclave_id, 

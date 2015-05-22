@@ -19,7 +19,7 @@ typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
 
 hcq_handle_t hobbes_cmd_init(void);
 int hobbes_handle_cmd(hcq_handle_t hcq);
-int register_hobbes_cmd(uint64_t cmd, hobbes_cmd_fn handler);
+int hobbes_register_cmd(uint64_t cmd, hobbes_cmd_fn handler);
 
 
 

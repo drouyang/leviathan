@@ -128,6 +128,21 @@ destroy_enclave_main(int argc, char ** argv)
 
 
 int
+ping_enclave_main(int argc, char ** argv)
+{
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+    
+    if (argc < 1) {
+	printf("Usage: hobbes ping_enclave <enclave name>\n");
+	return -1;
+    }
+	   
+    enclave_id = hobbes_get_enclave_id(argv[1]);
+
+    return hobbes_ping_enclave(enclave_id);
+}
+
+int
 list_enclaves_main(int argc, char ** argv)
 {
     struct enclave_info * enclaves = NULL;

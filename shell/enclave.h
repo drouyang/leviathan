@@ -9,6 +9,7 @@
 
 int  create_enclave_main(int argc, char ** argv);
 int destroy_enclave_main(int argc, char ** argv);
-int list_enclaves_main(int argc, char ** argv);
+int    ping_enclave_main(int argc, char ** argv);
+int   list_enclaves_main(int argc, char ** argv);
 
 #endif

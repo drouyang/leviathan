@@ -23,7 +23,7 @@
 
 #define ENCLAVE_CMD_CREATE_VM          1500
 #define ENCLAVE_CMD_FREE_VM            1501
-#define ENCLAVE_CMD_LAUNCH_VM           1502
+#define ENCLAVE_CMD_LAUNCH_VM          1502
 #define ENCLAVE_CMD_STOP_VM            1503
 #define ENCLAVE_CMD_PAUSE_VM           1504
 #define ENCLAVE_CMD_CONTINUE_VM        1505
@@ -42,11 +42,14 @@
 
 #define HOBBES_CMD_APP_LAUNCH          2000
 #define HOBBES_CMD_VM_LAUNCH           2001
-
 #define HOBBES_CMD_VM_DESTROY          2051
 
 #define HOBBES_CMD_SHUTDOWN            2100
 
+
+
+/* General Commands */
+#define HOBBES_CMD_PING                3000
 
 
 #endif

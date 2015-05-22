@@ -97,7 +97,7 @@ init_cmd_queue( void )
 
 
 int 
-register_hobbes_cmd(uint64_t        cmd, 
+hobbes_register_cmd(uint64_t        cmd, 
 		    hobbes_cmd_fn   handler_fn)
 {
     if (pet_htable_search(hobbes_cmd_handlers, cmd) != 0) {
@@ -143,6 +143,15 @@ out:
 }
 
 
+static int 
+__ping(hcq_handle_t hcq,
+       uint64_t     cmd)
+{
+    hcq_cmd_return(hcq, cmd, 0, strlen("pong") + 1, "pong");
+    return 0;
+}
+
+
 hcq_handle_t
 hobbes_cmd_init(void)
 {
@@ -150,7 +159,8 @@ hobbes_cmd_init(void)
     hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
     
-    register_hobbes_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
 
     return init_cmd_queue();
 }

@@ -98,6 +98,7 @@ list_processes_main(int argc, char ** argv)
 
 
 
+
 struct hobbes_cmd {
     char * name;
     int (*handler)(int argc, char ** argv);   
@@ -107,16 +108,19 @@ struct hobbes_cmd {
 extern int      launch_app_main(int argc, char ** argv);
 extern int  create_enclave_main(int argc, char ** argv);
 extern int destroy_enclave_main(int argc, char ** argv);
+extern int    ping_enclave_main(int argc, char ** argv);
 extern int   list_enclaves_main(int argc, char ** argv);
 
 
+
 static struct hobbes_cmd cmds[] = {
-    {"create_enclave",  create_enclave_main,     "Create Native Enclave"},
-    {"destroy_enclave", destroy_enclave_main,    "Destroy Native Enclave"},
-    {"list_enclaves",   list_enclaves_main,      "List all running enclaves"},
-    {"list_segments",   list_segments_handler,   "List all exported xpmem segments"},
-    {"launch_app",      launch_app_main,         "Launch an application in an enclave"},
-    {"list_processes",  list_processes_main,     "List all processes"},
+    {"create_enclave"  , create_enclave_main   , "Create Native Enclave"},
+    {"destroy_enclave" , destroy_enclave_main  , "Destroy Native Enclave"},
+    {"ping_enclave"    , ping_enclave_main     , "Ping an enclave"},
+    {"list_enclaves"   , list_enclaves_main    , "List all running enclaves"},
+    {"list_segments"   , list_segments_handler , "List all exported xpmem segments"},
+    {"launch_app"      , launch_app_main       , "Launch an application in an enclave"},
+    {"list_processes"  , list_processes_main   , "List all processes"},
     {0, 0, 0}
 };
 

@@ -230,8 +230,8 @@ palacios_init(void)
 
     // Register Hobbes commands
     if (hobbes_enabled) {
-	register_hobbes_cmd(HOBBES_CMD_VM_LAUNCH,  __hobbes_launch_vm);
-	register_hobbes_cmd(HOBBES_CMD_VM_DESTROY, __hobbes_destroy_vm);
+	hobbes_register_cmd(HOBBES_CMD_VM_LAUNCH,  __hobbes_launch_vm);
+	hobbes_register_cmd(HOBBES_CMD_VM_DESTROY, __hobbes_destroy_vm);
 
 	
     }
