@@ -122,7 +122,7 @@ main(int argc, char ** argv, char * envp[])
 
 	/* Handle Hobbes commands */
 	if ( ( hobbes_enabled ) && 
-	     ( ufds[1].revents & POLLIN ) ) {
+	     ( ufds[0].revents & POLLIN ) ) {
 
 	    ret = hobbes_handle_cmd(hcq);
 
