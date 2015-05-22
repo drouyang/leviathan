@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <poll.h>
 
+#include <signal.h>
 
 #include <stdint.h>
 
@@ -25,9 +26,16 @@ bool   hobbes_enabled = false;
 
 
 static void hobbes_exit( void ) {
-    hobbes_cmd_exit();
+    if (hobbes_enabled) {
+	hobbes_cmd_exit();
+	hobbes_client_deinit();
+    }
+}
 
-    hobbes_client_deinit();
+static void
+sig_term_handler(int sig)
+{
+    hobbes_exit();
 }
 
 
@@ -38,10 +46,20 @@ main(int argc, char ** argv, char * envp[])
     hcq_handle_t hcq    = HCQ_INVALID_HANDLE;
     int          hcq_fd = 0;
 
-
     struct pollfd ufds[1] = {{-1, 0, 0}};
 
 
+    {
+	struct sigaction action;
+	
+	memset(&action, 0, sizeof(struct sigaction));
+	action.sa_handler = sig_term_handler;
+
+	if (sigaction(SIGTERM, &action, 0)) {
+	    perror("sigaction");
+	    return -1;
+	}
+    }
 
     printf("Checking for Hobbes environment...\n");
 
