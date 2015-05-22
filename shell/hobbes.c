@@ -24,32 +24,33 @@ list_segments_handler(int argc, char ** argv)
     int num_segments = 0;
     int i = 0;
 
-    if (argc != 1) {
-        printf("Usage: hobbes list_segments\n");
-        return -1;
-    }
-
     seg_arr = xemem_get_segment_list(&num_segments);
 
-    if (seg_arr == NULL) {
-        ERROR("Could not retrieve XEMEM segment list\n");
-        return -1;
+    if (num_segments == -1) {
+	ERROR("could not retrieve segment list\n");
+	return -1;
+    }
+
+    printf("%d Segments\n", num_segments);
+
+    if (num_segments == 0) {
+	return 0;
     }
 
     printf("%d segments:\n", num_segments);
-    printf("---------------------------------------------------------------------------\n");
-    printf("| SEGID      | Segment Name                     | Enclave ID | Process ID |\n");
-    printf("---------------------------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------------------\n");
+    printf("| SEGID          | Segment Name                     | Enclave ID | Process ID |\n");
+    printf("-------------------------------------------------------------------------------\n");
 
     for (i = 0; i < num_segments; i++) {
         printf("| %-*lu | %-*s | %-*d | %-*d |\n",
-	       10, seg_arr[i].segid,
+	       14, seg_arr[i].segid,
 	       32, seg_arr[i].name,
 	       10, seg_arr[i].enclave_id,
 	       10, seg_arr[i].process_id);
     }
 
-    printf("---------------------------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------------------\n");
 
     free(seg_arr);
 

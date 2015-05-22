@@ -48,7 +48,7 @@ __attribute__((constructor))
 hobbes_auto_init() {
     hobbes_id_t process_id = HOBBES_INVALID_ID;
 
-    printf("Initializing Hobbes\n");
+    printf("Hobbes: Initializing\n\n");
 
     /* Check is hobbes is available */
     if (!hobbes_is_available()) {
@@ -91,7 +91,7 @@ __attribute__((destructor))
 hobbes_auto_deinit()
 {
 
-    printf("Deinitializing Hobbes\n");
+    printf("\nHobbes: Deinitializing\n");
 
     if (!hobbes_enabled) {
 	return;

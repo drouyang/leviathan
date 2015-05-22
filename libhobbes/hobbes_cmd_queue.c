@@ -248,22 +248,16 @@ hcq_disconnect(hcq_handle_t hcq)
 {
     struct cmd_queue * cq = hcq;
 
-    printf("detach local\n");
     wg_detach_local_database(cq->db);
 
-    printf("xemem detach\n");
     xemem_detach(cq->db_addr);
 
-    printf("xemem release (apid=%lu)\n", cq->apid);
     xemem_release(cq->apid);
 
-    printf("xemem remove\n");
     xemem_remove(cq->client_segid);
 
-    printf("free\n");
     free(cq);
 
-    printf("return\n");
     return;
 }
 
