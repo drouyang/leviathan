@@ -31,23 +31,86 @@ extern hdb_db_t hobbes_master_db;
 #define DEFAULT_ENVP            ""
 #define DEFAULT_ARGV            ""
 
+
+
+
+/* 
+ * Internal implementation of popen/pclose, based on version from: 
+ * http://stackoverflow.com/questions/26852198/getting-the-pid-from-popen
+ */
+
+static FILE * 
+hobbes_popen(char  * cmd_line,
+	     pid_t * assigned_pid)
+{
+    pid_t child_pid = 0;
+    int   fd[2]     = {0,0};
+
+    pipe(fd);
+
+    child_pid = fork();
+
+    if (child_pid == -1) {
+        perror("fork");
+        exit(1);
+    }
+
+    /* child process */
+    if (child_pid == 0) {
+
+	close(fd[STDIN_FILENO]);                 // Close the READ end of the pipe since the child's fd is write-only
+	dup2 (fd[STDOUT_FILENO], STDOUT_FILENO); // Redirect stdout to pipe
+
+        execl("/bin/sh", "/bin/sh", "-c", cmd_line, NULL);
+
+        exit(0);
+
+    } else {
+	close(fd[STDOUT_FILENO]); // Close the WRITE end of the pipe since parent's fd is read-only
+    }
+
+    assigned_pid = child_pid;
+
+    return fdopen(fd[STDIN_FILENO], "r");
+}
+
+
+static int 
+pclose2(FILE * fp, pid_t pid)
+{
+    int stat;
+
+    fclose(fp);
+
+    while (waitpid(pid, &stat, 0) == -1) {
+        if (errno != EINTR) {
+            stat = -1;
+            break;
+        }
+    }
+
+    return stat;
+}
+
+
 int 
-launch_lnx_app(char        * name, 
-	       char        * exe_path, 
-	       char        * argv, 
-	       char        * envp)
+launch_lnx_app(char * name, 
+	       char * exe_path, 
+	       char * argv, 
+	       char * envp)
 {
     char * cmd_line = NULL;
-    FILE * app_fp = NULL;
+    FILE * app_fp   = NULL;
+    pid_t  app_pid  = 0;
 /*
     char * out_data = NULL;    
     size_t line_size = 0;
 */
     asprintf(&cmd_line, "%s %s %s", envp, exe_path, argv); 
 
-	printf("Launching app: %s\n", cmd_line);
+    printf("Launching app: %s\n", cmd_line);
 
-    app_fp = popen(cmd_line, "r");
+    app_fp = hobbes_popen(cmd_line, &app_pid);
     free(cmd_line);
   
 /*
@@ -57,6 +120,7 @@ launch_lnx_app(char        * name,
 
     free(out_data);
 */ 
+
    pclose(app_fp);
 
     return 0;
@@ -85,11 +149,8 @@ launch_hobbes_lnx_app(char * spec_str)
 	char        * exe_path   = NULL; 
 	char        * argv       = DEFAULT_ARGV;
 	char        * envp       = DEFAULT_ENVP; 
-	char        * hobbes_env = NULL;
-	
+	char        * hobbes_env = NULL;	
 	char        * val_str    = NULL;
-
-
 
 	printf("App spec str = (%s)\n", spec_str);
 
@@ -112,7 +173,6 @@ launch_hobbes_lnx_app(char * spec_str)
 	    name = exe_path;
 	}
 
-
 	/* ARGV */
 	val_str = pet_xml_get_val(spec, "argv");
 
@@ -126,8 +186,6 @@ launch_hobbes_lnx_app(char * spec_str)
 	if (val_str) {
 	    envp = val_str;
 	}
-
-
 
 	/* Register as a hobbes process */
 	{
@@ -152,7 +210,6 @@ launch_hobbes_lnx_app(char * spec_str)
 		ERROR("Failed to allocate envp string for application (%s)\n", name);
 		goto out;
 	    }
-	    
 	}
 	
 	/* Launch App */
@@ -168,7 +225,6 @@ launch_hobbes_lnx_app(char * spec_str)
 	    goto out;
 	}
     }
-
 
  out:
     pet_xml_free(spec);
