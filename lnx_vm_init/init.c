@@ -174,6 +174,10 @@ add_fd_handler(int             fd,
 	return -1;
     }
 
+    new_handler->fn        = fn;
+    new_handler->fd        = fd;
+    new_handler->priv_data = priv_data;
+
     if (pet_htable_insert(handler_table, fd, (uintptr_t)new_handler) == 0) {
 	ERROR("Could not register FD handler (fd=%d)\n", fd);
 	free(new_handler);
