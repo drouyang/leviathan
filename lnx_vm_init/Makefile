@@ -20,7 +20,7 @@ libs  :=	$(LIBHOBBES_PATH)/libhobbes.a
 
 init_objs :=	init.o \
 		hobbes_ctrl.o \
-		app_launch.o
+		lnx_app.o
 
 
 build = \

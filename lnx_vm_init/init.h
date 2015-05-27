@@ -1,4 +1,4 @@
-/* Pisces LWK inittask 
+/* Leviathan Linux inittask 
  * (c) 2015, Jack Lange, <jacklange@cs.pitt.edu>
  */
 
@@ -12,9 +12,16 @@ extern uint64_t   enclave_id;
 extern char     * enclave_name;
 
 
-extern bool hobbes_enabled;
 
 
+typedef int (*fd_handler_fn)(int fd, void * priv_data);
+
+
+int add_fd_handler(int             fd, 
+		   fd_handler_fn   handler,
+		   void          * priv_data);
+
+int remove_fd_handler(int fd);
 
 
 #endif

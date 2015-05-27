@@ -1,4 +1,4 @@
-/* Kitten Job Launch 
+/* Linux application control
  * (c) 2015, Jack Lange, <jacklange@cs.pitt.edu>
  */
 
@@ -6,9 +6,11 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <errno.h>
 
 
 #include <stdint.h>
@@ -26,57 +28,91 @@
 extern hdb_db_t hobbes_master_db;
 
 
-#include "app_launch.h"
+#include "init.h"
+#include "lnx_app.h"
 
 #define DEFAULT_ENVP            ""
 #define DEFAULT_ARGV            ""
 
 
 
+LIST_HEAD(app_list);
+
+static int
+__handle_stdout(int    fd, 
+		void * priv_data)
+{
+    struct app_state * app = (struct app_state *)priv_data;
+    FILE * out_fp    = fdopen(app->stdout_fd, "r");
+    char * out_data  = NULL;
+    size_t line_size = 0;
+    
+
+
+    while (getline(&out_data, &line_size, out_fp) != -1) {
+	printf("%s\n", out_data);
+    }
+
+    if (errno != EAGAIN) {
+	printf("Process has exitted\n");
+	remove_fd_handler(fd);
+	list_del(&(app->node));
+	free(app);
+    }
+
+    return 0;   
+}
 
 /* 
  * Internal implementation of popen/pclose, based on version from: 
  * http://stackoverflow.com/questions/26852198/getting-the-pid-from-popen
  */
 
-static FILE * 
-hobbes_popen(char  * cmd_line,
-	     pid_t * assigned_pid)
+static int 
+__popen(char  * cmd_line,
+	pid_t * assigned_pid,
+	int   * stdin_fd,
+	int   * stdout_fd)
 {
-    pid_t child_pid = 0;
-    int   fd[2]     = {0,0};
+    pid_t child_pid     = 0;
+    int   stdout_fds[2] = {0, 0}; /* stdout from the child */
+    int   stdin_fds[2]  = {0, 0}; /* stdin to the child */
 
-    pipe(fd);
+    pipe2(stdin_fds,  0);
+    pipe2(stdout_fds, O_NONBLOCK);
 
     child_pid = fork();
 
     if (child_pid == -1) {
         perror("fork");
-        exit(1);
+	return -1;
     }
 
     /* child process */
     if (child_pid == 0) {
 
-	close(fd[STDIN_FILENO]);                 // Close the READ end of the pipe since the child's fd is write-only
-	dup2 (fd[STDOUT_FILENO], STDOUT_FILENO); // Redirect stdout to pipe
+	dup2(stdin_fds[0], STDIN_FILENO);
+	dup2(stdout_fds[1], STDOUT_FILENO); // Redirect stdout to pipe
 
         execl("/bin/sh", "/bin/sh", "-c", cmd_line, NULL);
 
         exit(0);
 
     } else {
-	close(fd[STDOUT_FILENO]); // Close the WRITE end of the pipe since parent's fd is read-only
+	close(stdin_fds[0]);
+	close(stdout_fds[1]); 
     }
 
-    assigned_pid = child_pid;
+    *assigned_pid = child_pid;
+    *stdout_fd    = stdout_fds[0];
+    *stdin_fd     = stdin_fds[1];
 
-    return fdopen(fd[STDIN_FILENO], "r");
+    return 0;
 }
 
-
+/*
 static int 
-pclose2(FILE * fp, pid_t pid)
+__pclose(FILE * fp, pid_t pid)
 {
     int stat;
 
@@ -91,39 +127,69 @@ pclose2(FILE * fp, pid_t pid)
 
     return stat;
 }
+*/
+
+int
+kill_lnx_app(struct app_state * app)
+{
 
 
-int 
+    return -1;
+}
+
+struct app_state * 
 launch_lnx_app(char * name, 
 	       char * exe_path, 
 	       char * argv, 
 	       char * envp)
 {
-    char * cmd_line = NULL;
-    FILE * app_fp   = NULL;
-    pid_t  app_pid  = 0;
-/*
-    char * out_data = NULL;    
-    size_t line_size = 0;
-*/
+    struct app_state * app = NULL;
+
+    char * cmd_line  = NULL;
+    pid_t  app_pid   = 0;
+    int    stdin_fd  = 0;
+    int    stdout_fd = 0;
+    int    ret       = 0;
+
     asprintf(&cmd_line, "%s %s %s", envp, exe_path, argv); 
 
     printf("Launching app: %s\n", cmd_line);
 
-    app_fp = hobbes_popen(cmd_line, &app_pid);
+    ret = __popen(cmd_line, &app_pid, &stdin_fd, &stdout_fd);
     free(cmd_line);
   
-/*
-    while (getline(&out_data, &line_size, app_fp) != -1) {
-	printf(">%s\n", out_data);	
+    if (ret != 0) {
+	ERROR("Could not launch linux process\n");
+	return NULL;
     }
 
-    free(out_data);
-*/ 
+    {
 
-   pclose(app_fp);
+	app = calloc(sizeof(struct app_state), 1);
+	
+	if (app == NULL) {
+	    ERROR("Could not allocate app state\n");
+	    return NULL;
+	}
 
-    return 0;
+	app->hpid      = HOBBES_INVALID_ID;   /* the HPID will be set in launch_hobbes_lnx_app if needed */
+	app->pid       = app_pid;
+	app->stdin_fd  = stdin_fd;
+	app->stdout_fd = stdout_fd;
+
+	ret = add_fd_handler(app->stdout_fd, __handle_stdout, app);
+
+	if (ret == -1) {
+	    ERROR("Cannot add handler for process output\n");
+	    free(app);
+	    return NULL;
+	}
+
+	list_add(&(app->node), &app_list);
+    }
+
+
+    return app;
 }
 
 
@@ -134,7 +200,8 @@ launch_hobbes_lnx_app(char * spec_str)
     pet_xml_t spec = NULL;
     int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
 
-    hobbes_id_t hobbes_process_id = HOBBES_INVALID_ID;
+    struct app_state * app  = NULL;
+    hobbes_id_t        hpid = HOBBES_INVALID_ID;
 
 
     spec = pet_xml_parse_str(spec_str);
@@ -192,16 +259,16 @@ launch_hobbes_lnx_app(char * spec_str)
 	    	    
 	    int ret = 0;
 
-	    hobbes_process_id = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
+	    hpid = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
 
-	    printf("Launching App (Hobbes process ID = %u) (EnclaveID=%d)\n", hobbes_process_id, hobbes_get_my_enclave_id() );
+	    printf("Launching App (Hobbes process ID = %u) (EnclaveID=%d)\n", hpid,  hobbes_get_my_enclave_id() );
 	    printf("process Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
 	    ret = asprintf(&hobbes_env, 
 			   "%s=%u %s=%u %s", 
 			   HOBBES_ENV_PROCESS_ID,
-			   hobbes_process_id, 
+			   hpid, 
 			   HOBBES_ENV_ENCLAVE_ID,
 			   hobbes_get_my_enclave_id(), 
 			   envp);
@@ -210,20 +277,27 @@ launch_hobbes_lnx_app(char * spec_str)
 		ERROR("Failed to allocate envp string for application (%s)\n", name);
 		goto out;
 	    }
-	}
-	
-	/* Launch App */
-	ret = launch_lnx_app(name, 
-			     exe_path, 
-			     argv,
-			     hobbes_env);
+	    
+	    /* Launch App */
+	    app = launch_lnx_app(name, 
+				 exe_path, 
+				 argv,
+				 hobbes_env);
 
-	free(hobbes_env);
+	    free(hobbes_env);
 
-	if (ret == -1) {
-	    ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);
-	    goto out;
+	    if (app == NULL) {
+		ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);
+		goto out;
+	    }
+
+
+	    /* Record Hobbes Process ID */
+	    app->hpid = hpid;
+
 	}
+
+
     }
 
  out:

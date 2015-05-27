@@ -1,3 +1,6 @@
+/* Leviathan Linux inittask 
+ * (c) 2015, Jack Lange, <jacklange@cs.pitt.edu>
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -9,8 +12,10 @@
 #include <signal.h>
 
 #include <stdint.h>
+#include <assert.h>
 
 #include <pet_log.h>
+#include <pet_hashtable.h>
 
 #include <hobbes.h>
 #include <xemem.h>
@@ -18,20 +23,35 @@
 #include <hobbes_cmd_queue.h>
 
 #include "hobbes_ctrl.h"
+#include "lnx_app.h"
+#include "init.h"
 
 
-char * enclave_name   =  NULL; 
-bool   hobbes_enabled = false;
+static uint32_t           handler_max_fd = 0;
+static fd_set             handler_fdset;
+static struct hashtable * handler_table  = NULL;
+
+struct fd_handler {
+    int             fd;
+    fd_handler_fn   fn;
+    void          * priv_data;
+};
 
 
-
-static void hobbes_exit( void ) {
-    if (hobbes_enabled) {
-	printf("Shutting down hobbes\n");
-	hobbes_cmd_exit();
-	hobbes_client_deinit();
-    }
+static uint32_t 
+handler_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
 }
+
+static int
+handler_equal_fn(uintptr_t key1, uintptr_t key2)
+{
+    return (key1 == key2);
+}
+
+
+
 
 static void
 sig_term_handler(int sig)
@@ -45,78 +65,54 @@ sig_term_handler(int sig)
 int
 main(int argc, char ** argv, char * envp[]) 
 {
-    hcq_handle_t hcq    = HCQ_INVALID_HANDLE;
-    int          hcq_fd = 0;
-    fd_set       cmd_fds;
 
-
+    /* Trap SIGINT for cleanup */
     {
 	struct sigaction action;
 	
 	memset(&action, 0, sizeof(struct sigaction));
 	action.sa_handler = sig_term_handler;
-
+	
 	if (sigaction(SIGINT, &action, 0)) {
 	    perror("sigaction");
 	    return -1;
 	}
     }
-
-    FD_ZERO(&cmd_fds);
-
-    printf("Checking for Hobbes environment...\n");
     
 
-    /* Set up Hobbes interface */
-    if (hobbes_is_available()) {
-    
-	if (hobbes_client_init() != 0) {
-	    ERROR("Could not initialize hobbes client interface\n");
-	    goto hobbes_init_out;
-	}
 
-	atexit(hobbes_exit);
+    handler_table = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
 
-
-	printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());
-   
-	printf("\tInitializing Hobbes Command Queue\n");
-
-	hcq = hobbes_cmd_init();
-
-	if (hcq == HCQ_INVALID_HANDLE) {
-	    ERROR("Could not initialize hobbes command queue\n");
-	    ERROR("Running in a degraded state with legacy pisces interface\n");
-	    goto hobbes_init_out;
-	} else {
-
-	    printf("\t...done\n");
-	    
-	    /* Get File descriptors */    
-	    hcq_fd = hcq_get_fd(hcq);
-	    
-	    FD_SET(hcq_fd, &cmd_fds);	    
-	    
-	    /* Register that Hobbes userspace is running */
-	    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_RUNNING);
-
-	    hobbes_enabled = true;
-	}
+    if (handler_table == NULL) {
+	ERROR("Could not create FD handler hashtable\n");
+	return -1;
     }
- hobbes_init_out:
 
-    if (!hobbes_enabled) {
+
+
+    /* Check if hobbes is available */
+    printf("Checking for Hobbes environment...\n");
+
+    if (!hobbes_is_available()) {
 	printf("Hobbes is not available. Exitting.\n");
+	exit(-1);
+    }    
+
+    if (hobbes_init() == -1) {
+	ERROR("Could not initialize hobbes environment\n");
 	exit(-1);
     }
 
+
     /* Command Loop */
     printf("Entering Command Loop\n");
-    while (1) {
-	int    ret  = 0;	
-	fd_set rset = cmd_fds;
 
-	ret = select(hcq_fd + 1, &rset, NULL, NULL, NULL);
+    while (1) {
+	int    i    = 0;
+	int    ret  = 0;	
+	fd_set rset = handler_fdset;
+
+	ret = select(handler_max_fd + 1, &rset, NULL, NULL, NULL);
 
 	printf("select returned\n");
 	if (ret == -1) {
@@ -125,20 +121,95 @@ main(int argc, char ** argv, char * envp[])
 	}
 
 
-	/* Handle Hobbes commands */
-	if ( ( hobbes_enabled ) && 
-	     ( FD_ISSET(hcq_fd, &rset)) ) {
+	for (i = 0; i <= handler_max_fd; i++) {
+	    if (FD_ISSET(i, &handler_fdset)) {
+		struct fd_handler * handler = NULL;
+		int ret = 0;
 
-	    ret = hobbes_handle_cmd(hcq);
+		handler = (struct fd_handler *)pet_htable_search(handler_table, i);
 
-	    if (ret == -1) {
-		ERROR("Hobbes handler fault\n");
-		continue;
+		if (handler == NULL) {
+		    ERROR("FD is set, but there is not handler associated with it...\n");
+		    continue;
+		}
 		
+		assert(handler->fd == i);
+
+		ret = handler->fn(i, handler->priv_data);
+		
+		if (ret != 0) {
+		    ERROR("Error in fd handler for FD (%d)\n", i);
+		    ERROR("Removing FD from handler set\n");
+		    FD_CLR(i, &handler_fdset);
+		    continue;
+		}
+
 	    }
+	    
 	}
+
+   }
+    
+    
+    return 0;
+}
+
+
+int
+add_fd_handler(int             fd,
+	       fd_handler_fn   fn,
+	       void          * priv_data)
+{
+    struct fd_handler * new_handler = NULL;
+
+    if (pet_htable_search(handler_table, fd) != 0) {
+	ERROR("Attempted to register a duplicate FD handler (fd=%d)\n", fd);
+	return -1;
     }
+
+    new_handler = calloc(sizeof(struct fd_handler), 1);
     
+    if (new_handler == NULL) {
+	ERROR("Could not allocate FD handler state\n");
+	return -1;
+    }
+
+    if (pet_htable_insert(handler_table, fd, (uintptr_t)new_handler) == 0) {
+	ERROR("Could not register FD handler (fd=%d)\n", fd);
+	free(new_handler);
+	return -1;
+    }
+
+    FD_SET(fd, &handler_fdset);
+
+    if (handler_max_fd < fd) handler_max_fd = fd;
+
+    return 0;
+}
+
+
+int
+remove_fd_handler(int fd)
+{
+    struct fd_handler * handler = NULL;
+
+    FD_CLR(fd, &handler_fdset);
     
+    handler = (struct fd_handler *)pet_htable_search(handler_table, fd);
+
+    if (handler == NULL) {
+	ERROR("Could not find handler for FD (%d)\n", fd);
+	return -1;
+    }
+
+    handler = (struct fd_handler *)pet_htable_remove(handler_table, fd, 0);
+
+    if (handler == NULL) {
+	ERROR("Could not remove handler from the FD hashtable (fd=%d)\n", fd);
+	return -1;
+    }
+
+    free(handler);
+
     return 0;
 }

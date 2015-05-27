@@ -199,7 +199,10 @@ hobbes_cmd_init(void)
 {
     
     hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
-    
+    if (hobbes_cmd_handlers == NULL) {
+	ERROR("Could not create hobbes command hashtable\n");
+	return HCQ_INVALID_HANDLE;
+    }
     
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);

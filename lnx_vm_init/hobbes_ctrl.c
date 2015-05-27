@@ -16,13 +16,14 @@
 
 #include "init.h"
 #include "hobbes_ctrl.h"
-#include "app_launch.h"
+#include "lnx_app.h"
 
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
 static struct hashtable * hobbes_cmd_handlers = NULL;
 
+bool hobbes_enabled = false;
 
 
 static uint32_t 
@@ -38,9 +39,11 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
 }
 
 
-int 
-hobbes_handle_cmd(hcq_handle_t hcq)
+static int 
+__handle_cmd(int    fd, 
+		  void * priv_data)
 {
+    hcq_handle_t  hcq      = (hcq_handle_t)priv_data;
     hobbes_cmd_fn handler  = NULL;
     hcq_cmd_t     cmd      = hcq_get_next_cmd(hcq);
     uint64_t      cmd_code = hcq_get_cmd_code(hcq, cmd);    
@@ -58,36 +61,7 @@ hobbes_handle_cmd(hcq_handle_t hcq)
     return handler(hcq, cmd);
 }
 
-static hcq_handle_t 
-init_cmd_queue( void )
-{
-    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
-    xemem_segid_t segid;
-    char * hcq_name = NULL; 
 
-    asprintf(&hcq_name, "%s-cmdq", hobbes_get_my_enclave_name());
-
-    hcq = hcq_create_queue(hcq_name);
-    
-    free(hcq_name);
-
-    if (hcq == HCQ_INVALID_HANDLE) {
-	ERROR("Could not create command queue\n");
-	return hcq;
-    }
-
-    segid = hcq_get_segid(hcq);
-
-    enclave_id = hobbes_get_my_enclave_id();
- 
-    if (hobbes_register_enclave_cmdq(enclave_id, segid) != 0) {
-	ERROR("Could not register command queue\n");
-	hcq_free_queue(hcq);
-	return HCQ_INVALID_HANDLE;
-    }
-
-    return hcq;
-}
 
 
 int 
@@ -148,27 +122,103 @@ __ping(hcq_handle_t hcq,
 }
 
 
-void 
-hobbes_cmd_exit( void ) 
+
+
+static hcq_handle_t 
+__hcq_init( void )
 {
-    printf("Freeing Hobbes Command Queue\n");
-    hcq_free_queue(hcq);
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
+    xemem_segid_t segid;
+    char * hcq_name = NULL; 
+    
+    asprintf(&hcq_name, "%s-cmdq", hobbes_get_my_enclave_name());
+	
+    hcq = hcq_create_queue(hcq_name);
+	
+    free(hcq_name);
+	
+    if (hcq == HCQ_INVALID_HANDLE) {
+	ERROR("Could not create command queue\n");
+	return hcq;
+    }
+	
+    segid = hcq_get_segid(hcq);
+	
+    enclave_id = hobbes_get_my_enclave_id();
+	
+    if (hobbes_register_enclave_cmdq(enclave_id, segid) != 0) {
+	ERROR("Could not register command queue\n");
+	hcq_free_queue(hcq);
+	return HCQ_INVALID_HANDLE;
+    }
+
+    return hcq;
 }
 
-hcq_handle_t
-hobbes_cmd_init(void)
+
+static void 
+hobbes_exit( void ) 
 {
+    printf("Shutting down hobbes\n");
+
+    if (hcq != HCQ_INVALID_HANDLE) {
+	hcq_free_queue(hcq);
+    }
+
+    if (hobbes_enabled) {
+	hobbes_client_deinit();
+    }
+}
+
+
+int 
+hobbes_init(void) 
+{
+    int hcq_fd = -1;
+
+    if (hobbes_client_init() != 0) {
+	ERROR("Could not initialize hobbes client interface\n");
+	return -1;
+    }
+
+    hobbes_enabled = true;
+    atexit(hobbes_exit);
     
+    
+    printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());    
+
+    /* Track command handlers */
     hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
-    
+    if (hobbes_cmd_handlers == NULL) {
+	ERROR("Could not create hobbes command hashtable\n");
+	return -1;
+    }
+
+    /* Register commands */
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
 
-    return init_cmd_queue();
+    printf("\tInitializing Hobbes Command Queue\n");
+
+    hcq = __hcq_init();
+
+    if (hcq == HCQ_INVALID_HANDLE) {
+	ERROR("Could not initialize hobbes command queue\n");
+	pet_free_htable(hobbes_cmd_handlers, 0, 0);
+	return -1;
+    } 
+	
+    printf("\t...done\n");
+    
+    /* Get File descriptor */    
+    hcq_fd = hcq_get_fd(hcq);
+    
+    /* Register command handler */
+    add_fd_handler(hcq_fd, __handle_cmd, hcq);
+
+    /* Register that Hobbes userspace is running */
+    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_RUNNING);
+    
+    return 0;
 }
-
-
-
-
-
