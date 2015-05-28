@@ -120,6 +120,13 @@ main(int argc, char ** argv, char * envp[])
 	    break;
 	}
 
+	for (i = 0; i <= handler_max_fd; i++) {
+	    if (FD_ISSET(i, &handler_fdset)) {
+		printf("%d.", i);
+	    }
+	}
+	printf("\n");
+
 
 	for (i = 0; i <= handler_max_fd; i++) {
 	    if (FD_ISSET(i, &handler_fdset)) {

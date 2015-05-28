@@ -91,7 +91,7 @@ __popen(char  * cmd_line,
     /* child process */
     if (child_pid == 0) {
 
-	dup2(stdin_fds[0], STDIN_FILENO);
+	dup2(stdin_fds[0],  STDIN_FILENO);
 	dup2(stdout_fds[1], STDOUT_FILENO); // Redirect stdout to pipe
 
         execl("/bin/sh", "/bin/sh", "-c", cmd_line, NULL);
