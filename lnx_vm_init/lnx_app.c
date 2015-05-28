@@ -43,23 +43,30 @@ __handle_stdout(int    fd,
 		void * priv_data)
 {
     struct app_state * app = (struct app_state *)priv_data;
-    FILE * out_fp    = fdopen(app->stdout_fd, "r");
-    char * out_data  = NULL;
-    size_t line_size = 0;
+    char     out_buf[1024] = {[0 ... 1023] = 0};
+    ssize_t  bytes_read    = 0;
     
 
+ 
+    while (1) {
+	bytes_read = read(app->stdout_fd, out_buf, 1023);
+    
+	if (bytes_read <= 0) {
+	    if ((bytes_read == -1) &&
+		(errno == EWOULDBLOCK)) {
+		break;
+	    }
+		
+	    printf("Process has exitted\n");
+	    remove_fd_handler(fd);
+	    list_del(&(app->node));
+	    free(app);
+	}
 
-    while (getline(&out_data, &line_size, out_fp) != -1) {
-	printf("%s\n", out_data);
+	printf("%s", out_buf);
+	memset(out_buf, 0, 1024);
     }
-
-    if (errno != EAGAIN) {
-	printf("Process has exitted\n");
-	remove_fd_handler(fd);
-	list_del(&(app->node));
-	free(app);
-    }
-
+    
     return 0;   
 }
 
