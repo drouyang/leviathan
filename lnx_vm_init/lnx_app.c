@@ -61,6 +61,7 @@ __handle_stdout(int    fd,
 	    remove_fd_handler(fd);
 	    list_del(&(app->node));
 	    free(app);
+	    break;
 	}
 
 	printf("%s", out_buf);
@@ -263,8 +264,7 @@ launch_hobbes_lnx_app(char * spec_str)
 
 	/* Register as a hobbes process */
 	{
-	    	    
-	    int ret = 0;
+	    int chars_written = 0;
 
 	    hpid = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
 
@@ -272,15 +272,15 @@ launch_hobbes_lnx_app(char * spec_str)
 	    printf("process Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
-	    ret = asprintf(&hobbes_env, 
-			   "%s=%u %s=%u %s", 
-			   HOBBES_ENV_PROCESS_ID,
-			   hpid, 
-			   HOBBES_ENV_ENCLAVE_ID,
-			   hobbes_get_my_enclave_id(), 
-			   envp);
+	    chars_written = asprintf(&hobbes_env, 
+				     "%s=%u %s=%u %s", 
+				     HOBBES_ENV_PROCESS_ID,
+				     hpid, 
+				     HOBBES_ENV_ENCLAVE_ID,
+				     hobbes_get_my_enclave_id(), 
+				     envp);
 
-	    if (ret == -1) {
+	    if (chars_written == -1) {
 		ERROR("Failed to allocate envp string for application (%s)\n", name);
 		goto out;
 	    }
@@ -301,11 +301,13 @@ launch_hobbes_lnx_app(char * spec_str)
 
 	    /* Record Hobbes Process ID */
 	    app->hpid = hpid;
-
 	}
 
 
     }
+
+
+    ret = 0;
 
  out:
     pet_xml_free(spec);

@@ -46,7 +46,14 @@ __handle_cmd(int    fd,
     hcq_handle_t  hcq      = (hcq_handle_t)priv_data;
     hobbes_cmd_fn handler  = NULL;
     hcq_cmd_t     cmd      = hcq_get_next_cmd(hcq);
-    uint64_t      cmd_code = hcq_get_cmd_code(hcq, cmd);    
+    uint64_t      cmd_code = 0;
+
+    if (cmd == HCQ_INVALID_CMD) {
+	ERROR("Received invalid command\n");
+	return -1;
+    }
+
+    cmd_code = hcq_get_cmd_code(hcq, cmd);    
 
     printf("Hobbes cmd code=%lu\n", cmd_code);
     
@@ -55,7 +62,7 @@ __handle_cmd(int    fd,
     if (handler == NULL) {
 	ERROR("Received invalid Hobbes command (%lu)\n", cmd_code);
 	hcq_cmd_return(hcq, cmd, -1, 0, NULL);
-	return -1;;
+	return -1;
     }
     
     return handler(hcq, cmd);
