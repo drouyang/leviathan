@@ -108,7 +108,7 @@ __launch_app(hcq_handle_t hcq,
 
     ret = launch_hobbes_lnx_app(xml_str);
 
-    printf("Returning from app launch (ret=%d)\n");
+    printf("Returning from app launch (ret=%d)\n", ret);
 out:
     hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;
