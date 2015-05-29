@@ -106,13 +106,9 @@ __launch_app(hcq_handle_t hcq,
 	goto out;
     }
 
-    /* ensure null termination */
-    xml_str[data_size] = '\0';
-
-
     ret = launch_hobbes_lnx_app(xml_str);
 
-    printf("Returning from app launch\n");
+    printf("Returning from app launch (ret=%d)\n");
 out:
     hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;

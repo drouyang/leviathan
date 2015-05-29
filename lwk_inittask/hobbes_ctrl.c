@@ -134,9 +134,6 @@ __launch_app(hcq_handle_t hcq,
 	goto out;
     }
 
-    /* ensure null termination */
-    xml_str[data_size] = '\0';
-
     ret = launch_hobbes_lwk_app(xml_str);
 
  out:
@@ -165,8 +162,6 @@ __load_file(hcq_handle_t hcq,
 	goto out;
     }
 
-    /* ensure null termination */
-    xml_str[data_size] = '\0';
 
     xml = pet_xml_parse_str(xml_str);
 
