@@ -709,7 +709,7 @@ __get_cmd_data(struct cmd_queue * cq,
 	return NULL;
     }
 
-    data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_CODE));
+    data_size = wg_decode_int(cq->db,  wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_SIZE));
 
     if (data_size > 0) {
 	data  = wg_decode_blob(cq->db, wg_get_field(cq->db, cmd_rec, HCQ_CMD_FIELD_CMD_DATA));
