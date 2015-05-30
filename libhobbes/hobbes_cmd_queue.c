@@ -847,3 +847,71 @@ hcq_cmd_return(hcq_handle_t hcq,
 
     return ret;
 }
+
+void
+__dump_queue(struct cmd_queue * cq)
+{
+    void        * db      = cq->db;
+    void        * hdr_rec = NULL;
+    void        * cmd_rec = NULL;
+
+    hcq_cmd_t     pending = HCQ_INVALID_CMD;
+    uint64_t      cmd_cnt = 0;
+
+    hdr_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database: Missing Header field\n");
+    }
+
+    pending = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING));
+    cmd_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING));
+
+    printf("HCQ -- Command Count: %lu ;  Pending Command: %lu\n", 
+	   cmd_cnt, pending);
+
+
+    while (1) {
+	cmd_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_CMD_TYPE, cmd_rec);
+
+	if (!cmd_rec) {
+	    break;
+	}
+
+	printf("CMD %lu: CODE=%lu, SIZE=%lu, STATUS=%lu, SEGID=%lu,  RET_CODE=%lu, RET_SIZE=%lu\n",
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_ID)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_CODE)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_CMD_SIZE)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_STATUS)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_RET_CODE)),
+	       wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_RET_SIZE)));
+
+    } 
+
+    return;
+}
+
+
+void
+hcq_dump_queue(hcq_handle_t hcq)
+{
+    struct cmd_queue * cq = hcq;
+    wg_int lock_id;
+
+    lock_id = wg_start_read(cq->db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return;
+    }
+
+    __dump_queue(cq);
+
+    if (!wg_end_read(cq->db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return;
+    }
+
+    return;
+}

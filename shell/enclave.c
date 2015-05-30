@@ -147,6 +147,33 @@ ping_enclave_main(int argc, char ** argv)
     return hobbes_ping_enclave(enclave_id);
 }
 
+int 
+dump_cmd_queue_main(int argc, char ** argv)
+{
+    hobbes_id_t  enclave_id = HOBBES_INVALID_ID;
+    hcq_handle_t hcq        = HCQ_INVALID_HANDLE;
+
+    if (argc < 1) {
+	printf("Usage: hobbes ping_enclave <enclave name>\n");
+	return -1;
+    }
+
+    enclave_id = hobbes_get_enclave_id(argv[1]);
+
+    if (enclave_id == HOBBES_INVALID_ID) {
+	printf("Invalid Enclave\n");
+	return -1;
+    }
+  
+    hcq = hobbes_open_enclave_cmdq(enclave_id);
+    
+    hcq_dump_queue(hcq);
+
+    hobbes_close_enclave_cmdq(hcq);
+
+    return 0;
+}
+
 int
 list_enclaves_main(int argc, char ** argv)
 {

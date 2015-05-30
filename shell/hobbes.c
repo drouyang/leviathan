@@ -98,8 +98,6 @@ list_processes_main(int argc, char ** argv)
 }
 
 
-
-
 struct hobbes_cmd {
     char * name;
     int (*handler)(int argc, char ** argv);   
@@ -111,7 +109,7 @@ extern int  create_enclave_main(int argc, char ** argv);
 extern int destroy_enclave_main(int argc, char ** argv);
 extern int    ping_enclave_main(int argc, char ** argv);
 extern int   list_enclaves_main(int argc, char ** argv);
-
+extern int  dump_cmd_queue_main(int argc, char ** argv);
 
 
 static struct hobbes_cmd cmds[] = {
@@ -122,6 +120,7 @@ static struct hobbes_cmd cmds[] = {
     {"list_segments"   , list_segments_handler , "List all exported xpmem segments"},
     {"launch_app"      , launch_app_main       , "Launch an application in an enclave"},
     {"list_processes"  , list_processes_main   , "List all processes"},
+    {"dump_cmd_queue"  , dump_cmd_queue_main   , "Dump the command queue state for an enclave"},
     {0, 0, 0}
 };
 

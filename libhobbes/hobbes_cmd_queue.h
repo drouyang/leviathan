@@ -34,6 +34,8 @@ hcq_handle_t hcq_connect(xemem_segid_t segid);
 void hcq_disconnect(hcq_handle_t hcq);
 
 
+void hcq_dump_queue(hcq_handle_t hcq);
+
 hcq_cmd_t hcq_cmd_issue(hcq_handle_t hcq, 
 			uint64_t     cmd_code,
 			uint32_t     data_size,
