@@ -202,7 +202,17 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
     
     free(spec_str);
 
+    if (cmd == HCQ_INVALID_CMD) {
+	printf("No Response\n");
+	return -1;
+    }
+
     ret = hcq_get_ret_code(hcq, cmd);
+
+    if (ret != 0) {
+	printf("App launch Error\n");
+	return -1;
+    }
 
     hcq_cmd_complete(hcq, cmd);
     hobbes_close_enclave_cmdq(hcq);
