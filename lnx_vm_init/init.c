@@ -114,14 +114,14 @@ main(int argc, char ** argv, char * envp[])
 
 	ret = select(handler_max_fd + 1, &rset, NULL, NULL, NULL);
 
-	printf("select returned\n");
+	printf("select returned (ret=%d)\n", ret);
 	if (ret == -1) {
 	    ERROR("Select() error\n");
 	    break;
 	}
 
 	for (i = 0; i <= handler_max_fd; i++) {
-	    if (FD_ISSET(i, &handler_fdset)) {
+	    if (FD_ISSET(i, &rset)) {
 		printf("%d.", i);
 	    }
 	}
@@ -129,7 +129,7 @@ main(int argc, char ** argv, char * envp[])
 
 
 	for (i = 0; i <= handler_max_fd; i++) {
-	    if (FD_ISSET(i, &handler_fdset)) {
+	    if (FD_ISSET(i, &rset)) {
 		struct fd_handler * handler = NULL;
 		int ret = 0;
 
