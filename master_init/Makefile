@@ -1,8 +1,8 @@
-XPMEM_PATH=../xpmem
-PALACIOS_PATH=../palacios
-PISCES_PATH=../pisces
-PETLIB_PATH=../petlib
-WHITEDB_PATH=../whitedb-0.7.3
+XPMEM_PATH?=../xpmem
+PALACIOS_PATH?=../palacios
+PISCES_PATH?=../pisces
+PETLIB_PATH?=../petlib
+WHITEDB_PATH?=../whitedb-0.7.3
 
 
 CFLAGS = -Wall -Werror -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -I../libhobbes -static  
@@ -14,6 +14,7 @@ AR = ar
 libs := 	../libhobbes/libhobbes.a \
 		$(PISCES_PATH)/linux_usr/libpisces.a \
 		$(PALACIOS_PATH)/user/libv3vee_user.a \
+		$(PETLIB_PATH)/petlib.a \
 
 execs :=    	master
 
