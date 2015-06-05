@@ -135,7 +135,6 @@ hcq_create_queue(char * name)
 
 
     db_addr = get_db_addr(db);
-    madvise(db_addr, CMD_QUEUE_SIZE, MADV_DONTFORK);
 
     segid = xemem_make_signalled(db_addr, CMD_QUEUE_SIZE,
 				 name, &fd);

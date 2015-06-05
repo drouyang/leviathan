@@ -1,6 +1,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+
 #include <xpmem.h>
 
 #include <pet_log.h>
@@ -18,6 +20,11 @@ xemem_make(void   * vaddr,
 	   char   * name)
 {
     xemem_segid_t segid = XEMEM_INVALID_SEGID;
+
+    /* HACK: Don't allow exported memory to survive a fork
+     *  This prevents bugs that result from COW behavior on the underlying pages. 
+     */
+    madvise(vaddr, size, MADV_DONTFORK);
 
     segid = xpmem_make(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0);
     
@@ -54,6 +61,12 @@ xemem_make_signalled(void   * vaddr,
 
     if (size > 0) {
 	flags = XPMEM_MEM_MODE;
+
+	/* HACK: Don't allow exported memory to survive a fork
+	 *  This prevents bugs that result from COW behavior on the underlying pages. 
+	 */
+	madvise(vaddr, size, MADV_DONTFORK);
+	
     }
 
     segid = xpmem_make_ext(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0, flags | XPMEM_SIG_MODE, 0, &tmp_fd);
@@ -79,6 +92,11 @@ xemem_make_segid(void          * vaddr,
 		 xemem_segid_t   segid)
 {
     xemem_segid_t tmp_segid = XEMEM_INVALID_SEGID;
+
+    /* HACK: Don't allow exported memory to survive a fork
+     *  This prevents bugs that result from COW behavior on the underlying pages. 
+     */
+    madvise(vaddr, size, MADV_DONTFORK);
 
     tmp_segid = xpmem_make_ext(vaddr, size, XPMEM_GLOBAL_MODE, (void *)0, XPMEM_REQUEST_MODE, segid, NULL);
     
