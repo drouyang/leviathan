@@ -187,8 +187,6 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
     char        * spec_str = NULL;
     int           ret      = 0;
 
-    printf("launching app\n");
-
     spec_str = pet_xml_get_str(spec);
     
     if (spec_str == NULL) {
@@ -196,7 +194,7 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
 	return -1;
     }
 
-    printf("spec_str=%s\n", spec_str);
+    printf("Launching Application\n");
 
     cmd = hcq_cmd_issue(hcq, HOBBES_CMD_APP_LAUNCH, smart_strlen(spec_str) + 1, spec_str);
     

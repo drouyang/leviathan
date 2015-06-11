@@ -241,10 +241,15 @@ int main(int argc, char ** argv) {
     wg_print_db(db);
 
 
-    
+    /* Create command queue */
 
-    while (1) {sleep(1);}
+    {
+	hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
+	
+
+	while (1) {sleep(1);}
+    }
     return 0;
 }
 
@@ -275,6 +280,8 @@ create_master_db(unsigned int size)
        
 
     db_addr = hdb_get_db_addr(db);
+
+    madvise(db_addr, size, MADV_DONTFORK);
 
     printf("HDB SegID = %d\n", (int)segid);
     //segid = xpmem_make(db_addr, size, XPMEM_REQUEST_MODE, (void *)segid);
