@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include <dbapi.h>
 #include <dballoc.h>
@@ -244,7 +245,7 @@ int main(int argc, char ** argv) {
     /* Create command queue */
 
     {
-	hcq_handle_t hcq = HCQ_INVALID_HANDLE;
+//	hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
 	
 
