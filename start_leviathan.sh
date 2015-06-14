@@ -40,6 +40,7 @@ fi
 echo "Inserting Pisces Module."
 insmod $PISCES_PATH/pisces.ko
 
+export HOBBES_ENCLAVE_ID=0
 
 echo "Launching Leviathan Node Manager."
 $LEVIATHAN_PATH/master_init/master ${@:1} &

@@ -4,18 +4,49 @@
 #include <getopt.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include <dbapi.h>
 #include <dballoc.h>
 
 #include <xpmem.h>
 #include <pet_cpu.h>
+#include <pet_hashtable.h>
+#include <pet_log.h>
 
 #include <v3vee.h>
 
+#include "master.h"
+#include "hobbes_ctrl.h"
 #include "hobbes_db.h"
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
+
+extern hdb_db_t hobbes_master_db;
+
+
+static uint32_t           handler_max_fd = 0;
+static fd_set             handler_fdset;
+static struct hashtable * handler_table  = NULL;
+
+struct fd_handler {
+    int             fd;
+    fd_handler_fn   fn;
+    void          * priv_data;
+};
+
+
+static uint32_t 
+handler_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
+}
+
+static int
+handler_equal_fn(uintptr_t key1, uintptr_t key2)
+{
+    return (key1 == key2);
+}
 
 
 
@@ -239,18 +270,80 @@ int main(int argc, char ** argv) {
 	return -1;
     }
 
-    wg_print_db(db);
+    //    wg_print_db(db);
 
 
     /* Create command queue */
 
     {
-//	hcq_handle_t hcq = HCQ_INVALID_HANDLE;
+	handler_table = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
 
+	if (handler_table == NULL) {
+	    ERROR("Could not create FD handler hashtable\n");
+	    return -1;
+	}
+
+	if (hobbes_ctrl_init() == -1) {
+	    ERROR("Could not initialize hobbes environment\n");
+	    exit(-1);
+	}
 	
-
-	while (1) {sleep(1);}
     }
+
+
+    /* Command Loop */
+    printf("Entering Command Loop\n");
+
+    while (1) {
+	int    i    = 0;
+	int    ret  = 0;	
+	fd_set rset = handler_fdset;
+
+	ret = select(handler_max_fd + 1, &rset, NULL, NULL, NULL);
+
+	printf("select returned (ret=%d)\n", ret);
+	if (ret == -1) {
+	    ERROR("Select() error\n");
+	    break;
+	}
+
+	for (i = 0; i <= handler_max_fd; i++) {
+	    if (FD_ISSET(i, &rset)) {
+		printf("%d.", i);
+	    }
+	}
+	printf("\n");
+
+
+	for (i = 0; i <= handler_max_fd; i++) {
+	    if (FD_ISSET(i, &rset)) {
+		struct fd_handler * handler = NULL;
+		int ret = 0;
+
+		handler = (struct fd_handler *)pet_htable_search(handler_table, i);
+
+		if (handler == NULL) {
+		    ERROR("FD is set, but there is not handler associated with it...\n");
+		    continue;
+		}
+		
+		assert(handler->fd == i);
+
+		ret = handler->fn(i, handler->priv_data);
+		
+		if (ret != 0) {
+		    ERROR("Error in fd handler for FD (%d)\n", i);
+		    ERROR("Removing FD from handler set\n");
+		    FD_CLR(i, &handler_fdset);
+		    continue;
+		}
+
+	    }
+	    
+	}
+	
+    }
+
     return 0;
 }
 
@@ -262,25 +355,29 @@ create_master_db(unsigned int size)
 
     xpmem_segid_t segid = HDB_MASTER_DB_SEGID;
     void *   db_addr    = NULL;
-    hdb_db_t db         = hdb_create(size);
-   
+    
+
+
+    hobbes_master_db    = hdb_create(size);
+
+
     /* Initialize Master DB State */
-    hdb_init_master_db(db);
+    hdb_init_master_db(hobbes_master_db);
 
     /* Create Master enclave */
-    hdb_create_enclave(db, "master", 0, MASTER_ENCLAVE, 0);
+    hdb_create_enclave(hobbes_master_db, "master", 0, MASTER_ENCLAVE, 0);
 
 
     printf("Master Enclave id = %d\n", 0);
-    printf("Master enclave name=%s\n", hdb_get_enclave_name(db, 0));
+    printf("Master enclave name=%s\n", hdb_get_enclave_name(hobbes_master_db, 0));
 
-    hdb_set_enclave_state(db, 0, ENCLAVE_RUNNING);
+    hdb_set_enclave_state(hobbes_master_db, 0, ENCLAVE_RUNNING);
 	
 
     /* Create Master Process */
        
 
-    db_addr = hdb_get_db_addr(db);
+    db_addr = hdb_get_db_addr(hobbes_master_db);
 
     madvise(db_addr, size, MADV_DONTFORK);
 
@@ -294,11 +391,75 @@ create_master_db(unsigned int size)
 
     if (segid <= 0) {
 	printf("Error Creating SegID (%llu)\n", segid);
-	wg_delete_local_database(db);
+	wg_delete_local_database(hobbes_master_db);
 	return NULL;
     } 
 
     printf("segid: %llu\n", segid);
 
-    return db;
+    return hobbes_master_db;
+}
+
+
+int
+add_fd_handler(int             fd,
+	       fd_handler_fn   fn,
+	       void          * priv_data)
+{
+    struct fd_handler * new_handler = NULL;
+
+    if (pet_htable_search(handler_table, fd) != 0) {
+	ERROR("Attempted to register a duplicate FD handler (fd=%d)\n", fd);
+	return -1;
+    }
+
+    new_handler = calloc(sizeof(struct fd_handler), 1);
+    
+    if (new_handler == NULL) {
+	ERROR("Could not allocate FD handler state\n");
+	return -1;
+    }
+
+    new_handler->fn        = fn;
+    new_handler->fd        = fd;
+    new_handler->priv_data = priv_data;
+
+    if (pet_htable_insert(handler_table, fd, (uintptr_t)new_handler) == 0) {
+	ERROR("Could not register FD handler (fd=%d)\n", fd);
+	free(new_handler);
+	return -1;
+    }
+
+    FD_SET(fd, &handler_fdset);
+
+    if (handler_max_fd < fd) handler_max_fd = fd;
+
+    return 0;
+}
+
+
+int
+remove_fd_handler(int fd)
+{
+    struct fd_handler * handler = NULL;
+
+    FD_CLR(fd, &handler_fdset);
+    
+    handler = (struct fd_handler *)pet_htable_search(handler_table, fd);
+
+    if (handler == NULL) {
+	ERROR("Could not find handler for FD (%d)\n", fd);
+	return -1;
+    }
+
+    handler = (struct fd_handler *)pet_htable_remove(handler_table, fd, 0);
+
+    if (handler == NULL) {
+	ERROR("Could not remove handler from the FD hashtable (fd=%d)\n", fd);
+	return -1;
+    }
+
+    free(handler);
+
+    return 0;
 }
