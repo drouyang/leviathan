@@ -29,7 +29,8 @@ init_objs :=	init.o \
 		hobbes_ctrl.o \
 		palacios.o \
 		app_launch.o \
-		sched_getcpu.o
+		sched_getcpu.o \
+		file_io.o
 
 
 

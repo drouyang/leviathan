@@ -51,5 +51,14 @@
 /* General Commands */
 #define HOBBES_CMD_PING                3000
 
+#define HOBBES_CMD_FILE_OPEN           4000
+#define HOBBES_CMD_FILE_CLOSE          4001
+#define HOBBES_CMD_FILE_READ           4002
+#define HOBBES_CMD_FILE_WRITE          4003
+#define HOBBES_CMD_FILE_SEEK           4004
+#define HOBBES_CMD_FILE_STAT           4005
+#define HOBBES_CMD_FILE_FSTAT          4006
+
+
 
 #endif

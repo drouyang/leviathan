@@ -110,6 +110,9 @@ extern int destroy_enclave_main(int argc, char ** argv);
 extern int    ping_enclave_main(int argc, char ** argv);
 extern int   list_enclaves_main(int argc, char ** argv);
 extern int  dump_cmd_queue_main(int argc, char ** argv);
+extern int        cat_file_main(int argc, char ** argv);
+extern int   cat_into_file_main(int argc, char ** argv);
+
 
 
 static struct hobbes_cmd cmds[] = {
@@ -121,6 +124,8 @@ static struct hobbes_cmd cmds[] = {
     {"launch_app"      , launch_app_main       , "Launch an application in an enclave"},
     {"list_processes"  , list_processes_main   , "List all processes"},
     {"dump_cmd_queue"  , dump_cmd_queue_main   , "Dump the command queue state for an enclave"},
+    {"cat_file"        , cat_file_main         , "'cat' a file on an arbitrary enclave"},
+    {"cat_into_file"   , cat_into_file_main    , "'cat' to a file on an arbitrary enclave"},
     {0, 0, 0}
 };
 

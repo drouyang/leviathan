@@ -11,6 +11,8 @@
 #include <string.h>
 
 
+#define smart_free(ptr) {free(ptr); ptr = NULL;}
+
 static inline int
 smart_atoi(int dflt, char * str) 
 {

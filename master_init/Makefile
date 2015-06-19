@@ -27,7 +27,8 @@ libs := 	../libhobbes/libhobbes.a \
 execs :=    	master
 
 master_objs := 	master.o \
-		hobbes_ctrl.o
+		hobbes_ctrl.o \
+		file_io.o
 
 
 

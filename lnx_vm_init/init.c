@@ -79,16 +79,12 @@ main(int argc, char ** argv, char * envp[])
 	}
     }
     
-
-
     handler_table = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
 
     if (handler_table == NULL) {
 	ERROR("Could not create FD handler hashtable\n");
 	return -1;
     }
-
-
 
     /* Check if hobbes is available */
     printf("Checking for Hobbes environment...\n");
@@ -102,7 +98,6 @@ main(int argc, char ** argv, char * envp[])
 	ERROR("Could not initialize hobbes environment\n");
 	exit(-1);
     }
-
 
     /* Command Loop */
     printf("Entering Command Loop\n");
@@ -150,12 +145,9 @@ main(int argc, char ** argv, char * envp[])
 		    FD_CLR(i, &handler_fdset);
 		    continue;
 		}
-
 	    }
-	    
 	}
-
-   }
+    }
     
     
     return 0;

@@ -6,6 +6,7 @@ addmod hobbes_cmd_queue.o
 addmod hobbes_enclave.o
 addmod hobbes_process.o
 addmod hobbes_app.o
+addmod hobbes_file.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../whitedb-0.7.3/Main/.libs/libwgdb.a
 addlib ../petlib/petlib.a

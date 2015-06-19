@@ -17,7 +17,7 @@
 #include "init.h"
 #include "hobbes_ctrl.h"
 #include "lnx_app.h"
-
+#include "file_io.h"
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
@@ -201,6 +201,13 @@ hobbes_init(void)
     /* Register commands */
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
+    hobbes_register_cmd(HOBBES_CMD_FILE_OPEN,  file_open_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_CLOSE, file_close_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_READ,  file_read_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_WRITE, file_write_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_STAT,  file_stat_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_FSTAT, file_fstat_handler);
+    
 
     printf("\tInitializing Hobbes Command Queue\n");
 
