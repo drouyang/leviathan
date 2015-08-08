@@ -5,3 +5,8 @@ petlib
 kitten
 whitedb-0.7.3
 *.o
+libhobbes/libhobbes.a
+lwk_inittask/lwk_init
+master_init/master
+shell/hobbes
+
