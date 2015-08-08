@@ -36,7 +36,7 @@ xemem_make(void   * vaddr,
     hdb_create_xemem_segment(hobbes_master_db, 
 			     segid, name,
 			     hobbes_get_my_enclave_id(), 
-			     hobbes_get_my_process_id());
+			     hobbes_get_my_app_id());
 
 
     return segid;
@@ -79,7 +79,7 @@ xemem_make_signalled(void   * vaddr,
     hdb_create_xemem_segment(hobbes_master_db, 
 			     segid, name, 
 			     hobbes_get_my_enclave_id(), 
-			     hobbes_get_my_process_id());
+			     hobbes_get_my_app_id());
 
     *fd = tmp_fd;
     return segid;
@@ -108,7 +108,7 @@ xemem_make_segid(void          * vaddr,
     hdb_create_xemem_segment(hobbes_master_db, 
 			     segid, name,
 			     hobbes_get_my_enclave_id(), 
-			     hobbes_get_my_process_id());
+			     hobbes_get_my_app_id());
 
 
     return 0;
@@ -270,7 +270,7 @@ xemem_get_segment_list(int * num_segments)
 	seg_arr[i].segid      = id_arr[i];
 
 	seg_arr[i].enclave_id = hdb_get_xemem_enclave(hobbes_master_db, id_arr[i]);
-	seg_arr[i].process_id = hdb_get_xemem_process(hobbes_master_db, id_arr[i]);
+	seg_arr[i].app_id = hdb_get_xemem_app(hobbes_master_db, id_arr[i]);
 
 	strncpy(seg_arr[i].name, 
 		hdb_get_xemem_name(hobbes_master_db, id_arr[i]), 
@@ -287,9 +287,9 @@ int
 xemem_export_segment(xemem_segid_t  segid,
 		     char         * name,
 		     hobbes_id_t    enclave_id,
-		     hobbes_id_t    process_id)
+		     hobbes_id_t    app_id)
 {
-    return hdb_create_xemem_segment(hobbes_master_db, segid, name, enclave_id, process_id);
+    return hdb_create_xemem_segment(hobbes_master_db, segid, name, enclave_id, app_id);
 }
 
 

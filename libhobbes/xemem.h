@@ -31,7 +31,7 @@ struct xemem_segment {
     xemem_segid_t segid;
     char          name[XEMEM_SEG_NAME_LEN];
     hobbes_id_t   enclave_id;
-    hobbes_id_t   process_id;
+    hobbes_id_t   app_id;
 };
 
 

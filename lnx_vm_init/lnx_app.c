@@ -274,7 +274,7 @@ launch_hobbes_lnx_app(char * spec_str)
 	    /* Hobbes enabled ENVP */
 	    chars_written = asprintf(&hobbes_env, 
 				     "%s=%u %s=%u %s", 
-				     HOBBES_ENV_PROCESS_ID,
+				     HOBBES_ENV_APP_ID,
 				     hpid, 
 				     HOBBES_ENV_ENCLAVE_ID,
 				     hobbes_get_my_enclave_id(), 

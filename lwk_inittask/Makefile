@@ -1,8 +1,8 @@
-KITTEN_PATH    = ../kitten
-LIBHOBBES_PATH = ../libhobbes
-XPMEM_PATH     = ../xpmem
-PALACIOS_PATH  = ../palacios
-PETLIB_PATH    = ../petlib
+KITTEN_PATH    ?= ../kitten
+LIBHOBBES_PATH ?= ../libhobbes
+XPMEM_PATH     ?= ../xpmem
+PALACIOS_PATH  ?= ../palacios
+PETLIB_PATH    ?= ../petlib
 
 CC = gcc
 AR = ar

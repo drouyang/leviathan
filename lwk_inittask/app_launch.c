@@ -24,7 +24,7 @@
 #include <pet_xml.h>
 
 #include <hobbes.h>
-#include <hobbes_process.h>
+#include <hobbes_app.h>
 #include <hobbes_db.h>
 #include <hobbes_util.h>
 #include <hobbes_cmd_queue.h>
@@ -262,7 +262,7 @@ launch_hobbes_lwk_app(char * spec_str)
     pet_xml_t spec = NULL;
     int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
 
-    hobbes_id_t hobbes_process_id = HOBBES_INVALID_ID;
+    hobbes_id_t hobbes_app_id = HOBBES_INVALID_ID;
 
 
     spec = pet_xml_parse_str(spec_str);
@@ -303,7 +303,7 @@ launch_hobbes_lwk_app(char * spec_str)
 	    goto out;
 	}
 
-	/* Process Name */
+	/* Application Name */
 	val_str = pet_xml_get_val(spec, "name");
 
 	if (val_str) {
@@ -389,21 +389,21 @@ launch_hobbes_lwk_app(char * spec_str)
 	}
 
 
-	/* Register as a hobbes process */
+	/* Register as a hobbes application */
 	{
 	    	    
 	    int ret = 0;
 
-	    hobbes_process_id = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
+	    hobbes_app_id = hdb_create_app(hobbes_master_db, name, hobbes_get_my_enclave_id());
 
-	    printf("Launching App (Hobbes process ID = %u) (EnclaveID=%d)\n", hobbes_process_id, hobbes_get_my_enclave_id() );
-	    printf("process Name=%s\n", name);
+	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hobbes_app_id, hobbes_get_my_enclave_id() );
+	    printf("Application Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
 	    ret = asprintf(&hobbes_env, 
 			   "%s=%u %s=%u %s", 
-			   HOBBES_ENV_PROCESS_ID,
-			   hobbes_process_id, 
+			   HOBBES_ENV_APP_ID,
+			   hobbes_app_id, 
 			   HOBBES_ENV_ENCLAVE_ID,
 			   hobbes_get_my_enclave_id(), 
 			   envp);

@@ -16,6 +16,7 @@
 #include "hobbes_util.h"
 
 
+extern hdb_db_t hobbes_master_db;
 
 
 
@@ -219,3 +220,87 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
 }
 
 
+int 
+hobbes_set_app_state(hobbes_id_t app_id,
+		     app_state_t state)
+{
+    return hdb_set_app_state(hobbes_master_db, app_id, state);
+
+}
+
+app_state_t 
+hobbes_get_app_state(hobbes_id_t app_id)
+{
+    return hdb_get_app_state(hobbes_master_db, app_id);
+}
+
+hobbes_id_t 
+hobbes_get_app_enclave(hobbes_id_t app_id)
+{
+    return hdb_get_app_enclave(hobbes_master_db, app_id);
+}
+
+char * 
+hobbes_get_app_name(hobbes_id_t app_id)
+{
+    return hdb_get_app_name(hobbes_master_db, app_id);
+}
+
+
+struct app_info * 
+hobbes_get_app_list(int * num_apps)
+{
+    struct app_info * info_arr = NULL;
+    hobbes_id_t     * id_arr   = NULL;
+
+    int id_cnt = -1;
+    int i      =  0;
+
+    id_arr = hdb_get_apps(hobbes_master_db, &id_cnt);
+    
+    if (id_cnt == -1) {
+	ERROR("could not retrieve list of app IDs\n");
+	return NULL;
+    }
+    
+    *num_apps = id_cnt;
+
+    if (id_cnt == 0) {
+	return NULL;
+    }
+
+
+    info_arr = calloc(sizeof(struct app_info), id_cnt);
+
+    for (i = 0; i < id_cnt; i++) {
+	info_arr[i].id         = id_arr[i];
+
+	info_arr[i].state      = hdb_get_app_state  ( hobbes_master_db, id_arr[i] );
+	info_arr[i].enclave_id = hdb_get_app_enclave( hobbes_master_db, id_arr[i] );
+
+	strncpy(info_arr[i].name, hdb_get_app_name(hobbes_master_db, id_arr[i]), 31);
+    }
+
+    free(id_arr);
+    
+    return info_arr;
+}
+
+
+
+const char *
+app_state_to_str(app_state_t state) 
+{
+    switch (state) {
+	case APP_INITTED: return "Initialized";
+	case APP_RUNNING: return "Running";
+	case APP_STOPPED: return "Stopped";
+	case APP_CRASHED: return "Crashed";
+	case APP_ERROR:   return "Error";
+
+	default: return NULL;
+    }
+
+    return NULL;
+}
+ 

@@ -22,10 +22,10 @@
  *    Each row in the database has an associated type from the list below
  */
 #define HDB_REC_ENCLAVE          0
-#define HDB_REC_PROCESS          1
+#define HDB_REC_APP              1
 #define HDB_REC_SEGMENT          2
 #define HDB_REC_ENCLAVE_HDR      3
-#define HDB_REC_PROCESS_HDR      4
+#define HDB_REC_APP_HDR          4
 #define HDB_REC_XEMEM_HDR        5
 #define HDB_REC_XEMEM_SEGMENT    6
 #define HDB_REC_XEMEM_ATTACHMENT 7
@@ -61,17 +61,17 @@
 #define HDB_SEGMENT_SEGID    1
 #define HDB_SEGMENT_NAME     2
 #define HDB_SEGMENT_ENCLAVE  3
-#define HDB_SEGMENT_PROCESS  4
+#define HDB_SEGMENT_APP      4
 
-/* Columns for process header */
-#define HDB_PROCESS_HDR_NEXT 1
-#define HDB_PROCESS_HDR_CNT  2
+/* Columns for application header */
+#define HDB_APP_HDR_NEXT 1
+#define HDB_APP_HDR_CNT  2
 
-/* Columns for process records */
-#define HDB_PROCESS_ID       1
-#define HDB_PROCESS_NAME     2
-#define HDB_PROCESS_STATE    3
-#define HDB_PROCESS_ENCLAVE  4
+/* Columns for application records */
+#define HDB_APP_ID       1
+#define HDB_APP_NAME     2
+#define HDB_APP_STATE    3
+#define HDB_APP_ENCLAVE  4
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -125,11 +125,11 @@ hdb_init_master_db(hdb_db_t db)
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_NEXT, wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT , wg_encode_int(db, 0));
     
-    /* Create Process Header */
+    /* Create Application Header */
     rec = wg_create_record(db, 3);
-    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS_HDR));
-    wg_set_field(db, rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, 1));
-    wg_set_field(db, rec, HDB_PROCESS_HDR_CNT,  wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_APP_HDR));
+    wg_set_field(db, rec, HDB_APP_HDR_NEXT, wg_encode_int(db, 1));
+    wg_set_field(db, rec, HDB_APP_HDR_CNT,  wg_encode_int(db, 0));
     
     /* Create XEMEM header */
     rec = wg_create_record(db, 2);
@@ -949,7 +949,7 @@ __create_segment_record(hdb_db_t        db,
 			xemem_segid_t   segid,
 			char          * name,
 			hobbes_id_t     enclave_id,
-			hobbes_id_t     process_id)
+			hobbes_id_t     app_id)
 {
     void * hdr_rec        = NULL;
     void * rec            = NULL;
@@ -987,7 +987,7 @@ __create_segment_record(hdb_db_t        db,
     wg_set_field(db, rec, HDB_SEGMENT_SEGID,    wg_encode_int(db, segid));
     wg_set_field(db, rec, HDB_SEGMENT_NAME,     wg_encode_str(db, name, NULL));
     wg_set_field(db, rec, HDB_SEGMENT_ENCLAVE,  wg_encode_int(db, enclave_id));
-    wg_set_field(db, rec, HDB_SEGMENT_PROCESS,  wg_encode_int(db, process_id));
+    wg_set_field(db, rec, HDB_SEGMENT_APP,      wg_encode_int(db, app_id));
 
     /* Update the xemem Header information */
     segment_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SEGMENT_HDR_CNT));
@@ -1002,7 +1002,7 @@ hdb_create_xemem_segment(hdb_db_t      db,
 			 xemem_segid_t segid,
 			 char        * name, 
 			 hobbes_id_t   enclave_id,
-			 hobbes_id_t   process_id)
+			 hobbes_id_t   app_id)
 {
     wg_int lock_id;
     int    ret;
@@ -1013,7 +1013,7 @@ hdb_create_xemem_segment(hdb_db_t      db,
         return -1;
     }
 
-    ret = __create_segment_record(db, segid, name, enclave_id, process_id);
+    ret = __create_segment_record(db, segid, name, enclave_id, app_id);
 
     if (!wg_end_write(db, lock_id)) {
         ERROR("Apparently this is catastrophic...\n");
@@ -1226,11 +1226,11 @@ hdb_get_xemem_enclave(hdb_db_t      db,
 }
 
 hobbes_id_t
-__get_xemem_process(hdb_db_t        db,
-		    xemem_segid_t   segid)
+__get_xemem_app(hdb_db_t        db,
+		xemem_segid_t   segid)
 {
-    hdb_segment_t segment    = NULL;
-    hobbes_id_t   process_id = HOBBES_INVALID_ID;
+    hdb_segment_t segment = NULL;
+    hobbes_id_t   app_id  = HOBBES_INVALID_ID;
 
     segment = __get_segment_by_segid(db, segid);
 
@@ -1239,18 +1239,18 @@ __get_xemem_process(hdb_db_t        db,
 	return HOBBES_INVALID_ID;
     }
 
-    process_id = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_PROCESS));
+    app_id = wg_decode_int(db, wg_get_field(db, segment, HDB_SEGMENT_APP));
 
-    return process_id;
+    return app_id;
 }
 
 
 hobbes_id_t
-hdb_get_xemem_process(hdb_db_t      db,
-		      xemem_segid_t segid)
+hdb_get_xemem_app(hdb_db_t      db,
+		  xemem_segid_t segid)
 {
     wg_int lock_id;
-    hobbes_id_t process_id = HOBBES_INVALID_ID;
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
     
     lock_id = wg_start_read(db);
 
@@ -1259,14 +1259,14 @@ hdb_get_xemem_process(hdb_db_t      db,
         return HOBBES_INVALID_ID;
     }
 
-    process_id = __get_xemem_process(db, segid);
+    app_id = __get_xemem_app(db, segid);
 
     if (!wg_end_read(db, lock_id)) {
         ERROR("Catastrophic database locking error\n");
 	return HOBBES_INVALID_ID;
     }
 
-    return process_id;
+    return app_id;
 }
 
 
@@ -1342,40 +1342,40 @@ hdb_get_segments(hdb_db_t db,
 
 /* *******
  * 
- *  Processes
+ *  Applications
  * 
  * *******/
 
 
 /**
- * Get an process handle from an process id
- *  - Returns NULL if no process is found 
+ * Get an app handle from an app id
+ *  - Returns NULL if no app is found 
  **/
-static hdb_process_t
-__get_process_by_id(hdb_db_t    db, 
-		    hobbes_id_t process_id) 
+static hdb_app_t
+__get_app_by_id(hdb_db_t    db, 
+		hobbes_id_t app_id) 
 {
-    hdb_process_t process  = NULL;
+    hdb_app_t     app  = NULL;
     wg_query    * query    = NULL;
     wg_query_arg  arglist[2];
 
     arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PROCESS);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_APP);    
 
-    arglist[1].column = HDB_PROCESS_ID;
+    arglist[1].column = HDB_APP_ID;
     arglist[1].cond   = WG_COND_EQUAL;
-    arglist[1].value  = wg_encode_query_param_int(db, process_id);
+    arglist[1].value  = wg_encode_query_param_int(db, app_id);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    process = wg_fetch(db, query);
+    app = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-    return process;
+    return app;
 }
 
 
@@ -1383,91 +1383,91 @@ __get_process_by_id(hdb_db_t    db,
 
 
 /**
- * Get an process handle from an process name
- *  - Returns NULL if no process is found 
+ * Get an app handle from an app name
+ *  - Returns NULL if no app is found 
  **/
-static hdb_process_t
-__get_process_by_name(hdb_db_t   db, 
-		      char     * name)
+static hdb_app_t
+__get_app_by_name(hdb_db_t   db, 
+		  char     * name)
 {
-    hdb_process_t   process  = NULL;
+    hdb_app_t       app      = NULL;
     wg_query      * query    = NULL;
     wg_query_arg    arglist[2];    
  
     arglist[0].column = HDB_TYPE_FIELD;
     arglist[0].cond   = WG_COND_EQUAL;
-    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PROCESS);    
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_APP);    
 
-    arglist[1].column = HDB_PROCESS_NAME;
+    arglist[1].column = HDB_APP_NAME;
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
 
-    process = wg_fetch(db, query);
+    app = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
     wg_free_query_param(db, arglist[1].value);
 
-    return process;
+    return app;
 }
 
 
 
 
 static hobbes_id_t
-__create_process_record(hdb_db_t      db,
-			char        * name, 
-			hobbes_id_t   enclave_id)
+__create_app_record(hdb_db_t      db,
+		    char        * name, 
+		    hobbes_id_t   enclave_id)
 {
     void       * hdr_rec       = NULL;
-    hobbes_id_t  process_id    = HOBBES_INVALID_ID;
-    uint32_t     process_cnt   = 0;
+    hobbes_id_t  app_id        = HOBBES_INVALID_ID;
+    uint32_t     app_cnt       = 0;
     char         auto_name[32] = {[0 ... 31] = 0};
 
-    hdb_process_t process   = NULL;
+    hdb_app_t app   = NULL;
 
     
-    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_APP_HDR, NULL);
     
     if (!hdr_rec) {
-	ERROR("malformed database. Missing process Header\n");
+	ERROR("malformed database. Missing app Header\n");
 	return HOBBES_INVALID_ID;
     }
     
-    /* Get Next Available process ID and process count */
-    process_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_NEXT));
-    process_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+    /* Get Next Available app ID and app count */
+    app_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_NEXT));
+    app_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_CNT));
     
     if (name == NULL) {
-	snprintf(auto_name, 31, "process-%d", process_id);
+	snprintf(auto_name, 31, "app-%d", app_id);
 	name = auto_name;
     }
     
-    /* Insert process into the db */
-    process = wg_create_record(db, 5);
-    wg_set_field(db, process, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_PROCESS));
-    wg_set_field(db, process, HDB_PROCESS_ID,       wg_encode_int(db, process_id));
-    wg_set_field(db, process, HDB_PROCESS_STATE,    wg_encode_int(db, PROCESS_INITTED));
-    wg_set_field(db, process, HDB_PROCESS_NAME,     wg_encode_str(db, name, NULL));
-    wg_set_field(db, process, HDB_PROCESS_ENCLAVE,  wg_encode_int(db, enclave_id));
+    /* Insert app into the db */
+    app = wg_create_record(db, 5);
+    wg_set_field(db, app, HDB_TYPE_FIELD,   wg_encode_int(db, HDB_REC_APP));
+    wg_set_field(db, app, HDB_APP_ID,       wg_encode_int(db, app_id));
+    wg_set_field(db, app, HDB_APP_STATE,    wg_encode_int(db, APP_INITTED));
+    wg_set_field(db, app, HDB_APP_NAME,     wg_encode_str(db, name, NULL));
+    wg_set_field(db, app, HDB_APP_ENCLAVE,  wg_encode_int(db, enclave_id));
 
     
-    /* Update the process Header information */
-    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_NEXT, wg_encode_int(db, process_id  + 1));
-    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_CNT,  wg_encode_int(db, process_cnt + 1));
+    /* Update the app Header information */
+    wg_set_field(db, hdr_rec, HDB_APP_HDR_NEXT, wg_encode_int(db, app_id  + 1));
+    wg_set_field(db, hdr_rec, HDB_APP_HDR_CNT,  wg_encode_int(db, app_cnt + 1));
 
-    return process_id;
+    return app_id;
 }
 
 hobbes_id_t 
-hdb_create_process(hdb_db_t    db,
-		   char      * name, 
-		   hobbes_id_t enclave_id)
+hdb_create_app(hdb_db_t    db,
+	       char      * name, 
+	       hobbes_id_t enclave_id)
 {
     wg_int      lock_id;
-    hobbes_id_t process_id = HOBBES_INVALID_ID;
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
 
     lock_id = wg_start_write(db);
 
@@ -1476,7 +1476,7 @@ hdb_create_process(hdb_db_t    db,
 	return HOBBES_INVALID_ID;
     }
 
-    process_id = __create_process_record(db, name, enclave_id);
+    app_id = __create_app_record(db, name, enclave_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1484,40 +1484,40 @@ hdb_create_process(hdb_db_t    db,
     }
     
 
-    return process_id;
+    return app_id;
 }
 
 
 static int
-__delete_process(hdb_db_t    db,
-		 hobbes_id_t process_id)
+__delete_app(hdb_db_t    db,
+		 hobbes_id_t app_id)
 {
-    uint32_t      process_cnt = 0;
-    void        * hdr_rec     = NULL;
-    hdb_process_t process     = NULL;
+    uint32_t      app_cnt = 0;
+    void        * hdr_rec = NULL;
+    hdb_app_t     app     = NULL;
 
 
-    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_APP_HDR, NULL);
     
     if (!hdr_rec) {
-	ERROR("Malformed database. Missing process Header\n");
+	ERROR("Malformed database. Missing app Header\n");
 	return -1;
     }
     
-    process = __get_process_by_id(db, process_id);
+    app = __get_app_by_id(db, app_id);
   
-    if (!process) {
-	ERROR("Could not find process (id: %d)\n", process_id);
+    if (!app) {
+	ERROR("Could not find app (id: %d)\n", app_id);
 	return -1;
     }
 
-    if (wg_delete_record(db, process) != 0) {
-	ERROR("Could not delete process from database\n");
+    if (wg_delete_record(db, app) != 0) {
+	ERROR("Could not delete app from database\n");
 	return -1;
     }
 
-    process_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
-    wg_set_field(db, hdr_rec, HDB_PROCESS_HDR_CNT, wg_encode_int(db, process_cnt - 1));
+    app_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_CNT));
+    wg_set_field(db, hdr_rec, HDB_APP_HDR_CNT, wg_encode_int(db, app_cnt - 1));
 
     return 0;
 }
@@ -1525,8 +1525,8 @@ __delete_process(hdb_db_t    db,
 
 
 int 
-hdb_delete_process(hdb_db_t    db,
-		   hobbes_id_t process_id)
+hdb_delete_app(hdb_db_t    db,
+	       hobbes_id_t app_id)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -1538,7 +1538,7 @@ hdb_delete_process(hdb_db_t    db,
 	return -1;
     }
 
-    ret = __delete_process(db, process_id);
+    ret = __delete_app(db, app_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1551,28 +1551,28 @@ hdb_delete_process(hdb_db_t    db,
 
 
 static hobbes_id_t 
-__get_process_enclave(hdb_db_t    db,
-		      hobbes_id_t process_id)
+__get_app_enclave(hdb_db_t    db,
+		  hobbes_id_t app_id)
 {
-    hdb_process_t process    = NULL;
+    hdb_app_t     app        = NULL;
     hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
 
 
-    process = __get_process_by_id(db, process_id);
+    app = __get_app_by_id(db, app_id);
     
-    if (process == NULL) {
-	ERROR("Could not find process (id: %d)\n", process_id);
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
 	return HOBBES_INVALID_ID;
     }
 
-    enclave_id = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_ENCLAVE));
+    enclave_id = wg_decode_int(db, wg_get_field(db, app, HDB_APP_ENCLAVE));
 
     return enclave_id;
 }
 
 hobbes_id_t
-hdb_get_process_enclave(hdb_db_t    db,
-			hobbes_id_t process_id)
+hdb_get_app_enclave(hdb_db_t    db,
+		    hobbes_id_t app_id)
 {
     wg_int      lock_id;
     hobbes_id_t enclave_id = HOBBES_INVALID_ID;
@@ -1584,7 +1584,7 @@ hdb_get_process_enclave(hdb_db_t    db,
 	return HOBBES_INVALID_ID;
     }
 
-    enclave_id = __get_process_enclave(db, process_id);
+    enclave_id = __get_app_enclave(db, app_id);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1595,44 +1595,44 @@ hdb_get_process_enclave(hdb_db_t    db,
     return enclave_id;
 }
 
-static process_state_t
-__get_process_state(hdb_db_t    db, 
-		    hobbes_id_t process_id)
+static app_state_t
+__get_app_state(hdb_db_t    db, 
+		hobbes_id_t app_id)
 {
-    hdb_process_t   process = NULL;
-    process_state_t state   = PROCESS_ERROR;
+    hdb_app_t   app   = NULL;
+    app_state_t state = APP_ERROR;
 
-    process = __get_process_by_id(db, process_id);
+    app = __get_app_by_id(db, app_id);
     
-    if (process == NULL) {
-	ERROR("Could not find process (id: %d)\n", process_id);
-	return PROCESS_ERROR;
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
+	return APP_ERROR;
     }
 
-    state = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_STATE));
+    state = wg_decode_int(db, wg_get_field(db, app, HDB_APP_STATE));
 
     return state;
 }
 
-process_state_t
-hdb_get_process_state(hdb_db_t    db, 
-		      hobbes_id_t process_id)
+app_state_t
+hdb_get_app_state(hdb_db_t    db, 
+		  hobbes_id_t app_id)
 {
     wg_int lock_id;
-    process_state_t state = 0;
+    app_state_t state = 0;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return PROCESS_ERROR;
+	return APP_ERROR;
     }
 
-    state = __get_process_state(db, process_id);
+    state = __get_app_state(db, app_id);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
-	return PROCESS_ERROR;
+	return APP_ERROR;
     }
     
 
@@ -1641,28 +1641,28 @@ hdb_get_process_state(hdb_db_t    db,
 
 
 static int
-__set_process_state(hdb_db_t        db, 
-		    hobbes_id_t     process_id, 
-		    process_state_t state)
+__set_app_state(hdb_db_t        db, 
+		hobbes_id_t     app_id, 
+		app_state_t state)
 {
-    hdb_process_t process = NULL;
+    hdb_app_t app = NULL;
 
-    process = __get_process_by_id(db, process_id);
+    app = __get_app_by_id(db, app_id);
     
-    if (process == NULL) {
-	ERROR("Could not find process (id: %d)\n", process_id);
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
 	return -1;
     }
 
-    wg_set_field(db, process, HDB_PROCESS_STATE, wg_encode_int(db, state));
+    wg_set_field(db, app, HDB_APP_STATE, wg_encode_int(db, state));
 
     return 0;
 }
 
 int
-hdb_set_process_state(hdb_db_t        db, 
-		      hobbes_id_t     process_id, 
-		      process_state_t state)
+hdb_set_app_state(hdb_db_t        db, 
+		  hobbes_id_t     app_id, 
+		  app_state_t state)
 {
     wg_int lock_id;
     int ret = 0;
@@ -1674,7 +1674,7 @@ hdb_set_process_state(hdb_db_t        db,
 	return -1;
     }
 
-    ret = __set_process_state(db, process_id, state);
+    ret = __set_app_state(db, app_id, state);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1688,28 +1688,28 @@ hdb_set_process_state(hdb_db_t        db,
 
 
 static char *
-__get_process_name(hdb_db_t    db, 
-		   hobbes_id_t process_id)
+__get_app_name(hdb_db_t    db, 
+	       hobbes_id_t app_id)
 {
-    hdb_process_t process = NULL;
+    hdb_app_t app = NULL;
 
     char * name = NULL;
 
-    process = __get_process_by_id(db, process_id);
+    app = __get_app_by_id(db, app_id);
     
-    if (process == NULL) {
-	ERROR("Could not find process (id: %d)\n", process_id);
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
 	return NULL;
     }
 
-    name = wg_decode_str(db, wg_get_field(db, process, HDB_PROCESS_NAME));
+    name = wg_decode_str(db, wg_get_field(db, app, HDB_APP_NAME));
 
     return name;
 }
 
 char * 
-hdb_get_process_name(hdb_db_t    db, 
-		     hobbes_id_t process_id)
+hdb_get_app_name(hdb_db_t    db, 
+		 hobbes_id_t app_id)
 {
     wg_int lock_id;
     char * name = NULL;
@@ -1721,7 +1721,7 @@ hdb_get_process_name(hdb_db_t    db,
 	return NULL;
     }
 
-   name = __get_process_name(db, process_id);
+   name = __get_app_name(db, app_id);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1735,30 +1735,30 @@ hdb_get_process_name(hdb_db_t    db,
 
 
 static hobbes_id_t
-__get_process_id(hdb_db_t   db, 
-		 char     * process_name)
+__get_app_id(hdb_db_t   db, 
+	     char     * app_name)
 {
-    hdb_process_t process    = NULL;
-    hobbes_id_t   process_id = HOBBES_INVALID_ID;
+    hdb_app_t   app    = NULL;
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
 
-    process = __get_process_by_name(db, process_name);
+    app = __get_app_by_name(db, app_name);
     
-    if (process == NULL) {
-	ERROR("Could not find process (name: %s)\n", process_name);
+    if (app == NULL) {
+	ERROR("Could not find app (name: %s)\n", app_name);
 	return HOBBES_INVALID_ID;
     }
 
-    process_id = wg_decode_int(db, wg_get_field(db, process, HDB_PROCESS_ID));
+    app_id = wg_decode_int(db, wg_get_field(db, app, HDB_APP_ID));
 
-    return process_id;
+    return app_id;
 }
 
 hobbes_id_t
-hdb_get_process_id(hdb_db_t   db, 
-		   char     * process_name)
+hdb_get_app_id(hdb_db_t   db, 
+	       char     * app_name)
 {
     wg_int      lock_id;
-    hobbes_id_t process_id = HOBBES_INVALID_ID;
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
 
     lock_id = wg_start_read(db);
 
@@ -1767,19 +1767,19 @@ hdb_get_process_id(hdb_db_t   db,
 	return HOBBES_INVALID_ID;
     }
 
-   process_id = __get_process_id(db, process_name);
+   app_id = __get_app_id(db, app_name);
     
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
 	return HOBBES_INVALID_ID;
     }
     
-    return process_id;
+    return app_id;
 }
 
 static hobbes_id_t *
-__get_processes(hdb_db_t   db,
-		int       * num_processes)
+__get_apps(hdb_db_t   db,
+	   int      * num_apps)
 {
     hobbes_id_t * id_arr  = NULL;
     void        * db_rec  = NULL;
@@ -1787,49 +1787,49 @@ __get_processes(hdb_db_t   db,
     int           cnt     = 0;
     int           i       = 0;
     
-    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS_HDR, NULL);    
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_APP_HDR, NULL);    
 
     if (!hdr_rec) {
-	ERROR("Malformed database. Missing process Header\n");
+	ERROR("Malformed database. Missing app Header\n");
 	return NULL;
     }
 
-    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_PROCESS_HDR_CNT));
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_CNT));
 
     if (cnt == 0) {
-	*num_processes = 0;
+	*num_apps = 0;
 	return NULL;
     }
 
     id_arr = calloc(sizeof(hobbes_id_t), cnt);
 
     for (i = 0; i < cnt; i++) {
-	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_PROCESS, db_rec);
+	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_APP, db_rec);
 	
 
 	if (!db_rec) {
-	    ERROR("Process Header state mismatch\n");
+	    ERROR("Application Header state mismatch\n");
 	    cnt = i;
 	    break;
 	}
 
-	id_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_PROCESS_ID));
+	id_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_APP_ID));
 
     }
 
-    *num_processes = cnt;
+    *num_apps = cnt;
     return id_arr;
 }
 
 
 hobbes_id_t * 
-hdb_get_processes(hdb_db_t   db,
-		 int      * num_processes)
+hdb_get_apps(hdb_db_t   db,
+	     int      * num_apps)
 {
     hobbes_id_t * id_arr = NULL;
     wg_int        lock_id;
 
-    if (!num_processes) {
+    if (!num_apps) {
 	return NULL;
     }
 
@@ -1840,7 +1840,7 @@ hdb_get_processes(hdb_db_t   db,
 	return NULL;
     }
 
-    id_arr = __get_processes(db, num_processes);
+    id_arr = __get_apps(db, num_apps);
 
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Catastrophic database locking error\n");

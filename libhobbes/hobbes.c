@@ -14,7 +14,7 @@
 #include "hobbes_util.h"
 #include "hobbes_db.h"
 #include "hobbes_enclave.h"
-#include "hobbes_process.h"
+#include "hobbes_app.h"
 
 #define HOBBES_CPUID_LEAF (0x41000000)
 #define HOBBES_MAGIC      (0x40bbe5)
@@ -46,7 +46,7 @@ cpuid(uint32_t   op,
 static void 
 __attribute__((constructor))
 hobbes_auto_init() {
-    hobbes_id_t process_id = HOBBES_INVALID_ID;
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
 
     printf("Hobbes: Initializing\n\n");
 
@@ -56,15 +56,15 @@ hobbes_auto_init() {
 	return;
     }
 
-    /* Check if we are a hobbes process */
-    if (!getenv(HOBBES_ENV_PROCESS_ID)) {
-	printf("This is not a Hobbes process\n");
+    /* Check if we are a hobbes application */
+    if (!getenv(HOBBES_ENV_APP_ID)) {
+	printf("This is not a Hobbes application\n");
 	return;
     }
 
-    process_id = hobbes_get_my_process_id();
+    app_id = hobbes_get_my_app_id();
 
-    if (process_id == HOBBES_INVALID_ID) {
+    if (app_id == HOBBES_INVALID_ID) {
 	ERROR("Invalid Hobbes Process ID\n");
 	return;
     }
@@ -79,7 +79,7 @@ hobbes_auto_init() {
 
 
     /* Hobbes is initialized, so we signal that we are now running */
-    hobbes_set_process_state(process_id, PROCESS_RUNNING);
+    hobbes_set_app_state(app_id, APP_RUNNING);
     
     /* Mark hobbes as enabled */
     hobbes_enabled = true;
@@ -97,7 +97,7 @@ hobbes_auto_deinit()
 	return;
     }
 
-    hobbes_set_process_state(hobbes_get_my_process_id(), PROCESS_STOPPED);
+    hobbes_set_app_state(hobbes_get_my_app_id(), APP_STOPPED);
 
     hobbes_client_deinit();
 
@@ -243,38 +243,38 @@ hobbes_get_my_enclave_name( void )
 }
 
 hobbes_id_t 
-hobbes_get_my_process_id( void )
+hobbes_get_my_app_id( void )
 {
-    hobbes_id_t  process_id = HOBBES_INVALID_ID;
+    hobbes_id_t  app_id = HOBBES_INVALID_ID;
     char       * id_str     = NULL;
 
     if (!hobbes_is_available()) {
 	return HOBBES_INVALID_ID;
     }
 
-    id_str = getenv(HOBBES_ENV_PROCESS_ID);
+    id_str = getenv(HOBBES_ENV_APP_ID);
 
     if (id_str == NULL) {
 	return HOBBES_INVALID_ID;
     }
 
-    process_id = smart_atoi(HOBBES_INVALID_ID, id_str);
+    app_id = smart_atoi(HOBBES_INVALID_ID, id_str);
 
-    return process_id;
+    return app_id;
 
 }
 
 char * 
-hobbes_get_my_process_name( void )
+hobbes_get_my_app_name( void )
 {
-    hobbes_id_t   process_id = hobbes_get_my_process_id();
+    hobbes_id_t   app_id = hobbes_get_my_app_id();
     char        * name       = NULL;
     
-    if (process_id == HOBBES_INVALID_ID) {
+    if (app_id == HOBBES_INVALID_ID) {
 	return NULL;
     }
 
-    name = hobbes_get_process_name(process_id);
+    name = hobbes_get_app_name(app_id);
 
     return name;
 }

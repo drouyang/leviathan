@@ -9,7 +9,7 @@
 #include <pet_log.h>
 
 #include <hobbes.h>
-#include <hobbes_process.h>
+#include <hobbes_app.h>
 #include <hobbes_enclave.h>
 #include <xemem.h>
 
@@ -39,7 +39,7 @@ list_segments_handler(int argc, char ** argv)
 
     printf("%d segments:\n", num_segments);
     printf("-------------------------------------------------------------------------------\n");
-    printf("| SEGID          | Segment Name                     | Enclave ID | Process ID |\n");
+    printf("| SEGID          | Segment Name                     | Enclave ID | App ID     |\n");
     printf("-------------------------------------------------------------------------------\n");
 
     for (i = 0; i < num_segments; i++) {
@@ -47,7 +47,7 @@ list_segments_handler(int argc, char ** argv)
 	       14, seg_arr[i].segid,
 	       32, seg_arr[i].name,
 	       10, seg_arr[i].enclave_id,
-	       10, seg_arr[i].process_id);
+	       10, seg_arr[i].app_id);
     }
 
     printf("-------------------------------------------------------------------------------\n");
@@ -59,40 +59,40 @@ list_segments_handler(int argc, char ** argv)
 
 
 static int
-list_processes_main(int argc, char ** argv)
+list_apps_main(int argc, char ** argv)
 {
-    struct process_info * processes = NULL;
-    int num_processes = -1;
+    struct app_info * apps = NULL;
+    int num_apps = -1;
     int i = 0;
 
-    processes = hobbes_get_process_list(&num_processes);
+    apps = hobbes_get_app_list(&num_apps);
     
-    if (num_processes == -1) {
-	ERROR("could not retrieve process list\n");
+    if (num_apps == -1) {
+	ERROR("could not retrieve app list\n");
 	return -1;
     }
 
-    printf("%d Processes\n", num_processes);
+    printf("%d Applications\n", num_apps);
 
-    if (num_processes == 0) {
+    if (num_apps == 0) {
 	return 0;
     }
 
     printf("------------------------------------------------------------------------------------------------\n");
-    printf("| HPID     | Enclave                          | Process                          | State       |\n");
+    printf("| HPID     | Enclave                          | Application                      | State       |\n");
     printf("------------------------------------------------------------------------------------------------\n");
 
-    for (i = 0; i < num_processes; i++) {
+    for (i = 0; i < num_apps; i++) {
 	printf("| %-*d | %-*s | %-*s | %-*s |\n",
-	       8,  processes[i].id,
-	       32, hobbes_get_enclave_name(processes[i].enclave_id),
-	       32, processes[i].name,
-	       11, process_state_to_str(processes[i].state));
+	       8,  apps[i].id,
+	       32, hobbes_get_enclave_name(apps[i].enclave_id),
+	       32, apps[i].name,
+	       11, app_state_to_str(apps[i].state));
     }
     
     printf("------------------------------------------------------------------------------------------------\n");
 
-    free(processes);
+    free(apps);
 
     return 0;
 }
@@ -122,7 +122,7 @@ static struct hobbes_cmd cmds[] = {
     {"list_enclaves"   , list_enclaves_main    , "List all running enclaves"},
     {"list_segments"   , list_segments_handler , "List all exported xpmem segments"},
     {"launch_app"      , launch_app_main       , "Launch an application in an enclave"},
-    {"list_processes"  , list_processes_main   , "List all processes"},
+    {"list_apps"       , list_apps_main        , "List all applications"},
     {"dump_cmd_queue"  , dump_cmd_queue_main   , "Dump the command queue state for an enclave"},
     {"cat_file"        , cat_file_main         , "'cat' a file on an arbitrary enclave"},
     {"cat_into_file"   , cat_into_file_main    , "'cat' to a file on an arbitrary enclave"},

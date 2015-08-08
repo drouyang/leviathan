@@ -12,7 +12,7 @@
 
 
 #define HOBBES_ENV_ENCLAVE_ID "HOBBES_ENCLAVE_ID"
-#define HOBBES_ENV_PROCESS_ID "HOBBES_PROCESS_ID"
+#define HOBBES_ENV_APP_ID     "HOBBES_APP_ID"
 
 #define HOBBES_INVALID_ID (-1)
 
@@ -23,9 +23,9 @@ bool hobbes_is_available( void );
 bool hobbes_is_enabled( void );
 
 char *      hobbes_get_my_enclave_name( void );
-char *      hobbes_get_my_process_name( void );
+char *      hobbes_get_my_app_name( void );
 hobbes_id_t hobbes_get_my_enclave_id( void );
-hobbes_id_t hobbes_get_my_process_id( void );
+hobbes_id_t hobbes_get_my_app_id( void );
 
 int hobbes_client_init( void );
 int hobbes_client_deinit( void );
