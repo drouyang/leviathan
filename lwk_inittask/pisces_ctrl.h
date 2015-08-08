@@ -199,5 +199,6 @@ int pisces_cmd_init(void);
 int pisces_handle_cmd(int pisces_fd);
 int register_pisces_cmd(uint64_t cmd, pisces_cmd_fn handler);
 
+int pisces_send_resp(int fd, uint64_t err_code);
 
 #endif

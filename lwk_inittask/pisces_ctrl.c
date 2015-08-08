@@ -39,8 +39,8 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
 }
 
 
-static int 
-send_resp(int      fd, 
+int 
+pisces_send_resp(int      fd, 
 	  uint64_t err_code) 
 {
 	struct pisces_resp resp;
@@ -73,7 +73,7 @@ __add_memory(int        pisces_fd,
 
     if (ret != sizeof(struct cmd_mem_add)) {
 	ERROR("Error reading pisces MEM_ADD CMD (ret=%d)\n", ret);
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
 
@@ -95,7 +95,7 @@ __add_memory(int        pisces_fd,
 
     printf("pmem_zero returned %d\n", ret);
 
-    send_resp(pisces_fd, 0);
+    pisces_send_resp(pisces_fd, 0);
 
     return 0;
 }
@@ -114,7 +114,7 @@ __add_cpu(int      pisces_fd,
     if (ret != sizeof(struct cmd_cpu_add)) {
 	ERROR("Error reading pisces CPU_ADD CMD (ret=%d)\n", ret);
 
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
 
@@ -126,7 +126,7 @@ __add_cpu(int      pisces_fd,
 
     if (logical_cpu == -1) {
 	ERROR("Error Adding CPU to Kitten\n");
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 
 	return 0;
     }
@@ -144,7 +144,7 @@ __add_cpu(int      pisces_fd,
 #endif
 			    
     CPU_SET(logical_cpu, &enclave_cpus);
-    send_resp(pisces_fd, 0);
+    pisces_send_resp(pisces_fd, 0);
 
     return 0;
 }
@@ -162,7 +162,7 @@ __remove_cpu(int      pisces_fd,
     if (ret != sizeof(struct cmd_cpu_add)) {
 	ERROR("Error reading pisces CPU_ADD CMD (ret=%d)\n", ret);
 
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
 
@@ -175,13 +175,13 @@ __remove_cpu(int      pisces_fd,
     if (logical_cpu == -1) {
 	ERROR("Error remove CPU to Kitten\n");
 
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
 
     CPU_CLR(logical_cpu, &enclave_cpus);
 
-    send_resp(pisces_fd, 0);
+    pisces_send_resp(pisces_fd, 0);
     return 0;
 }
 
@@ -200,7 +200,7 @@ __launch_job(int      pisces_fd,
 
 	free(job_cmd);
 			    
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
     
@@ -218,7 +218,7 @@ __launch_job(int      pisces_fd,
 
     free(job_cmd);
 			
-    send_resp(pisces_fd, ret);
+    pisces_send_resp(pisces_fd, ret);
 
     return 0;
 }
@@ -240,7 +240,7 @@ __load_file(int      pisces_fd,
 
 	free(load_cmd);
 			    
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
     
@@ -249,7 +249,7 @@ __load_file(int      pisces_fd,
     
     free(load_cmd);
 
-    send_resp(pisces_fd, ret);
+    pisces_send_resp(pisces_fd, ret);
     return 0;
 }
 
@@ -263,7 +263,7 @@ __shutdown(int      pisces_fd,
 
     /* Perform additional Cleanup is necessary */
     
-    send_resp(pisces_fd, 0);
+    pisces_send_resp(pisces_fd, 0);
 
     sleep(5); /* Hack to avoid disabling the xbuf before the resp has been received */
 	      /* TODO: Put the enclave into a halt loop */
@@ -273,17 +273,21 @@ __shutdown(int      pisces_fd,
 }
 
 
+
+
+
 int 
 pisces_cmd_init( void )
 {
     pisces_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
     
-    register_pisces_cmd(PISCES_CMD_ADD_MEM,    __add_memory );
-    register_pisces_cmd(PISCES_CMD_ADD_CPU,    __add_cpu    );
-    register_pisces_cmd(PISCES_CMD_REMOVE_CPU, __remove_cpu );
-    register_pisces_cmd(PISCES_CMD_LAUNCH_JOB, __launch_job );
-    register_pisces_cmd(PISCES_CMD_LOAD_FILE,  __load_file  );
-    register_pisces_cmd(PISCES_CMD_SHUTDOWN,   __shutdown   );
+    register_pisces_cmd(PISCES_CMD_ADD_MEM,            __add_memory );
+    register_pisces_cmd(PISCES_CMD_ADD_CPU,            __add_cpu    );
+    register_pisces_cmd(PISCES_CMD_REMOVE_CPU,         __remove_cpu );
+    register_pisces_cmd(PISCES_CMD_LAUNCH_JOB,         __launch_job );
+    register_pisces_cmd(PISCES_CMD_LOAD_FILE,          __load_file  );
+    register_pisces_cmd(PISCES_CMD_SHUTDOWN,           __shutdown   );
+
 
     return 0;
 }
@@ -308,7 +312,7 @@ pisces_handle_cmd(int pisces_fd)
 
     if (handler == NULL) {
 	ERROR("Received invalid pisces Command (%lu)\n", cmd.cmd);
-	send_resp(pisces_fd, -1);
+	pisces_send_resp(pisces_fd, -1);
 	return 0;
     }
     
@@ -361,7 +365,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_create_vm));
 
 			    if (ret != sizeof(struct cmd_create_vm)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    printf("Error: CREATE_VM command could not be read\n");
 				    break;
 			    }
@@ -420,13 +424,13 @@ register_pisces_cmd(uint64_t        cmd,
 			    if (vm_id < 0) {
 				printf("Error: Could not create VM (%s) at (%s) (err=%d)\n", 
 				       vm_cmd.path.vm_name, vm_cmd.path.file_name, vm_id);
-				send_resp(pisces_fd, vm_id);
+				pisces_send_resp(pisces_fd, vm_id);
 				break;
 			    }
 
 			    printf("Created VM (%d)\n", vm_id);
 
-			    send_resp(pisces_fd, vm_id);
+			    pisces_send_resp(pisces_fd, vm_id);
 			    break;
 		    }
 		    case PISCES_CMD_FREE_VM: {
@@ -435,17 +439,17 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Signal Palacios to Launch VM */
 			    if (issue_v3_cmd(V3_FREE_GUEST, (uintptr_t)vm_cmd.vm_id) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 
 			    break;
 		    }
@@ -461,7 +465,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &cmd, sizeof(struct cmd_add_pci_dev));
 
 			    if (ret != sizeof(struct cmd_add_pci_dev)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
@@ -474,11 +478,11 @@ register_pisces_cmd(uint64_t        cmd,
 			    /* Issue Device Add operation to Palacios */
 			    if (issue_v3_cmd(V3_ADD_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
 				    printf("Error: Could not add PCI device to Palacios\n");
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 			    break;
 		    }
 		    case PISCES_CMD_FREE_V3_PCI: {
@@ -493,7 +497,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &cmd, sizeof(struct cmd_add_pci_dev));
 
 			    if (ret != sizeof(struct cmd_add_pci_dev)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
@@ -506,11 +510,11 @@ register_pisces_cmd(uint64_t        cmd,
 			    /* Issue Device Add operation to Palacios */
 			    if (issue_v3_cmd(V3_REMOVE_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
 				    printf("Error: Could not remove PCI device from Palacios\n");
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 			    break;
 		    }
 		    case PISCES_CMD_LAUNCH_VM: {
@@ -519,13 +523,13 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Signal Palacios to Launch VM */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_LAUNCH, (uintptr_t)NULL) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
@@ -537,7 +541,7 @@ register_pisces_cmd(uint64_t        cmd,
 			      }
 			    */
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 
 			    break;
 		    }
@@ -547,17 +551,17 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Signal Palacios to Launch VM */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_STOP, (uintptr_t)NULL) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 
 			    break;
 		    }
@@ -568,17 +572,17 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Signal Palacios to Launch VM */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_PAUSE, (uintptr_t)NULL) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 
 			    break;
 		    }
@@ -588,17 +592,17 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Signal Palacios to Launch VM */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONTINUE, (uintptr_t)NULL) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 
 			    break;
 		    }
@@ -611,7 +615,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
 				    printf("Error reading console command\n");
 
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
@@ -622,7 +626,7 @@ register_pisces_cmd(uint64_t        cmd,
 					
 
 			    printf("Cons Ring Buf=%p\n", (void *)cons_ring_buf);
-			    send_resp(pisces_fd, cons_ring_buf);
+			    pisces_send_resp(pisces_fd, cons_ring_buf);
 
 			    break;
 		    }
@@ -633,18 +637,18 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 			    if (ret != sizeof(struct cmd_vm_ctrl)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 
 			    /* Send Disconnect Request to Palacios */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONSOLE_DISCONNECT, (uintptr_t)NULL) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 			    break;
 		    }
 
@@ -654,17 +658,17 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_cons_keycode));
 
 			    if (ret != sizeof(struct cmd_vm_cons_keycode)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
 			    /* Send Keycode to Palacios */
 			    if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_KEYBOARD_EVENT, vm_cmd.scan_code) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 			    break;
 		    }
 
@@ -675,7 +679,7 @@ register_pisces_cmd(uint64_t        cmd,
 			    ret = read(pisces_fd, &pisces_cmd, sizeof(struct cmd_vm_debug));
 			    
 			    if (ret != sizeof(struct cmd_vm_debug)) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 			    
@@ -683,11 +687,11 @@ register_pisces_cmd(uint64_t        cmd,
 			    v3_cmd.cmd  = pisces_cmd.spec.cmd;
 			    
 			    if (issue_vm_cmd(pisces_cmd.spec.vm_id, V3_VM_DEBUG, (uintptr_t)&v3_cmd) == -1) {
-				    send_resp(pisces_fd, -1);
+				    pisces_send_resp(pisces_fd, -1);
 				    break;
 			    }
 			    
-			    send_resp(pisces_fd, 0);
+			    pisces_send_resp(pisces_fd, 0);
 			    break;
 		    }
 

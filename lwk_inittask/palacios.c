@@ -1,4 +1,7 @@
 #include <stdint.h>
+#include <unistd.h>
+
+
 
 #include <hobbes.h>
 #include <hobbes_cmd_queue.h>
@@ -6,11 +9,15 @@
 #include <hobbes_util.h>
 
 #include <v3vee.h>
+#include <v3_ioctl.h>
+
+#include <pet_ioctl.h>
 #include <pet_log.h>
 #include <pet_xml.h>
 
 #include "palacios.h"
 #include "hobbes_ctrl.h"
+#include "pisces_ctrl.h"
 
 
 extern hdb_db_t hobbes_master_db;
@@ -222,6 +229,121 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 }
 
 
+/** **************************************** **
+ ** Pisces Commands                          **
+ ** **************************************** **/
+
+
+
+/**
+ * This is copied (with minor tweaks) from the kitten pisces
+ * control.
+ *
+ * Should it be preferrable to move this to v3vee.h. Making it
+ * a library call?
+ */
+static int
+__issue_vm_cmd(int       vm_id, 
+	       u64       cmd, 
+	       uintptr_t arg)
+{
+    char * dev_path = get_vm_dev_path(vm_id);
+    int ret = 0;
+
+    ret = pet_ioctl_path(dev_path, cmd, (void *)arg); 
+
+    if (ret < 0) {
+	printf("ERROR: Could not issue command (%llu) to guest (%d)\n", cmd, vm_id);
+	return -1;
+    }
+
+    free(dev_path);
+
+    return 0;
+}
+
+static int
+__pisces_cons_connect(int      pisces_fd,
+		      uint64_t cmd)
+{
+    struct cmd_vm_ctrl vm_cmd;
+    uint64_t cons_ring_buf = 0;
+    int ret;
+    
+    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
+    
+    if (ret != sizeof(struct cmd_vm_ctrl)) {
+        printf("Error reading console command\n");
+
+        pisces_send_resp(pisces_fd, -1);
+        return -1;
+    }
+
+    /* Signal Palacios to connect the console */
+    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONSOLE_CONNECT,
+		     (uintptr_t)&cons_ring_buf) == -1) {
+        cons_ring_buf        = 0;
+    }
+
+
+    printf("Cons Ring Buf=%p\n", (void *)cons_ring_buf);
+    pisces_send_resp(pisces_fd, cons_ring_buf);
+
+    return 0;
+}
+
+static int
+__pisces_cons_disconnect(int       pisces_fd,
+			 uint64_t  cmd)
+{
+    struct cmd_vm_ctrl vm_cmd;
+    int ret;
+
+    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
+
+    if (ret != sizeof(struct cmd_vm_ctrl)) {
+        pisces_send_resp(pisces_fd, -1);
+        return 0;
+    }
+
+
+    /* Send Disconnect Request to Palacios */
+    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONSOLE_DISCONNECT, 
+		     (uintptr_t)NULL) == -1) {
+        pisces_send_resp(pisces_fd, -1);
+        return 0;
+    }
+
+    pisces_send_resp(pisces_fd, 0);
+    return 0;
+}
+
+static int
+__pisces_cons_keycode(int      pisces_fd,
+		      uint64_t cmd)
+{
+    struct cmd_vm_cons_keycode vm_cmd;
+    int ret;
+
+    ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_cons_keycode));
+
+    if (ret != sizeof(struct cmd_vm_cons_keycode)) {
+        pisces_send_resp(pisces_fd, -1);
+        return 0;
+    }
+
+    /* Send Keycode to Palacios */
+    if (__issue_vm_cmd(vm_cmd.vm_id, V3_VM_KEYBOARD_EVENT, 
+		     vm_cmd.scan_code) == -1) {
+        pisces_send_resp(pisces_fd, -1);
+        return 0;
+    }
+
+    pisces_send_resp(pisces_fd, 0);
+    return 0;
+}
+
+
 
 int
 palacios_init(void)
@@ -229,13 +351,15 @@ palacios_init(void)
 
     // Register Hobbes commands
     if (hobbes_enabled) {
-	hobbes_register_cmd(HOBBES_CMD_VM_LAUNCH,  __hobbes_launch_vm);
-	hobbes_register_cmd(HOBBES_CMD_VM_DESTROY, __hobbes_destroy_vm);
-
-	
+	hobbes_register_cmd(HOBBES_CMD_VM_LAUNCH,  __hobbes_launch_vm  );
+	hobbes_register_cmd(HOBBES_CMD_VM_DESTROY, __hobbes_destroy_vm );
     }
 
     // Register Pisces commands
+    register_pisces_cmd(PISCES_CMD_VM_CONS_CONNECT,    __pisces_cons_connect    );
+    register_pisces_cmd(PISCES_CMD_VM_CONS_DISCONNECT, __pisces_cons_disconnect );
+    register_pisces_cmd(PISCES_CMD_VM_CONS_KEYCODE,    __pisces_cons_keycode    );
+
 
     return 0;
 }
@@ -245,6 +369,8 @@ palacios_is_available(void)
 {
     return (v3_is_vmm_present() != 0);
 }
+
+
 
 
 
@@ -271,7 +397,7 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_create_vm));
 
 		if (ret != sizeof(struct cmd_create_vm)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    printf("Error: CREATE_VM command could not be read\n");
 		    break;
 		}
@@ -325,13 +451,13 @@ palacios_is_available(void)
 		if (vm_id < 0) {
 		    printf("Error: Could not create VM (%s) at (%s) (err=%d)\n", 
 			   vm_cmd.path.vm_name, vm_cmd.path.file_name, vm_id);
-		    send_resp(pisces_fd, vm_id);
+		    pisces_send_resp(pisces_fd, vm_id);
 		    break;
 		}
 
 		printf("Created VM (%d)\n", vm_id);
 
-		send_resp(pisces_fd, vm_id);
+		pisces_send_resp(pisces_fd, vm_id);
 		break;
 	    }
 	    case ENCLAVE_CMD_FREE_VM: {
@@ -340,17 +466,17 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 		if (v3_free_vm(vm_cmd.vm_id) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 
 		break;
 	    }
@@ -368,7 +494,7 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &cmd, sizeof(struct cmd_add_pci_dev));
 
 		if (ret != sizeof(struct cmd_add_pci_dev)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
@@ -383,11 +509,11 @@ palacios_is_available(void)
 		/*
 		  if (issue_v3_cmd(V3_REMOVE_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
 		  printf("Error: Could not remove PCI device from Palacios\n");
-		  send_resp(pisces_fd, -1);
+		  pisces_send_resp(pisces_fd, -1);
 		  break;
 		  }
 		*/
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 		break;
 	    }
 	    case ENCLAVE_CMD_LAUNCH_VM: {
@@ -396,13 +522,13 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 		/* Signal Palacios to Launch VM */
 		if (v3_launch_vm(vm_cmd.vm_id) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
@@ -414,7 +540,7 @@ palacios_is_available(void)
 		  }
 		*/
 
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 
 		break;
 	    }
@@ -424,16 +550,16 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 		if (v3_stop_vm(vm_cmd.vm_id) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 
 		break;
 	    }
@@ -444,16 +570,16 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 		if (v3_pause_vm(vm_cmd.vm_id) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 
 		break;
 	    }
@@ -463,88 +589,21 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
 
 		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
 		if (v3_continue_vm(vm_cmd.vm_id) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 
-		send_resp(pisces_fd, 0);
-
-		break;
-	    }
-	    case ENCLAVE_CMD_VM_CONS_CONNECT: {
-		struct cmd_vm_ctrl vm_cmd;
-		u64 cons_ring_buf = 0;
-
-		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
-
-		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    printf("Error reading console command\n");
-
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		/* Signal Palacios to connect the console */
-		/*
-		  if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONSOLE_CONNECT, (uintptr_t)&cons_ring_buf) == -1) {
-		  cons_ring_buf        = 0;
-		  }
-		*/	
-
-		printf("Cons Ring Buf=%p\n", (void *)cons_ring_buf);
-		send_resp(pisces_fd, cons_ring_buf);
+		pisces_send_resp(pisces_fd, 0);
 
 		break;
 	    }
 
-	    case ENCLAVE_CMD_VM_CONS_DISCONNECT: {
-		struct cmd_vm_ctrl vm_cmd;
 
-		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_ctrl));
-
-		if (ret != sizeof(struct cmd_vm_ctrl)) {
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-
-		/* Send Disconnect Request to Palacios */
-		/*
-		  if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_CONSOLE_DISCONNECT, (uintptr_t)NULL) == -1) {
-		  send_resp(pisces_fd, -1);
-		  break;
-		  }
-		*/
-
-		send_resp(pisces_fd, 0);
-		break;
-	    }
-
-	    case ENCLAVE_CMD_VM_CONS_KEYCODE: {
-		struct cmd_vm_cons_keycode vm_cmd;
-
-		ret = read(pisces_fd, &vm_cmd, sizeof(struct cmd_vm_cons_keycode));
-
-		if (ret != sizeof(struct cmd_vm_cons_keycode)) {
-		    send_resp(pisces_fd, -1);
-		    break;
-		}
-
-		/* Send Keycode to Palacios */
-		/*
-		  if (issue_vm_cmd(vm_cmd.vm_id, V3_VM_KEYBOARD_EVENT, vm_cmd.scan_code) == -1) {
-		  send_resp(pisces_fd, -1);
-		  break;
-		  }
-		*/
-		send_resp(pisces_fd, 0);
-		break;
-	    }
 
 	    case ENCLAVE_CMD_VM_DBG: {
 		struct cmd_vm_debug pisces_cmd;
@@ -552,7 +611,7 @@ palacios_is_available(void)
 		ret = read(pisces_fd, &pisces_cmd, sizeof(struct cmd_vm_debug));
 			    
 		if (ret != sizeof(struct cmd_vm_debug)) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 			    
@@ -560,11 +619,11 @@ palacios_is_available(void)
 		if (v3_debug_vm(pisces_cmd.spec.vm_id, 
 				pisces_cmd.spec.core, 
 				pisces_cmd.spec.cmd) == -1) {
-		    send_resp(pisces_fd, -1);
+		    pisces_send_resp(pisces_fd, -1);
 		    break;
 		}
 			    
-		send_resp(pisces_fd, 0);
+		pisces_send_resp(pisces_fd, 0);
 		break;
 	    }
 
