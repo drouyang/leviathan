@@ -20,7 +20,7 @@
 #include <pet_xml.h>
 
 #include <hobbes.h>
-#include <hobbes_process.h>
+#include <hobbes_app.h>
 #include <hobbes_db.h>
 #include <hobbes_util.h>
 #include <hobbes_cmd_queue.h>
@@ -262,14 +262,14 @@ launch_hobbes_lnx_app(char * spec_str)
 	    envp = val_str;
 	}
 
-	/* Register as a hobbes process */
+	/* Register as a hobbes application */
 	{
 	    int chars_written = 0;
 
-	    hpid = hdb_create_process(hobbes_master_db, name, hobbes_get_my_enclave_id());
+	    hpid = hdb_create_app(hobbes_master_db, name, hobbes_get_my_enclave_id());
 
-	    printf("Launching App (Hobbes process ID = %u) (EnclaveID=%d)\n", hpid,  hobbes_get_my_enclave_id() );
-	    printf("process Name=%s\n", name);
+	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hpid,  hobbes_get_my_enclave_id() );
+	    printf("application Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
 	    chars_written = asprintf(&hobbes_env, 
@@ -299,7 +299,7 @@ launch_hobbes_lnx_app(char * spec_str)
 	    }
 
 
-	    /* Record Hobbes Process ID */
+	    /* Record Hobbes Application ID */
 	    app->hpid = hpid;
 	}
 
