@@ -280,7 +280,7 @@ __pisces_cons_connect(int      pisces_fd,
     }
 
     /* Signal Palacios to connect the console */
-    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONSOLE_CONNECT,
+    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONS_CONNECT,
 		     (uintptr_t)&cons_ring_buf) == -1) {
         cons_ring_buf        = 0;
     }
@@ -308,7 +308,7 @@ __pisces_cons_disconnect(int       pisces_fd,
 
 
     /* Send Disconnect Request to Palacios */
-    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONSOLE_DISCONNECT, 
+    if (__issue_vm_cmd(vm_cmd.vm_id, PISCES_VM_CONS_DISCONNECT, 
 		     (uintptr_t)NULL) == -1) {
         pisces_send_resp(pisces_fd, -1);
         return 0;
