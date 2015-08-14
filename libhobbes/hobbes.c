@@ -45,38 +45,23 @@ cpuid(uint32_t   op,
 
 static void 
 __attribute__((constructor))
-hobbes_auto_init() {
+hobbes_app_auto_init() {
     hobbes_id_t app_id = HOBBES_INVALID_ID;
-
-    printf("Hobbes: Initializing\n\n");
-
-    /* Check is hobbes is available */
-    if (!hobbes_is_available()) {
-	ERROR("Hobbes is not available\n");
-	return;
-    }
-
-    /* Check if we are a hobbes application */
-    if (!getenv(HOBBES_ENV_APP_ID)) {
-	printf("This is not a Hobbes application\n");
-	return;
-    }
 
     app_id = hobbes_get_my_app_id();
 
-    if (app_id == HOBBES_INVALID_ID) {
-	ERROR("Invalid Hobbes Process ID\n");
+    if ((app_id == HOBBES_INVALID_ID) ||
+	(app_id == HOBBES_INIT_APP_ID)) {
 	return;
     }
 
+    DEBUG("Hobbes: Initializing\n");
   
     /* Initialize hobbes */
     if (hobbes_client_init() == -1) {
-	ERROR("Failed to initialize hobbes\n");
+	DEBUG("Failed to initialize hobbes application\n");
 	return;
     }
-
-
 
     /* Hobbes is initialized, so we signal that we are now running */
     hobbes_set_app_state(app_id, APP_RUNNING);
@@ -88,10 +73,10 @@ hobbes_auto_init() {
 
 static void 
 __attribute__((destructor))
-hobbes_auto_deinit()
+hobbes_app_auto_deinit()
 {
 
-    printf("\nHobbes: Deinitializing\n");
+    DEBUG("Hobbes: Deinitializing\n");
 
     if (!hobbes_enabled) {
 	return;
@@ -160,6 +145,54 @@ hobbes_client_deinit()
     xemem_release(hobbes_db_apid);
 
     return 0;
+}
+
+bool 
+hobbes_is_app( void )
+{
+    hobbes_id_t app_id = hobbes_get_my_app_id();
+
+    return (app_id != HOBBES_INVALID_ID);
+}
+
+
+bool
+hobbes_is_client_inittask( void )
+{
+
+    hobbes_id_t enclave_id = hobbes_get_my_enclave_id();
+    hobbes_id_t app_id     = hobbes_get_my_app_id();
+
+    if (enclave_id == HOBBES_INVALID_ID) {
+	return false;
+    }
+
+    if (enclave_id == HOBBES_MASTER_ENCLAVE_ID) {
+	return false;
+    }
+
+    if (app_id == HOBBES_INIT_APP_ID) {
+	return true;
+    }
+
+    return false;
+}
+
+bool 
+hobbes_is_master_inittask( void )
+{
+    hobbes_id_t enclave_id = hobbes_get_my_enclave_id();
+    hobbes_id_t app_id     = hobbes_get_my_app_id();
+
+    if (enclave_id != HOBBES_MASTER_ENCLAVE_ID) {
+	return false;
+    }
+
+    if (app_id == HOBBES_INIT_APP_ID) {
+	return true;
+    }
+
+    return false;
 }
 
 
@@ -231,7 +264,7 @@ char *
 hobbes_get_my_enclave_name( void )
 {
     hobbes_id_t   enclave_id = hobbes_get_my_enclave_id();
-    char        * name = NULL;
+    char        * name       = NULL;
 
     if (enclave_id == HOBBES_INVALID_ID) {
 	return NULL;
@@ -246,7 +279,7 @@ hobbes_id_t
 hobbes_get_my_app_id( void )
 {
     hobbes_id_t  app_id = HOBBES_INVALID_ID;
-    char       * id_str     = NULL;
+    char       * id_str = NULL;
 
     if (!hobbes_is_available()) {
 	return HOBBES_INVALID_ID;
@@ -268,7 +301,7 @@ char *
 hobbes_get_my_app_name( void )
 {
     hobbes_id_t   app_id = hobbes_get_my_app_id();
-    char        * name       = NULL;
+    char        * name   = NULL;
     
     if (app_id == HOBBES_INVALID_ID) {
 	return NULL;

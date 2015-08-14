@@ -16,11 +16,19 @@
 
 #define HOBBES_INVALID_ID (-1)
 
+#define HOBBES_MASTER_ENCLAVE_ID (0)
+#define HOBBES_INIT_APP_ID       (0)
+
 typedef int hobbes_id_t;
 
 
 bool hobbes_is_available( void );
 bool hobbes_is_enabled( void );
+
+bool hobbes_is_master_inittask( void );
+bool hobbes_is_client_inittask( void );
+bool hobbes_is_inittask( void );
+bool hobbes_is_app( void );
 
 char *      hobbes_get_my_enclave_name( void );
 char *      hobbes_get_my_app_name( void );

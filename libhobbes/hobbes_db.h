@@ -6,6 +6,10 @@
 #define __HOBBES_DB_H__
 
 #include <stdint.h>
+#include <dbapi.h>
+#include <dballoc.h>
+
+
 
 #include "hobbes_enclave.h"
 #include "hobbes.h"

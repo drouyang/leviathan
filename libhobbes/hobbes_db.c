@@ -237,10 +237,22 @@ __create_enclave_record(hdb_db_t         db,
 	return HOBBES_INVALID_ID;
     }
     
-    /* Get Next Available enclave ID and enclave count */
-    enclave_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_NEXT));
+    if (parent == HOBBES_INVALID_ID) {
+	/* The Master enclave doesn't have a parent  *
+	 * and gets a well known ID                  */
+	enclave_id = HOBBES_MASTER_ENCLAVE_ID;
+    } else {
+	/* Get Next Available enclave ID */
+	enclave_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_NEXT));
+    }
+
+    /* Verify that enclave_id is available */
+    if (__get_enclave_by_id(db, enclave_id)) {
+	return HOBBES_INVALID_ID;
+    }
+
     enclave_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_ENCLAVE_HDR_CNT));
-    
+ 
     if (name == NULL) {
 	snprintf(auto_name, 31, "enclave-%d", enclave_id);
 	name = auto_name;

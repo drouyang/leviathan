@@ -5,7 +5,14 @@ PETLIB_PATH?=../petlib
 WHITEDB_PATH?=../whitedb-0.7.3
 
 
-CFLAGS = -Wall -Werror -Wno-nonnull -D_GNU_SOURCE -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -static  
+CFLAGS = -Wall -Werror -Wno-nonnull  \
+	-D_GNU_SOURCE                \
+	-I$(WHITEDB_PATH)/Db         \
+	-I$(XPMEM_PATH)/include      \
+	-I$(PISCES_PATH)/linux_usr   \
+	-I$(PETLIB_PATH)             \
+	-I$(PALACIOS_PATH)/user      \
+	-static  
 
 
 CC = gcc
@@ -57,6 +64,8 @@ libhobbes.mri: FORCE
 
 libhobbes.a: $(libhobbes_objs) $(libs) libhobbes.mri
 	$(call build,AR,$(AR) -M < libhobbes.mri)
+
+
 
 
 
