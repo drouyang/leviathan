@@ -8,10 +8,15 @@
 #include <pet_xml.h>
 #include <hobbes.h>
 
+int  create_vm_main(int argc, char ** argv);
+int destroy_vm_main(int argc, char ** argv);
 
-int  create_vm(pet_xml_t xml, char * name, hobbes_id_t host_enclave_id);
-int destroy_vm(hobbes_id_t enclave_id);
+
+int hobbes_create_vm(char      * cfg_file, 
+		     char      * name,
+		     hobbes_id_t host_enclave_id);
 
 
+int hobbes_destroy_vm(hobbes_id_t enclave_id);
 
 #endif

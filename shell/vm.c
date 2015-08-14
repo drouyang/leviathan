@@ -2,6 +2,8 @@
  *  (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
 
+#include <getopt.h>
+
 #include <pet_log.h>
 
 
@@ -20,10 +22,86 @@
 
 
 
+static void create_vm_usage() {
+    printf("create_vm: Hobbes VM launch\n\n"				                \
+           " Launches a VM as specified in command line options or in a job_file.\n\n"  \
+           "Usage: create_vm <-f job_file | vm cfg args...> [options]\n"                \
+           " Options: \n"						                \
+           "\t-n, --name=<name>             : Name of VM                \n"		\
+           "\t-t, --host=<enclave_name>     : Name of host enclave      \n"             \
+	   "\t-h, --help                    : Display help dialog       \n"             \
+           );
+
+}
+
+
+
 int 
-create_vm(pet_xml_t   xml,
-	  char      * name,
-	  hobbes_id_t host_enclave_id)
+create_vm_main(int argc, char ** argv)
+{
+    hobbes_id_t host_enclave_id = HOBBES_INVALID_ID;
+
+    char      * cfg_file = NULL;
+    char      * name     = NULL;
+    char      * host     = NULL;
+
+    /* Parse Options */
+    {
+        int  opt_index = 0;
+        char c         = 0;
+
+        opterr = 1;
+
+        static struct option long_options[] = {
+            {"name",     required_argument, 0,  'n'},
+	    {"host",     required_argument, 0,  't'},
+	    {"help",     no_argument,       0,  'h'},
+	    {0, 0, 0, 0}
+        };
+
+
+        while ((c = getopt_long(argc, argv, "f:n:t:h", long_options, &opt_index)) != -1) {
+            switch (c) {
+                case 'f': 
+		    cfg_file = optarg;
+                    break;
+		case 'n':
+		    name = optarg;
+		    break;
+		case 't':
+		    host = optarg;
+		    break;
+		case 'h':
+		default:
+		    create_vm_usage();
+		    return -1;
+	    }
+	}
+    }
+
+    if (cfg_file == NULL) {
+	create_vm_usage();
+	return -1;
+    }
+
+    if (host) {
+	host_enclave_id = hobbes_get_enclave_id(host);
+
+	if (host_enclave_id == HOBBES_INVALID_ID) {
+	    ERROR("Invalid Host enclave (%s)\n", host);
+	    return -1;
+	}
+    }
+
+    return hobbes_create_vm(cfg_file, name, host_enclave_id);
+}
+
+
+
+static int 
+__create_vm(pet_xml_t   xml,
+	    char      * name,
+	    hobbes_id_t host_enclave_id)
 {
     char   * target  = pet_xml_get_val(xml, "host_enclave");
     char   * err_str = NULL;
@@ -86,16 +164,37 @@ create_vm(pet_xml_t   xml,
 }
 
 int
-destroy_vm(hobbes_id_t enclave_id)
+hobbes_destroy_vm(hobbes_id_t enclave_id)
 {
 
-    hobbes_id_t  host_enclave_id = HOBBES_INVALID_ID;
-    hcq_handle_t hcq             = NULL;
-    hcq_cmd_t    cmd             = HCQ_INVALID_CMD;
+    hobbes_id_t    host_enclave_id = HOBBES_INVALID_ID;
+    enclave_type_t enclave_type    = INVALID_ENCLAVE;
+    hcq_handle_t   hcq             = NULL;
+    hcq_cmd_t      cmd             = HCQ_INVALID_CMD;
 
     char   * err_str =  NULL;
     uint32_t err_len =  0;
     int      ret     = -1;
+
+
+   if (enclave_id == HOBBES_INVALID_ID) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
+	return -1;
+    }
+
+    enclave_type = hobbes_get_enclave_type(enclave_id);
+
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
+	return -1;
+    }
+   
+    if ( (enclave_type != PISCES_VM_ENCLAVE) && 
+	 (enclave_type != LINUX_VM_ENCLAVE)  ) {
+	ERROR("Enclave (%d) is not a VM enclave\n", enclave_id);
+	return -1;
+    }
+
 
     host_enclave_id = hobbes_get_enclave_parent(enclave_id);
     
@@ -133,4 +232,53 @@ destroy_vm(hobbes_id_t enclave_id)
     hobbes_close_enclave_cmdq(hcq);
 
     return ret;
+}
+
+
+
+int 
+hobbes_create_vm(char        * cfg_file, 
+		 char        * name,
+		 hobbes_id_t   host_enclave_id)
+{
+    pet_xml_t   xml  = NULL;
+    char      * type = NULL; 
+
+    xml = pet_xml_open_file(cfg_file);
+    
+    if (xml == NULL) {
+	ERROR("Error loading Enclave config file (%s)\n", cfg_file);
+	return -1;
+    }
+
+    type =  pet_xml_tag_name(xml);
+
+    if (strncmp("vm", type, strlen("vm")) != 0) {
+	ERROR("Invalid Enclave Type (%s)\n", type);
+	return -1;
+    }
+
+    DEBUG("Creating VM Enclave\n");
+    return __create_vm(xml, name, host_enclave_id);
+
+
+}
+
+
+
+
+
+int 
+destroy_vm_main(int argc, char ** argv)
+{
+    hobbes_id_t    enclave_id   = HOBBES_INVALID_ID;
+
+    if (argc < 1) {
+	printf("Usage: hobbes destroy_vm <enclave name>\n");
+	return -1;
+    }
+    
+    enclave_id = hobbes_get_enclave_id(argv[1]);
+
+    return hobbes_destroy_vm(enclave_id);
 }

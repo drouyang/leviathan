@@ -204,6 +204,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 {
     enclave_type_t type       =  INVALID_ENCLAVE;
     hobbes_id_t  * enclave_id =  NULL;
+    hobbes_id_t    parent_id  =  HOBBES_INVALID_ID;
     uint32_t       data_size  =  0;
 
     int            vm_id      = -1; 
@@ -228,6 +229,14 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 	goto out;
     }
 
+    /* Double check that the VM is hosted by us */
+    parent_id = hobbes_get_enclave_parent(*enclave_id);
+    
+    if (parent_id != hobbes_get_my_enclave_id()) {
+	err_str = "VM is not hosted by this enclave\n";
+	goto out;
+    }
+
     /* Get local VM ID */
 
     vm_id = hobbes_get_enclave_dev_id(*enclave_id);
@@ -243,6 +252,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
     
     if (ret == -1) {
 	err_str = "Could not stop VM";
+	hobbes_set_enclave_state(*enclave_id, ENCLAVE_ERROR);
 	goto out;
     }
 
@@ -252,8 +262,13 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 
     if (ret == -1) {
 	err_str = "Could not free VM";
+	hobbes_set_enclave_state(*enclave_id, ENCLAVE_ERROR);
 	goto out;
     }
+
+
+    /* Remove enclave from the database */
+    hdb_delete_enclave(hobbes_master_db, *enclave_id);
 
 
  out:

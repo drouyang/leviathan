@@ -17,9 +17,8 @@
 extern hdb_db_t hobbes_master_db;
 
 int 
-hobbes_create_enclave(char        * cfg_file_name, 
-		      char        * name,
-		      hobbes_id_t   host_enclave_id)
+hobbes_create_enclave(char * cfg_file_name, 
+		      char * name)
 {
     pet_xml_t   xml  = NULL;
     char      * type = NULL; 
@@ -33,23 +32,13 @@ hobbes_create_enclave(char        * cfg_file_name,
 
     type =  pet_xml_tag_name(xml);
 
-    if (strncmp("pisces", type, strlen("pisces")) == 0) {
-
-	DEBUG("Creating Pisces Enclave\n");
-	return pisces_enclave_create(xml, name);
-
-    } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
-	DEBUG("Creating VM enclave\n");
-	return create_vm(xml, name, host_enclave_id);
-    } else {
+    if (strncmp("pisces", type, strlen("pisces")) != 0) {
 	ERROR("Invalid Enclave Type (%s)\n", type);
 	return -1;
     }
 
-
-
-    return 0;
-
+    DEBUG("Creating Pisces Enclave\n");
+    return pisces_enclave_create(xml, name);
 }
 
 
@@ -66,19 +55,12 @@ hobbes_destroy_enclave(hobbes_id_t enclave_id)
 	return -1;
     }
    
-    switch (enclave_type) {
-	case PISCES_ENCLAVE:
-	    return pisces_enclave_destroy(enclave_id);
-	case LINUX_VM_ENCLAVE:
-	case PISCES_VM_ENCLAVE:
-	    return destroy_vm(enclave_id);
-	default:
-	    ERROR("Invalid Enclave Type (%d)\n", enclave_type);
-	    return -1;
+    if (enclave_type != PISCES_ENCLAVE) {
+	ERROR("Enclave (%d) is not a native enclave\n", enclave_id);
+	return -1;
     }
 
-    return 0;
-    
+    return pisces_enclave_destroy(enclave_id);
 }
 
 
@@ -88,10 +70,10 @@ create_enclave_main(int argc, char ** argv)
 {
     char * cfg_file = NULL;
     char * name     = NULL;
-    hobbes_id_t host_enclave_id = HOBBES_INVALID_ID;
+
 
     if (argc < 1) {
-	printf("Usage: hobbes create_enclave <cfg_file> [name] [-t <host_enclave>]\n");
+	printf("Usage: hobbes create_enclave <cfg_file> [name]\n");
 	return -1;
     }
 
@@ -101,7 +83,7 @@ create_enclave_main(int argc, char ** argv)
 	name = argv[2];
     }
 
-    return hobbes_create_enclave(cfg_file, name, host_enclave_id);
+    return hobbes_create_enclave(cfg_file, name);
 }
 
 
