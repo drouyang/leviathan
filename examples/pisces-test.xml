@@ -1,6 +1,6 @@
 <pisces name="pisces-test">
-    <kernel>/home/jarusl/kitten/vmlwk.bin</kernel>
-    <init_task>/home/jarusl/leviathan/lwk_inittask/lwk_init</init_task>
+    <kernel>/home/jarusl/pisces/kitten/vmlwk.bin</kernel>
+    <init_task>/home/jarusl/pisces/leviathan/lwk_inittask/lwk_init</init_task>
     <cmd_line>console=pisces</cmd_line>
     
     <boot_env>

@@ -94,7 +94,7 @@
 		</device>
 -->
 		<device class="FILEDISK" id="CD0" writable="0">
-			<path>/home/jarusl/image.iso</path>
+			<path>/home/jarusl/fedora-test/hpcg.iso</path>
 			<frontend tag="ide">
 				<model>V3Vee CDROM</model>
 				<type>CDROM</type>
