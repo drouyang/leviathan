@@ -599,20 +599,25 @@ __get_next_cmd(struct cmd_queue * cq)
     hcq_cmd_t   next_cmd = HCQ_INVALID_CMD;
     uint64_t    cmd_cnt  = 0;
     void      * hdr_rec  = NULL;
+    void      * db       = cq->db;
     
-    hdr_rec = wg_find_record_int(cq->db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
+    hdr_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
     
     if (!hdr_rec) {
 	ERROR("malformed database. Missing  Header\n");
 	return HCQ_INVALID_CMD;
     }
 
-    cmd_cnt  = wg_decode_int(cq->db, wg_get_field(cq->db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING));
-    next_cmd = wg_decode_int(cq->db, wg_get_field(cq->db, hdr_rec, HCQ_HDR_FIELD_PENDING));
+    cmd_cnt  = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING));
+    next_cmd = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING));
 
     if (cmd_cnt <= 0) {
 	return HCQ_INVALID_CMD;
     }
+
+    /* Mark command as taken */
+    wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING, wg_encode_int(db, cmd_cnt - 1));
+    wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING,     wg_encode_int(db, next_cmd + 1));
 
     /* Quiesce the signal */
     xemem_ack(cq->fd);
@@ -758,28 +763,10 @@ __cmd_return(struct cmd_queue * cq,
 	     void             * data)
 {
     void        * db      = cq->db;
-    void        * hdr_rec = NULL;
     void        * cmd_rec = NULL;
-    hcq_cmd_t     pending = HCQ_INVALID_CMD;
-    uint64_t      cmd_cnt = 0;
     
     if ((data_size > 0) && (data == NULL)) {
 	ERROR("NULL Data pointer, but positive data size\n");
-	return -1;
-    }
-
-    hdr_rec = wg_find_record_int(db, HCQ_TYPE_FIELD, WG_COND_EQUAL, HCQ_HEADER_TYPE, NULL);
-    
-    if (!hdr_rec) {
-	ERROR("malformed database. Missing Header\n");
-	return -1;
-    }
-
-    pending = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING));
-    cmd_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING));
-
-    if (cmd_cnt <= 0) {
-	ERROR("Command count is <= 0\n");
 	return -1;
     }
 
@@ -799,9 +786,6 @@ __cmd_return(struct cmd_queue * cq,
 
     wg_set_field(db, cmd_rec, HCQ_CMD_FIELD_STATUS,   wg_encode_int(db, HCQ_CMD_RETURNED));
 
-    /* Update the header fields */
-    wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_OUTSTANDING, wg_encode_int(db, cmd_cnt - 1));
-    wg_set_field(db, hdr_rec, HCQ_HDR_FIELD_PENDING,     wg_encode_int(db, pending + 1));
 
     /* Signal Client segid */
     {
