@@ -6,10 +6,6 @@
 #define __HOBBES_DB_H__
 
 #include <stdint.h>
-#include <dbapi.h>
-#include <dballoc.h>
-
-
 
 #include "hobbes_enclave.h"
 #include "hobbes.h"
@@ -39,13 +35,7 @@ void hdb_detach(hdb_db_t db);
 int hdb_init_master_db(hdb_db_t db);
 
 
-static inline void * hdb_get_db_addr(hdb_db_t db) {
-#ifdef USE_DATABASE_HANDLE
-   return ((db_handle *)db)->db;
-#else
-    return db;
-#endif
-}
+void * hdb_get_db_addr(hdb_db_t db);
 
 
 

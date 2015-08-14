@@ -140,6 +140,16 @@ hdb_init_master_db(hdb_db_t db)
 }
 
 
+void * 
+hdb_get_db_addr(hdb_db_t db) 
+{
+#ifdef USE_DATABASE_HANDLE
+   return ((db_handle *)db)->db;
+#else
+    return db;
+#endif
+}
+
 /* 
  * Enclave Accessors 
  */
