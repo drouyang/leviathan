@@ -23,8 +23,7 @@ execs := 	hobbes
 hobbes_objs := 	hobbes.o		\
 		app_launch.o		\
 		enclave.o		\
-		linux_vm_ctrl.o		\
-		pisces_vm_ctrl.o        \
+		vm.o                    \
 		pisces_enclave_ctrl.o
 
 

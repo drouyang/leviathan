@@ -52,16 +52,16 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	goto out2;
     }
 
-    /* Add VM to the Master DB */
     {
+	/* Add VM to the Master DB */
 
 	enclave_name = pet_xml_get_val(xml, "name");
 
 	enclave_id = hdb_create_enclave(hobbes_master_db, 
 					enclave_name, 
-					vm_id, 
-					PISCES_VM_ENCLAVE, 
-					0);
+					-1, 
+					LINUX_VM_ENCLAVE, 
+					hobbes_get_my_enclave_id());
 
 	if (enclave_id == -1) {
 	    err_str = "Could not create enclave in database";
@@ -70,38 +70,74 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 
 	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
 
-
-	{
-	    /* Temporary extension modification 
-	       This will move to config generation library when its done
-	    */
-	    
-	    pet_xml_t ext_tree = pet_xml_get_subtree(xml, "extensions");
-	    pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
-	    char * id_str = NULL;
-
-	    while (ext_iter != NULL) {
-		char * ext_name = pet_xml_get_val(ext_iter, "name");
-		
-		if (strncasecmp("HOBBES_ENV", ext_name, strlen("HOBBES_ENV")) == 0) {
-		    break;
-		}
-
-		ext_iter = pet_xml_get_next(ext_iter);
-	    }
-	    
-	    if (ext_iter == NULL) {
-		ext_iter = pet_xml_add_subtree(ext_tree, "extension");
-		pet_xml_add_val(ext_iter, "name", "HOBBES_ENV");
-	    }
-
-	    asprintf(&id_str, "%u", enclave_id);
-	    pet_xml_add_val(ext_iter, "enclave_id", id_str);
-
-	    free(id_str);
-	}
-
     }
+
+    {
+	/*
+	 *  Temporary extension modification 
+	 *  This will move to config generation library when its done
+	 */
+	pet_xml_t ext_tree = pet_xml_get_subtree(xml,      "extensions");
+	pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
+	char * id_str = NULL;
+	
+	while (ext_iter != NULL) {
+	    char * ext_name = pet_xml_get_val(ext_iter, "name");
+	    
+	    if (strncasecmp("HOBBES_ENV", ext_name, strlen("HOBBES_ENV")) == 0) {
+		break;
+	    }
+	    
+	    ext_iter = pet_xml_get_next(ext_iter);
+	}
+	
+	if (ext_iter == NULL) {
+	    ext_iter = pet_xml_add_subtree(ext_tree, "extension");
+	    pet_xml_add_val(ext_iter, "name", "HOBBES_ENV");
+	}
+	
+	asprintf(&id_str, "%u", enclave_id);
+	pet_xml_add_val(ext_iter, "enclave_id", id_str);
+	
+	free(id_str);
+    }
+
+
+
+    {
+	/* 
+	 * Temporarily add the XPMEM device if it is not present. 
+	 *  This will move to config generation library when its done
+	 */
+	pet_xml_t dev_tree = pet_xml_get_subtree(xml, "devices");
+	pet_xml_t dev_iter = NULL;
+
+	if (dev_tree == NULL) {
+	    ERROR("Invalid VM config syntax. Missing devices section\n");
+	    return -1;
+	}
+	
+	dev_iter = pet_xml_get_subtree(dev_tree, "device");
+	
+	while (dev_iter != NULL) {
+	    char * dev_class = pet_xml_get_val(dev_iter, "class");
+	    
+	    if (strncasecmp("XPMEM", dev_class, strlen("XPMEM")) == 0) {
+		break;
+	    }
+	    
+	    dev_iter = pet_xml_get_next(dev_iter);
+	}
+	
+	if (dev_iter == NULL) {
+	    dev_iter = pet_xml_add_subtree_tail(dev_tree, "device");
+	    pet_xml_add_val(dev_iter, "class", "XPMEM");
+	    pet_xml_add_val(dev_iter, "id",    "XPMEM");
+	    pet_xml_add_val(dev_iter, "bus",   "pci0");
+	}
+	
+    }
+
 
     /* Load VM Image */
     {
@@ -186,7 +222,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 
     type = hobbes_get_enclave_type(*enclave_id);
 
-    if (type != PISCES_VM_ENCLAVE) {
+    if (type != LINUX_VM_ENCLAVE) {
 	err_str = "Enclave is not a VM";
 	goto out;
     }

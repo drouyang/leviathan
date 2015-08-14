@@ -10,15 +10,16 @@
 
 
 #include "enclave.h"
+#include "vm.h"
 #include "pisces_enclave_ctrl.h"
-#include "linux_vm_ctrl.h"
-#include "pisces_vm_ctrl.h"
+
 
 extern hdb_db_t hobbes_master_db;
 
 int 
-hobbes_create_enclave(char * cfg_file_name, 
-		      char * name)
+hobbes_create_enclave(char        * cfg_file_name, 
+		      char        * name,
+		      hobbes_id_t   host_enclave_id)
 {
     pet_xml_t   xml  = NULL;
     char      * type = NULL; 
@@ -38,20 +39,8 @@ hobbes_create_enclave(char * cfg_file_name,
 	return pisces_enclave_create(xml, name);
 
     } else if (strncasecmp(type, "vm", strlen("vm")) == 0) {
-	char * target = pet_xml_get_val(xml, "host_enclave");
-	
-	if (!target) {
-	    DEBUG("Creating Palacios/Linux Enclave\n");
-	    
-	    // run locally
-	    create_linux_vm(xml, name);
-	} else {
-	    DEBUG("Creating Palacios/Pisces Enclave\n");
-	    // run on pisces enclave
-
-	    create_pisces_vm(xml, name);
-	}
-
+	DEBUG("Creating VM enclave\n");
+	return create_vm(xml, name, host_enclave_id);
     } else {
 	ERROR("Invalid Enclave Type (%s)\n", type);
 	return -1;
@@ -81,9 +70,8 @@ hobbes_destroy_enclave(hobbes_id_t enclave_id)
 	case PISCES_ENCLAVE:
 	    return pisces_enclave_destroy(enclave_id);
 	case LINUX_VM_ENCLAVE:
-	    return destroy_linux_vm(enclave_id);
 	case PISCES_VM_ENCLAVE:
-	    return destroy_pisces_vm(enclave_id);
+	    return destroy_vm(enclave_id);
 	default:
 	    ERROR("Invalid Enclave Type (%d)\n", enclave_type);
 	    return -1;
@@ -100,6 +88,7 @@ create_enclave_main(int argc, char ** argv)
 {
     char * cfg_file = NULL;
     char * name     = NULL;
+    hobbes_id_t host_enclave_id = HOBBES_INVALID_ID;
 
     if (argc < 1) {
 	printf("Usage: hobbes create_enclave <cfg_file> [name] [-t <host_enclave>]\n");
@@ -112,7 +101,7 @@ create_enclave_main(int argc, char ** argv)
 	name = argv[2];
     }
 
-    return hobbes_create_enclave(cfg_file, name);
+    return hobbes_create_enclave(cfg_file, name, host_enclave_id);
 }
 
 
