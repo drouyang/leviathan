@@ -20,11 +20,11 @@ libs  :=	$(PISCES_PATH)/linux_usr/libpisces.a \
 execs := 	hobbes
 
 
-hobbes_objs := 	hobbes.o		\
-		app_launch.o		\
-		enclave.o		\
-		vm.o                    \
-		pisces_enclave_ctrl.o
+hobbes_objs := 	hobbes.o	\
+		app_launch.o	\
+		enclave.o	\
+		vm.o		\
+		pisces.o
 
 
 build = \

@@ -142,6 +142,9 @@ __launch_app(hcq_handle_t hcq,
 }
 
 
+
+
+
 static int
 __load_file(hcq_handle_t hcq,
 	    uint64_t     cmd)
@@ -149,6 +152,7 @@ __load_file(hcq_handle_t hcq,
     uint32_t   data_size = 0;
     char     * xml_str   = NULL;
     pet_xml_t  xml       = NULL;
+    char     * err_str   = NULL;
 
     char     * src_file  = NULL;
     char     * dst_file  = NULL;
@@ -158,25 +162,32 @@ __load_file(hcq_handle_t hcq,
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if (xml_str == NULL) {
-	ERROR("Could not read File spec\n");
+	err_str = "Could not read File spec";
 	goto out;
     }
 
 
     xml = pet_xml_parse_str(xml_str);
 
+    if (xml == PET_INVALID_XML) {
+	err_str = "XML Syntax Error";
+	goto out;
+    }
+
     src_file = pet_xml_get_val(xml, "src_file");
     dst_file = pet_xml_get_val(xml, "dst_file");
     
     if ((src_file == NULL) || (dst_file == NULL)) {
-	ERROR("Invalid File spec\n");
+	err_str = "Invalid File spec";
  	goto out;
     }
     
     ret = load_remote_file(src_file, dst_file);
-    
+
  out:
-    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
+    if (err_str) ERROR("%s\n", err_str);
+
+    hcq_cmd_return(hcq, cmd, ret, smart_strlen(err_str) + 1, err_str);
     return 0;
 }
 
@@ -186,6 +197,88 @@ __ping(hcq_handle_t hcq,
 {
     hcq_cmd_return(hcq, cmd, 0, strlen("pong") + 1, "pong");
     return 0;
+}
+
+
+static int
+__add_memory(hcq_handle_t hcq,
+	     uint64_t     cmd)
+{
+    uint32_t    data_size = 0;
+    char      * xml_str   = NULL;
+    pet_xml_t   xml       = NULL;
+    char      * err_str   = NULL;
+
+    uintptr_t base_addr   =  0;
+    uint64_t  size        = -1;
+    int       allocated   =  0;
+    int       zeroed      =  1;
+
+    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    
+    if (xml_str == NULL) {
+	err_str = "Could not read memory spec";
+	goto out;
+    }
+
+    xml = pet_xml_parse_str(xml_str);
+
+    if (xml == PET_INVALID_XML) {
+	err_str = "Invalid XML syntax";
+	goto out;
+    }
+
+    base_addr = smart_atoull(-1, pet_xml_get_val(xml, "base_addr" ));
+    size      = smart_atoull(-1, pet_xml_get_val(xml, "size"      ));
+    allocated = smart_atoi  ( 0, pet_xml_get_val(xml, "allocated" ));
+    zeroed    = smart_atoi  ( 1, pet_xml_get_val(xml, "zeroed"    ));
+    
+    if ((base_addr == -1) || (num_pgs == -1)) {
+	err_str = "Invalid command syntax";
+	goto out;
+    }
+
+    if ((allocated != 0) && 
+	(allocated != 1)) {
+	err_str = "Invalid command syntax";
+	goto out;
+    }
+
+    {
+	struct pmem_region rgn;
+
+	memset(&rgn, 0, sizeof(struct pmem_region));
+
+	rgn.start            = base_addr
+	rgn.end              = size
+	rgn.type_is_set      = 1;
+	rgn.type             = PMEM_TYPE_UMEM;
+	rgn.allocated_is_set = 1;
+	rgn.allocated        = allocated;
+	
+	ret = pmem_add(&rgn);
+
+	if (ret != 0) {
+	    err_str = "Error in pmem_add";
+	    goto out;
+	}
+
+	if (zeroed) {
+	    ret = pmem_zero(&rgn);
+
+	    if (ret != 0) {
+		err_str = "Error zeroing out memory";
+		goto out;
+	    }
+	}
+    }
+    
+
+ out:
+    if (err_str) ERROR("%s\n", err_str);
+
+    hcq_cmd_return(hcq, cmd, ret, smart_strlen(err_str) + 1, err_str);
+    return 0; 
 }
 
 
@@ -202,6 +295,7 @@ hobbes_cmd_init(void)
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
+    hobbes_register_cmd(HOBBES_CMD_ADD_MEM,    __add_memory);
     hobbes_register_cmd(HOBBES_CMD_FILE_OPEN,  file_open_handler);
     hobbes_register_cmd(HOBBES_CMD_FILE_CLOSE, file_close_handler);
     hobbes_register_cmd(HOBBES_CMD_FILE_READ,  file_read_handler);

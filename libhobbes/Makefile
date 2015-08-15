@@ -27,13 +27,15 @@ libs := 	$(XPMEM_PATH)/lib/libxpmem.a         \
 target :=    libhobbes.a
 
 
-libhobbes_objs := 	xemem.o  \
-			hobbes.o \
-			hobbes_db.o \
+libhobbes_objs := 	xemem.o            \
+			hobbes.o           \
+			hobbes_db.o        \
 			hobbes_cmd_queue.o \
-			hobbes_enclave.o \
-			hobbes_app.o \
-			hobbes_file.o
+			hobbes_enclave.o   \
+			hobbes_app.o       \
+			hobbes_file.o      \
+			hobbes_memory.o    \
+			hobbes_util.o
 
 
 build = \

@@ -9,30 +9,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
+#include <unistd.h>
 
 #define smart_free(ptr) {free(ptr); ptr = NULL;}
 
-static inline int
-smart_atoi(int dflt, char * str) 
-{
-    char * end = NULL;
-    int    tmp = 0;
-    
-    if ((str == NULL) || (*str == '\0')) {
-        /*  String was either NULL or empty */
-        return dflt;
-    }
-
-    tmp = strtol(str, &end, 10);
-
-    if (*end) {
-        /* String contained non-numerics */
-        return dflt;
-    }
-    
-    return tmp;
-}
+int      smart_atoi  (int      dflt, char * str);
+uint64_t smart_atou64(uint64_t dflt, char * str);
+int64_t  smart_atoi64(int64_t  dflt, char * str);
 
 
 static inline int

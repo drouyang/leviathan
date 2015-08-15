@@ -30,10 +30,10 @@ bool hobbes_is_client_inittask( void );
 bool hobbes_is_inittask( void );
 bool hobbes_is_app( void );
 
-char *      hobbes_get_my_enclave_name( void );
-char *      hobbes_get_my_app_name( void );
-hobbes_id_t hobbes_get_my_enclave_id( void );
-hobbes_id_t hobbes_get_my_app_id( void );
+char *       hobbes_get_my_enclave_name( void );
+char *       hobbes_get_my_app_name( void );
+hobbes_id_t  hobbes_get_my_enclave_id( void );
+hobbes_id_t  hobbes_get_my_app_id( void );
 
 int hobbes_client_init( void );
 int hobbes_client_deinit( void );

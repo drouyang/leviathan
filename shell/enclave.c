@@ -11,7 +11,7 @@
 
 #include "enclave.h"
 #include "vm.h"
-#include "pisces_enclave_ctrl.h"
+#include "pisces.h"
 
 
 extern hdb_db_t hobbes_master_db;

@@ -221,9 +221,8 @@ hfio_open(hcq_handle_t   hcq,
 
     cmd = hcq_cmd_issue(hcq, HOBBES_CMD_FILE_OPEN, strlen(tmp_str) + 1, tmp_str);
     
-    smart_free(cmd_xml);
     smart_free(tmp_str);
-    
+
     if (cmd == HCQ_INVALID_CMD) {
 	ERROR("Error issueing open file command (%s)\n", path);
 	goto err;
@@ -248,6 +247,8 @@ hfio_open(hcq_handle_t   hcq,
     file->file_handle = *file_handle;
 
     hcq_cmd_complete(hcq, cmd);
+
+    pet_xml_free(cmd_xml);
 
     return file;
 

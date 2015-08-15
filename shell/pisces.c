@@ -14,7 +14,7 @@
 #include "hobbes.h"
 #include "hobbes_db.h"
 #include "hobbes_util.h"
-#include "pisces_enclave_ctrl.h"
+#include "pisces.h"
 
 
 extern hdb_db_t hobbes_master_db;
@@ -166,9 +166,9 @@ pisces_enclave_create(pet_xml_t   xml,
 
 	if (boot_env_tree != NULL) {
 	    pet_xml_t   mem_tree = pet_xml_get_subtree(boot_env_tree, "memory");
-	    char    * numa     = pet_xml_get_val(boot_env_tree, "numa");
-	    char    * cpu      = pet_xml_get_val(boot_env_tree, "cpu");
-	    char    * mem_blk  = pet_xml_get_val(boot_env_tree, "memory");
+	    char      * numa     = pet_xml_get_val(boot_env_tree,     "numa");
+	    char      * cpu      = pet_xml_get_val(boot_env_tree,     "cpu");
+	    char      * mem_blk  = pet_xml_get_val(boot_env_tree,     "memory");
 
 	   numa_zone = smart_atoi(numa_zone, numa);
 	   boot_cpu  = smart_atoi(boot_cpu,  cpu);
