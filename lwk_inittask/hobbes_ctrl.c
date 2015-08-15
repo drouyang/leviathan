@@ -214,6 +214,8 @@ __add_memory(hcq_handle_t hcq,
     int       allocated   =  0;
     int       zeroed      =  1;
 
+    int       ret;
+
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
     
     if (xml_str == NULL) {
@@ -233,7 +235,8 @@ __add_memory(hcq_handle_t hcq,
     allocated = smart_atoi  ( 0, pet_xml_get_val(xml, "allocated" ));
     zeroed    = smart_atoi  ( 1, pet_xml_get_val(xml, "zeroed"    ));
     
-    if ((base_addr == -1) || (num_pgs == -1)) {
+    //if ((base_addr == -1) || (num_pgs == -1)) {
+    if (base_addr == -1) {
 	err_str = "Invalid command syntax";
 	goto out;
     }
@@ -249,8 +252,8 @@ __add_memory(hcq_handle_t hcq,
 
 	memset(&rgn, 0, sizeof(struct pmem_region));
 
-	rgn.start            = base_addr
-	rgn.end              = size
+	rgn.start            = base_addr;
+	rgn.end              = size;
 	rgn.type_is_set      = 1;
 	rgn.type             = PMEM_TYPE_UMEM;
 	rgn.allocated_is_set = 1;
