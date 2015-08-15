@@ -17,6 +17,7 @@
 #include <hobbes_enclave.h>
 
 #include "init.h"
+#include "hobbes_util.h"
 #include "hobbes_ctrl.h"
 #include "app_launch.h"
 #include "file_io.h"
@@ -230,8 +231,8 @@ __add_memory(hcq_handle_t hcq,
 	goto out;
     }
 
-    base_addr = smart_atoull(-1, pet_xml_get_val(xml, "base_addr" ));
-    size      = smart_atoull(-1, pet_xml_get_val(xml, "size"      ));
+    base_addr = smart_atou64(-1, pet_xml_get_val(xml, "base_addr" ));
+    size      = smart_atou64(-1, pet_xml_get_val(xml, "size"      ));
     allocated = smart_atoi  ( 0, pet_xml_get_val(xml, "allocated" ));
     zeroed    = smart_atoi  ( 1, pet_xml_get_val(xml, "zeroed"    ));
     
