@@ -25,7 +25,7 @@ typedef void * hdb_db_t;
 typedef void * hdb_enclave_t;
 typedef void * hdb_app_t;
 typedef void * hdb_segment_t;
-
+typedef void * hdb_pmi_keyval_t;
 
 
 hdb_db_t hdb_create(uint64_t size);
@@ -166,5 +166,21 @@ char *          hdb_get_app_name(hdb_db_t    db,
 hobbes_id_t     hdb_get_app_id(hdb_db_t db,
 			       char *   app_name);
 
+
+/*
+ * PMI Key Value Store
+ */
+
+int hdb_put_pmi_keyval(hdb_db_t      db,
+		       int           appid,
+		       const char *  kvsname,
+		       const char *  key,
+		       const char *  val);
+
+int hdb_get_pmi_keyval(hdb_db_t      db,
+		       int           appid,
+		       const char *  kvsname,
+		       const char *  key,
+		       const char ** val);
 
 #endif

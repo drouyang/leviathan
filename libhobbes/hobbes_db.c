@@ -29,6 +29,7 @@
 #define HDB_REC_XEMEM_HDR        5
 #define HDB_REC_XEMEM_SEGMENT    6
 #define HDB_REC_XEMEM_ATTACHMENT 7
+#define HDB_REC_PMI_KEYVAL       8
 
 
 
@@ -73,6 +74,11 @@
 #define HDB_APP_STATE    3
 #define HDB_APP_ENCLAVE  4
 
+/* Columns for PMI records */
+#define HDB_PMI_KVS_ENTRY_APPID   1
+#define HDB_PMI_KVS_ENTRY_KVSNAME 2
+#define HDB_PMI_KVS_ENTRY_KEY     3
+#define HDB_PMI_KVS_ENTRY_VALUE   4
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
@@ -1873,3 +1879,134 @@ hdb_get_apps(hdb_db_t   db,
 }
 
 
+
+
+/*
+ * PMI Key Value Store
+ */
+
+
+/* This assumes the database lock is held */
+static int
+__put_pmi_keyval(hdb_db_t        db,
+		 int             appid,
+		 const char *    kvsname,
+		 const char *    key,
+		 const char *    val)
+{
+    void * rec = NULL;
+
+    /* Insert the PMI Key/Value into the database */
+    rec = wg_create_record(db, 5);
+    wg_set_field(db, rec, HDB_TYPE_FIELD,            wg_encode_int(db, HDB_REC_PMI_KEYVAL));
+    wg_set_field(db, rec, HDB_PMI_KVS_ENTRY_APPID,   wg_encode_int(db, appid));
+    wg_set_field(db, rec, HDB_PMI_KVS_ENTRY_KVSNAME, wg_encode_str(db, (char *)kvsname, NULL));
+    wg_set_field(db, rec, HDB_PMI_KVS_ENTRY_KEY,     wg_encode_str(db, (char *)key, NULL));
+    wg_set_field(db, rec, HDB_PMI_KVS_ENTRY_VALUE,   wg_encode_str(db, (char *)val, NULL));
+
+    return 0;
+}
+
+
+int
+hdb_put_pmi_keyval(hdb_db_t      db,
+		   int           appid,
+		   const char *  kvsname,
+		   const char *  key,
+		   const char *  val)
+{
+    wg_int lock_id;
+    int    ret;
+
+    lock_id = wg_start_write(db);
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __put_pmi_keyval(db, appid, kvsname, key, val);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+
+    return ret;
+}
+
+
+static int
+__get_pmi_keyval(hdb_db_t        db,
+		 int             appid,
+		 const char *    kvsname,
+		 const char *    key,
+		 const char **   val)
+{
+    hdb_pmi_keyval_t kvs_entry = NULL;
+    wg_query *       query     = NULL;
+    wg_query_arg     arglist[4];
+    int              ret = -1;
+
+    /* Build a database query to lookup the key */
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PMI_KEYVAL);
+
+    arglist[1].column = HDB_PMI_KVS_ENTRY_APPID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, appid);
+
+    arglist[2].column = HDB_PMI_KVS_ENTRY_KVSNAME;
+    arglist[2].cond   = WG_COND_EQUAL;
+    arglist[2].value  = wg_encode_query_param_str(db, (char *)kvsname, NULL);
+
+    arglist[3].column = HDB_PMI_KVS_ENTRY_KEY;
+    arglist[3].cond   = WG_COND_EQUAL;
+    arglist[3].value  = wg_encode_query_param_str(db, (char *)key, NULL);
+
+    /* Execute the query */
+    query = wg_make_query(db, NULL, 0, arglist, 4);
+    kvs_entry = wg_fetch(db, query);
+
+    /* If the query succeeded, decode the value string */
+    if (kvs_entry) {
+	*val = wg_decode_str(db, wg_get_field(db, kvs_entry, HDB_PMI_KVS_ENTRY_VALUE));
+	ret = 0;
+    }
+
+    /* Free memory */
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+    wg_free_query_param(db, arglist[2].value);
+    wg_free_query_param(db, arglist[3].value);
+
+    return ret;
+}
+
+
+int
+hdb_get_pmi_keyval(hdb_db_t      db,
+		   int           appid,
+		   const char *  kvsname,
+		   const char *  key,
+		   const char ** val)
+{
+    wg_int lock_id;
+    int    ret;
+
+    lock_id = wg_start_read(db);
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __get_pmi_keyval(db, appid, kvsname, key, val);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+
+    return ret;
+}

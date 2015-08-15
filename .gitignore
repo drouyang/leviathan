@@ -7,7 +7,6 @@ whitedb-0.7.3
 *.o
 libhobbes/libhobbes.a
 lwk_inittask/lwk_init
-master_init/master
+lnx_inittask/lnx_init
 shell/hobbes
-lnx_vm_init
-
+examples/apps/pmi/test_pmi_hello

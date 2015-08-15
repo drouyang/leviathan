@@ -191,8 +191,10 @@ launch_lwk_app(char        * name,
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
 	    
-	    sprintf(start_state[rank].task_name, "%s", name);
+	    sprintf(start_state[rank].task_name, "%s-%d", name, rank);
 
+	    char *env_str;
+	    asprintf(&env_str, "%s PMI_RANK=%d PMI_SIZE=%d\n", envp, rank, num_ranks);
 
 	    status = elf_load((void *)file_addr,
 			      name,
@@ -201,12 +203,13 @@ launch_lwk_app(char        * name,
 			      heap_size,   // heap_size 
 			      stack_size,  // stack_size 
 			      argv,        // argv_str
-			      envp,        // envp_str
+			      env_str,     // environment string
 			      &start_state[rank],
 			      0,
 			      &elf_dflt_alloc_pmem
 			      );
 	    
+	    free(env_str);
 
 	    if (status) {
 		printf("elf_load failed, status=%d\n", status);
