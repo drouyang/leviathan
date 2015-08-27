@@ -71,15 +71,16 @@ create_enclave_main(int argc, char ** argv)
     char * cfg_file = NULL;
     char * name     = NULL;
 
+
     if (argc < 1) {
 	printf("Usage: hobbes create_enclave <cfg_file> [name]\n");
 	return -1;
     }
 
-    cfg_file = argv[0];
+    cfg_file = argv[1];
     
     if (argc >= 2) {
-	name = argv[1];
+	name = argv[2];
     }
 
     return hobbes_create_enclave(cfg_file, name);
@@ -96,7 +97,7 @@ destroy_enclave_main(int argc, char ** argv)
 	return -1;
     }
     
-    enclave_id = hobbes_get_enclave_id(argv[0]);
+    enclave_id = hobbes_get_enclave_id(argv[1]);
     
 
     return hobbes_destroy_enclave(enclave_id);
@@ -113,7 +114,7 @@ ping_enclave_main(int argc, char ** argv)
 	return -1;
     }
 
-    enclave_id = hobbes_get_enclave_id(argv[0]);
+    enclave_id = hobbes_get_enclave_id(argv[1]);
 
     if (enclave_id == HOBBES_INVALID_ID) {
 	printf("Invalid Enclave\n");
@@ -137,24 +138,24 @@ cat_file_main(int argc, char ** argv)
 	return -1;
     }
 
-    enclave_id = hobbes_get_enclave_id(argv[0]);
+    enclave_id = hobbes_get_enclave_id(argv[1]);
 
     if (enclave_id == HOBBES_INVALID_ID) {
-	ERROR("Invalid Enclave name (%s)\n", argv[0]);
+	ERROR("Invalid Enclave name (%s)\n", argv[1]);
 	return -1;
     }
 
     hcq = hobbes_open_enclave_cmdq(enclave_id);
 
     if (hcq == HCQ_INVALID_HANDLE) {
-	ERROR("Could not open command queue for enclave (%s)\n", argv[0]);
+	ERROR("Could not open command queue for enclave (%s)\n", argv[1]);
 	return -1;
     }
     
-    hfile = hfio_open(hcq, argv[1], O_RDONLY);
+    hfile = hfio_open(hcq, argv[2], O_RDONLY);
 
     if (hfile == HOBBES_INVALID_FILE) {
-	ERROR("Could not open file (%s)\n", argv[1]);
+	ERROR("Could not open file (%s)\n", argv[2]);
 	return -1;
     }
 
@@ -220,29 +221,29 @@ cat_into_file_main(int argc, char ** argv)
         }
     }
 
-     if (argc < 2) {
+ if (argc < 2) {
 	printf("Usage: hobbes cat_file <enclave name> <path>\n");
 	return -1;
     }
 
-    enclave_id = hobbes_get_enclave_id(argv[0]);
+    enclave_id = hobbes_get_enclave_id(argv[1]);
 
     if (enclave_id == HOBBES_INVALID_ID) {
-	ERROR("Invalid Enclave name (%s)\n", argv[0]);
+	ERROR("Invalid Enclave name (%s)\n", argv[1]);
 	return -1;
     }
 
     hcq = hobbes_open_enclave_cmdq(enclave_id);
 
     if (hcq == HCQ_INVALID_HANDLE) {
-	ERROR("Could not open command queue for enclave (%s)\n", argv[0]);
+	ERROR("Could not open command queue for enclave (%s)\n", argv[1]);
 	return -1;
     }
     
-    hfile = hfio_open(hcq, argv[1], O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IROTH);
+    hfile = hfio_open(hcq, argv[2], O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IROTH);
 
     if (hfile == HOBBES_INVALID_FILE) {
-	ERROR("Could not open file (%s)\n", argv[1]);
+	ERROR("Could not open file (%s)\n", argv[2]);
 	return -1;
     }
 
@@ -300,7 +301,7 @@ dump_cmd_queue_main(int argc, char ** argv)
 	return -1;
     }
 
-    enclave_id = hobbes_get_enclave_id(argv[0]);
+    enclave_id = hobbes_get_enclave_id(argv[1]);
 
     if (enclave_id == HOBBES_INVALID_ID) {
 	printf("Invalid Enclave\n");

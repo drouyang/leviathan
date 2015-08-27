@@ -172,7 +172,7 @@ main(int argc, char ** argv)
     while (cmds[i].name) {
 
 	if (strncmp(cmds[i].name, argv[1], strlen(cmds[i].name)) == 0) {
-	    return cmds[i].handler(argc - 2, &argv[2]);
+	    return cmds[i].handler(argc - 1, &argv[1]);
 	}
 
 	i++;
