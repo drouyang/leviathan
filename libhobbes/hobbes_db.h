@@ -26,7 +26,7 @@ typedef void * hdb_enclave_t;
 typedef void * hdb_app_t;
 typedef void * hdb_segment_t;
 typedef void * hdb_pmi_keyval_t;
-
+typedef void * hdb_pmi_barrier_t;
 
 hdb_db_t hdb_create(uint64_t size);
 hdb_db_t hdb_attach(void * db_addr);
@@ -182,5 +182,25 @@ int hdb_get_pmi_keyval(hdb_db_t      db,
 		       const char *  kvsname,
 		       const char *  key,
 		       const char ** val);
+
+
+/*
+ * PMI Barrier
+ */
+int
+hdb_create_pmi_barrier(hdb_db_t      db,
+                       int           appid,
+                       int           rank,
+                       int           size,
+                       xemem_segid_t segid);
+
+int
+hdb_pmi_barrier_increment(hdb_db_t db,
+                          int      appid);
+
+xemem_segid_t *
+hdb_pmi_barrier_retire(hdb_db_t         db,
+                       int              appid,
+                       int              size);
 
 #endif

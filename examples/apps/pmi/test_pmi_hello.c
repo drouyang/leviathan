@@ -89,6 +89,10 @@ main(int argc, char *argv[])
         }
     }
 
+    printf("%d: Calling Final PMI_Barrier()\n", rank);
+    if (PMI_Barrier() != PMI_SUCCESS)
+        return -1;
+
     printf("%d: Calling PMI_Finalize()\n", rank);
     PMI_Finalize();
 

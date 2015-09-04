@@ -4,9 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <poll.h>
 
 #include "pmi.h"
 #include "hobbes_db.h"
+#include "xemem.h"
 
 #define PMI_MAX_STRING_LEN 128
 
@@ -30,6 +32,8 @@ static int      PMI_keylen_max = 0;
 static int      PMI_vallen_max = 0;
 //static int      PMI_debug = 0;
 //static int      PMI_spawned = 0;
+
+static int xemem_poll_fd;
 
 
 int
@@ -64,6 +68,15 @@ PMI_Init(int *spawned)
 
     if (spawned)
         *spawned = PMI_FALSE;
+
+    /* Create a signallable segid for each process which exists for the lifetime of the process */
+    /* TODO: Do we need to release these segids when the job completes? */
+    xemem_segid_t segid = xemem_make_signalled(NULL, 0, NULL, &xemem_poll_fd);
+    if (segid == XEMEM_INVALID_SEGID)
+        return PMI_FAIL;
+
+    if (hdb_create_pmi_barrier(hobbes_master_db, 0 /* appid */, PMI_rank, PMI_size, segid))
+        return PMI_FAIL;
 
     PMI_initialized = NORMAL_INIT_WITH_PM;
 
@@ -146,11 +159,47 @@ PMI_Lookup_name(const char service_name[], char port[])
 }
 
 
-//TODO: Make this real
 int
 PMI_Barrier(void)
 {
     printf("Made it into barrier\n");
+
+    int i, count;
+    xemem_segid_t *segids = malloc(PMI_size * sizeof(xemem_segid_t));
+    if (!segids)
+        return PMI_FAIL;
+
+    count = hdb_pmi_barrier_increment(hobbes_master_db, 0 /* appid */);
+
+    printf("hdb_pmi_barrier_increment() returned: %d\n", count);
+
+    if (count == PMI_size) {
+        segids = hdb_pmi_barrier_retire(hobbes_master_db, 0 /* appid */, PMI_size);
+
+	if(segids == NULL)
+	    return PMI_FAIL;
+
+        // We were the last ones here, signal everybody
+        for (i = 0; i < PMI_size; i++) {
+            if (i == PMI_rank)
+                continue;
+            if (xemem_signal_segid(segids[i]))
+                return PMI_FAIL;
+        }
+    } else {
+        struct pollfd ufd = {xemem_poll_fd, POLLIN, 0};
+	while (1) {
+	    if (poll(&ufd, 1, -1) == -1) {
+	        return PMI_FAIL;
+	    } else {
+		xemem_ack(xemem_poll_fd);
+		break;
+	    }
+	}
+    }
+
+    printf("Exitting PMI_Barrier()\n");
+
     return PMI_SUCCESS;
 }
 

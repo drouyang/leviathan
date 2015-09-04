@@ -6,12 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <dbapi.h>
 #include <dballoc.h>
 
 #include <pet_log.h>
-#include <stdint.h>
 
 #include "hobbes.h"
 #include "hobbes_db.h"
@@ -30,7 +30,7 @@
 #define HDB_REC_XEMEM_SEGMENT    6
 #define HDB_REC_XEMEM_ATTACHMENT 7
 #define HDB_REC_PMI_KEYVAL       8
-
+#define HDB_REC_PMI_BARRIER      9
 
 
 
@@ -74,11 +74,16 @@
 #define HDB_APP_STATE    3
 #define HDB_APP_ENCLAVE  4
 
-/* Columns for PMI records */
+/* Columns for PMI key value store records */
 #define HDB_PMI_KVS_ENTRY_APPID   1
 #define HDB_PMI_KVS_ENTRY_KVSNAME 2
 #define HDB_PMI_KVS_ENTRY_KEY     3
 #define HDB_PMI_KVS_ENTRY_VALUE   4
+
+/* Columns for PMI barrier records */
+#define HDB_PMI_BARRIER_APPID   1
+#define HDB_PMI_BARRIER_COUNTER 2
+#define HDB_PMI_BARRIER_SEGIDS	3
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
@@ -2009,4 +2014,124 @@ hdb_get_pmi_keyval(hdb_db_t      db,
     }
 
     return ret;
+}
+
+/******* Start of new stuff */
+
+static hdb_pmi_barrier_t
+__get_pmi_barrier(hdb_db_t  db,
+                  int       appid)
+{
+    hdb_pmi_barrier_t         barrier_entry = NULL;
+    wg_query                * query         = NULL;
+    wg_query_arg              arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_PMI_BARRIER);
+
+    arglist[1].column = HDB_PMI_BARRIER_APPID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, appid);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+
+    barrier_entry = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return barrier_entry;
+}
+
+int
+hdb_create_pmi_barrier(hdb_db_t      db,
+		       int           appid,
+		       int           rank,
+		       int           size,
+		       xemem_segid_t segid)
+{
+    wg_int lock_id;
+    void * rec = NULL;
+
+    if ((lock_id = wg_start_write(db)) == 0) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    if ((rec = __get_pmi_barrier(db, appid)) == NULL) {
+	/* Create the pmi barrier entry if no earlier process has created the pmi barrier entry */
+	rec = wg_create_record(db, size+3);
+	wg_set_field(db, rec, HDB_TYPE_FIELD, wg_encode_int(db, HDB_REC_PMI_BARRIER));
+	wg_set_field(db, rec, HDB_PMI_BARRIER_APPID, wg_encode_int(db, appid));
+	wg_set_field(db, rec, HDB_PMI_BARRIER_COUNTER, wg_encode_int(db, 0));
+    }
+
+    wg_set_field(db, rec, HDB_PMI_BARRIER_COUNTER+rank+1, wg_encode_int(db, segid));
+
+    if (!(wg_end_write(db, lock_id))) {
+	ERROR("Could not unlock database\n");
+	return -1;
+    }
+
+    return 0;
+}
+
+int
+hdb_pmi_barrier_increment(hdb_db_t db,
+			  int      appid)
+{
+    wg_int lock_id;
+
+    if ((lock_id = wg_start_write(db)) == 0) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    hdb_pmi_barrier_t barrier_entry = __get_pmi_barrier(db, appid);
+
+    /* Increment the barrier counter */
+    int count = wg_decode_int(db, wg_get_field(db, barrier_entry, HDB_PMI_BARRIER_COUNTER));
+    count++;
+    wg_set_field(db, barrier_entry, HDB_PMI_BARRIER_COUNTER, wg_encode_int(db, count));
+
+    if (!(wg_end_write(db, lock_id))) {
+	ERROR("Could not unlock database\n");
+	return -1;
+    }
+
+    return count;
+}
+
+xemem_segid_t *
+hdb_pmi_barrier_retire(hdb_db_t         db,
+		       int              appid,
+		       int              size)
+{
+    wg_int lock_id;
+
+    if ((lock_id = wg_start_write(db)) == 0) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    hdb_pmi_barrier_t barrier_entry = __get_pmi_barrier(db, appid);
+    
+    xemem_segid_t* segids = (xemem_segid_t*) calloc(sizeof(xemem_segid_t), size);
+
+    int i;
+    for(i=0; i<size; ++i) {
+	segids[i] = wg_decode_int(db, wg_get_field(db, barrier_entry, HDB_PMI_BARRIER_COUNTER+i+1));
+    }
+    
+    /* Reset the counter and wake up all other processes in the barrier */
+    wg_set_field(db, barrier_entry, HDB_PMI_BARRIER_COUNTER, wg_encode_int(db, 0));
+
+    if (!(wg_end_write(db, lock_id))) {
+	ERROR("Could not unlock database\n");
+	return NULL;
+    }
+
+    return segids;
 }
