@@ -165,9 +165,7 @@ PMI_Barrier(void)
     printf("Made it into barrier\n");
 
     int i, count;
-    xemem_segid_t *segids = malloc(PMI_size * sizeof(xemem_segid_t));
-    if (!segids)
-        return PMI_FAIL;
+    xemem_segid_t *segids;
 
     count = hdb_pmi_barrier_increment(hobbes_master_db, 0 /* appid */);
 
@@ -176,16 +174,20 @@ PMI_Barrier(void)
     if (count == PMI_size) {
         segids = hdb_pmi_barrier_retire(hobbes_master_db, 0 /* appid */, PMI_size);
 
-	if(segids == NULL)
+	if (segids == NULL)
 	    return PMI_FAIL;
 
         // We were the last ones here, signal everybody
         for (i = 0; i < PMI_size; i++) {
             if (i == PMI_rank)
                 continue;
-            if (xemem_signal_segid(segids[i]))
+            if (xemem_signal_segid(segids[i])) {
+                free(segids);
                 return PMI_FAIL;
+            }
         }
+
+        free(segids);
     } else {
         struct pollfd ufd = {xemem_poll_fd, POLLIN, 0};
 	while (1) {
