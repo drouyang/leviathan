@@ -153,8 +153,8 @@ hobbes_id_t *   hdb_get_apps(hdb_db_t   db,
 hobbes_id_t     hdb_get_app_enclave(hdb_db_t      db,
 				    hobbes_id_t   app_id);
 
-app_state_t hdb_get_app_state(hdb_db_t        db,
-			      hobbes_id_t     app_id);
+app_state_t     hdb_get_app_state(hdb_db_t        db,
+				  hobbes_id_t     app_id);
 
 int             hdb_set_app_state(hdb_db_t        db,
 				  hobbes_id_t     app_id,
@@ -202,5 +202,19 @@ xemem_segid_t *
 hdb_pmi_barrier_retire(hdb_db_t         db,
                        int              appid,
                        int              size);
+
+
+
+/* 
+ *  System Info
+ */
+
+int
+hdb_init_system_info(int numa_zones,
+		     int cpus,
+		     int mem_blk_size,
+		     int mem_blks);
+
+
 
 #endif

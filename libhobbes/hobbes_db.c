@@ -31,7 +31,8 @@
 #define HDB_REC_XEMEM_ATTACHMENT 7
 #define HDB_REC_PMI_KEYVAL       8
 #define HDB_REC_PMI_BARRIER      9
-
+#define HDB_REC_SYS_INFO         10
+#define HDB_REC_MEM_BLK          11
 
 
 /*
@@ -80,10 +81,27 @@
 #define HDB_PMI_KVS_ENTRY_KEY     3
 #define HDB_PMI_KVS_ENTRY_VALUE   4
 
+
 /* Columns for PMI barrier records */
 #define HDB_PMI_BARRIER_APPID   1
 #define HDB_PMI_BARRIER_COUNTER 2
 #define HDB_PMI_BARRIER_SEGIDS	3
+
+/* Columns for System Information */
+#define HDB_SYS_NUM_CPUS      1
+#define HDB_SYS_NUM_NUMA      2
+#define HDB_SYS_MEM_BLK_SIZE  2
+#define HDB_SYS_MEM_BLKS      3
+
+
+/* Columns for memory resource records */
+#define HDB_MEM_BASE_ADDR  1
+#define HDB_MEM_NUMA_NODE  3
+#define HDB_MEM_FREE       4
+#define HDB_MEM_ENCLAVE_ID 5
+#define HDB_MEM_APP_ID     6
+
+
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
