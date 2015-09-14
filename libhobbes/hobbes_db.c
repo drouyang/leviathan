@@ -31,8 +31,10 @@
 #define HDB_REC_XEMEM_ATTACHMENT 7
 #define HDB_REC_PMI_KEYVAL       8
 #define HDB_REC_PMI_BARRIER      9
-#define HDB_REC_SYS_INFO         10
+#define HDB_REC_SYS_HDR          10
 #define HDB_REC_MEM_BLK          11
+#define HDB_REC_CPU              12
+#define HDB_REC_MEM              13
 
 
 /*
@@ -88,19 +90,28 @@
 #define HDB_PMI_BARRIER_SEGIDS	3
 
 /* Columns for System Information */
-#define HDB_SYS_NUM_CPUS      1
-#define HDB_SYS_NUM_NUMA      2
-#define HDB_SYS_MEM_BLK_SIZE  2
-#define HDB_SYS_MEM_BLKS      3
+#define HDB_SYS_HDR_CPU_CNT       1
+#define HDB_SYS_HDR_NUMA_CNT      2
+#define HDB_SYS_HDR_MEM_BLK_SIZE  3
+#define HDB_SYS_HDR_MEM_BLK_CNT   4
 
 
 /* Columns for memory resource records */
 #define HDB_MEM_BASE_ADDR  1
+#define HDB_MEM_BLK_SIZE   2
 #define HDB_MEM_NUMA_NODE  3
-#define HDB_MEM_FREE       4
-#define HDB_MEM_ENCLAVE_ID 5
-#define HDB_MEM_APP_ID     6
+#define HDB_MEM_STATE      4
+#define HDB_MEM_FREE       5
+#define HDB_MEM_ENCLAVE_ID 6
+#define HDB_MEM_APP_ID     7
 
+/* Columns for CPU resource records */
+#define HDB_CPU_ID         1
+#define HDB_CPU_NUMA_NODE  2
+#define HDB_CPU_STATE      3
+#define HDB_CPU_FREE       4
+#define HDB_CPU_ENCLAVE_ID 5
+#define HDB_CPU_APP_ID     6
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -152,18 +163,26 @@ hdb_init_master_db(hdb_db_t db)
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_ENCLAVE_HDR));
     wg_set_field(db, rec, HDB_ENCLAVE_HDR_NEXT, wg_encode_int(db, 0));
-    wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT , wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_ENCLAVE_HDR_CNT,  wg_encode_int(db, 0));
     
     /* Create Application Header */
     rec = wg_create_record(db, 3);
     wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_APP_HDR));
-    wg_set_field(db, rec, HDB_APP_HDR_NEXT, wg_encode_int(db, 1));
-    wg_set_field(db, rec, HDB_APP_HDR_CNT,  wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_APP_HDR_NEXT,     wg_encode_int(db, 1));
+    wg_set_field(db, rec, HDB_APP_HDR_CNT,      wg_encode_int(db, 0));
     
     /* Create XEMEM header */
     rec = wg_create_record(db, 2);
-    wg_set_field(db, rec, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_XEMEM_HDR));
-    wg_set_field(db, rec, HDB_SEGMENT_HDR_CNT, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_XEMEM_HDR));
+    wg_set_field(db, rec, HDB_SEGMENT_HDR_CNT,  wg_encode_int(db, 0));
+
+    /* Create System Info Header */
+    rec = wg_create_record(db, 5);
+    wg_set_field(db, rec, HDB_TYPE_FIELD,           wg_encode_int(db, HDB_REC_SYS_HDR));
+    wg_set_field(db, rec, HDB_SYS_HDR_CPU_CNT,      wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_NUMA_CNT,     wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_SIZE, wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_CNT,  wg_encode_int(db, 0));
 
     return 0;
 }
@@ -178,6 +197,264 @@ hdb_get_db_addr(hdb_db_t db)
     return db;
 #endif
 }
+
+
+/*
+ * System Info Database records
+ */
+
+static int
+__init_system_info(hdb_db_t db,
+		   uint32_t numa_nodes,
+		   uint32_t mem_blk_size)
+{
+    void * hdr_rec = NULL;
+    
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+    
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+    
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_NUMA_CNT,     wg_encode_int(db, numa_nodes));
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE, wg_encode_int(db, mem_blk_size));
+
+    return 0;
+}
+
+int
+hdb_init_system_info(hdb_db_t db,
+		     uint32_t numa_nodes,
+		     uint32_t mem_blk_size)
+{
+    wg_int   lock_id;
+    int      ret      = -1;
+    
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    ret = __init_system_info(db, numa_nodes, mem_blk_size);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+		     
+
+static hdb_cpu_t 
+__get_cpu_by_id(hdb_db_t db,
+		uint32_t cpu_id)
+{
+    hdb_cpu_t       cpu   = NULL;
+    wg_query     * query = NULL;
+    wg_query_arg   arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_CPU);
+
+    arglist[1].column = HDB_CPU_ID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, cpu_id);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+    
+    cpu   = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return cpu;
+}
+
+
+static int
+__register_cpu(hdb_db_t           db,
+	       uint32_t           cpu_id,
+	       uint32_t           numa_node, 
+	       hobbes_res_state_t state)
+{
+    void     * hdr_rec  = NULL;
+    uint32_t   cpu_cnt  = 0;
+    hdb_cpu_t  cpu      = NULL;
+ 
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+    
+    if (__get_cpu_by_id(db, cpu_id)) {
+	ERROR("Tried to register a CPU (%u) that is already present\n", cpu_id);
+	return -1;
+    }
+    
+    cpu_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT));
+
+
+    cpu = wg_create_record(db, 7);
+    wg_set_field(db, cpu, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_CPU));
+    wg_set_field(db, cpu, HDB_CPU_ID,          wg_encode_int(db, cpu_id));
+    wg_set_field(db, cpu, HDB_CPU_NUMA_NODE,   wg_encode_int(db, numa_node));
+    wg_set_field(db, cpu, HDB_CPU_STATE,       wg_encode_int(db, state));
+    wg_set_field(db, cpu, HDB_CPU_FREE,        wg_encode_int(db, 1));
+    wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, cpu, HDB_CPU_APP_ID,      wg_encode_int(db, HOBBES_INVALID_ID));
+
+    /* Update the enclave Header information */
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT, wg_encode_int(db, cpu_cnt + 1));
+
+    return 0;
+}
+
+int 
+hdb_register_cpu(hdb_db_t           db,
+		 uint32_t           cpu_id,
+		 uint32_t           numa_node, 
+		 hobbes_res_state_t state)
+{
+    wg_int   lock_id;
+    int      ret      = -1;
+    
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __register_cpu(db, cpu_id, numa_node, state);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+
+}
+
+int 
+hdb_assign_cpu(hdb_db_t    db, 
+	       uint32_t    cpu_id,
+	       hobbes_id_t enclave_id, 
+	       hobbes_id_t app_id)
+{
+
+
+    return -1;
+}
+
+
+static hdb_mem_t
+__get_mem_blk_by_addr(hdb_db_t db,
+		      uint64_t addr)
+{
+    hdb_mem_t      blk   = NULL;
+    wg_query     * query = NULL;
+    wg_query_arg   arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_MEM);
+
+    arglist[1].column = HDB_MEM_BASE_ADDR;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, addr);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+    
+    blk   = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return blk;
+}
+
+
+static int
+__register_memory(hdb_db_t           db,
+		  uint64_t           base_addr,
+		  uint64_t           blk_size,
+		  uint32_t           numa_node, 
+		  hobbes_res_state_t state)
+{
+    void    * hdr_rec  = NULL;
+    uint32_t  blk_cnt  = 0;
+    hdb_mem_t blk      = NULL;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+
+    if (__get_mem_blk_by_addr(db, base_addr)) {
+	ERROR("Tried to register a memory block (%p) that was already present\n", (void *)base_addr);
+	return -1;
+    }
+
+    blk_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT));
+
+    blk = wg_create_record(db, 8);
+    wg_set_field(db, blk, HDB_TYPE_FIELD,     wg_encode_int(db, HDB_REC_MEM));
+    wg_set_field(db, blk, HDB_MEM_BASE_ADDR,  wg_encode_int(db, base_addr));
+    wg_set_field(db, blk, HDB_MEM_BLK_SIZE,   wg_encode_int(db, blk_size));
+    wg_set_field(db, blk, HDB_MEM_NUMA_NODE,  wg_encode_int(db, numa_node));
+    wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, state));
+    wg_set_field(db, blk, HDB_MEM_FREE,       wg_encode_int(db, 1));
+    wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
+
+    /* TODO: Add a flow link to the next physical contiguous block for contiguous allocations */
+    /* TODO: Add flow link from previous physically contiguous block for contiguous allocations */
+
+    /* Update the enclave Header information */
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT, wg_encode_int(db, blk_cnt + 1));
+
+    return 0;
+}
+
+int 
+hdb_register_memory(hdb_db_t           db,
+		    uint64_t           base_addr,
+		    uint64_t           blk_size,
+		    uint32_t           numa_node, 
+		    hobbes_res_state_t state)
+{
+    wg_int   lock_id;
+    int      ret      = -1;
+    
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __register_memory(db, base_addr, blk_size, numa_node, state);
+    
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
 
 /* 
  * Enclave Accessors 
@@ -204,7 +481,7 @@ __get_enclave_by_id(hdb_db_t    db,
     arglist[1].cond   = WG_COND_EQUAL;
     arglist[1].value  = wg_encode_query_param_int(db, enclave_id);
 
-    query = wg_make_query(db, NULL, 0, arglist, 2);
+    query   = wg_make_query(db, NULL, 0, arglist, 2);
 
     enclave = wg_fetch(db, query);
 

@@ -10,6 +10,7 @@
 #include "hobbes_enclave.h"
 #include "hobbes.h"
 #include "hobbes_app.h"
+#include "hobbes_system.h"
 #include "xemem.h"
 
 struct hobbes_segment;
@@ -27,6 +28,8 @@ typedef void * hdb_app_t;
 typedef void * hdb_segment_t;
 typedef void * hdb_pmi_keyval_t;
 typedef void * hdb_pmi_barrier_t;
+typedef void * hdb_cpu_t;
+typedef void * hdb_mem_t;
 
 hdb_db_t hdb_create(uint64_t size);
 hdb_db_t hdb_attach(void * db_addr);
@@ -210,10 +213,9 @@ hdb_pmi_barrier_retire(hdb_db_t         db,
  */
 
 int
-hdb_init_system_info(int numa_zones,
-		     int cpus,
-		     int mem_blk_size,
-		     int mem_blks);
+hdb_init_system_info(hdb_db_t db,
+		     uint32_t numa_nodes, 
+		     uint32_t mem_blk_size);
 
 
 
