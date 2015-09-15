@@ -206,7 +206,7 @@ hdb_get_db_addr(hdb_db_t db)
 static int
 __init_system_info(hdb_db_t db,
 		   uint32_t numa_nodes,
-		   uint32_t mem_blk_size)
+		   uint64_t mem_blk_size)
 {
     void * hdr_rec = NULL;
     
@@ -226,7 +226,7 @@ __init_system_info(hdb_db_t db,
 int
 hdb_init_system_info(hdb_db_t db,
 		     uint32_t numa_nodes,
-		     uint32_t mem_blk_size)
+		     uint64_t mem_blk_size)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -278,15 +278,15 @@ __get_cpu_by_id(hdb_db_t db,
 
 
 static int
-__register_cpu(hdb_db_t           db,
-	       uint32_t           cpu_id,
-	       uint32_t           numa_node, 
-	       hobbes_res_state_t state)
+__register_cpu(hdb_db_t db,
+	       uint32_t cpu_id,
+	       uint32_t numa_node, 
+	       uint32_t state)
 {
     void     * hdr_rec  = NULL;
     uint32_t   cpu_cnt  = 0;
     hdb_cpu_t  cpu      = NULL;
- 
+
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
 
     if (!hdr_rec) {
@@ -318,10 +318,10 @@ __register_cpu(hdb_db_t           db,
 }
 
 int 
-hdb_register_cpu(hdb_db_t           db,
-		 uint32_t           cpu_id,
-		 uint32_t           numa_node, 
-		 hobbes_res_state_t state)
+hdb_register_cpu(hdb_db_t db,
+		 uint32_t cpu_id,
+		 uint32_t numa_node, 
+		 uint32_t state)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -385,11 +385,11 @@ __get_mem_blk_by_addr(hdb_db_t db,
 
 
 static int
-__register_memory(hdb_db_t           db,
-		  uint64_t           base_addr,
-		  uint64_t           blk_size,
-		  uint32_t           numa_node, 
-		  hobbes_res_state_t state)
+__register_memory(hdb_db_t db,
+		  uint64_t base_addr,
+		  uint64_t blk_size,
+		  uint32_t numa_node, 
+		  uint32_t state)
 {
     void    * hdr_rec  = NULL;
     uint32_t  blk_cnt  = 0;
@@ -429,11 +429,11 @@ __register_memory(hdb_db_t           db,
 }
 
 int 
-hdb_register_memory(hdb_db_t           db,
-		    uint64_t           base_addr,
-		    uint64_t           blk_size,
-		    uint32_t           numa_node, 
-		    hobbes_res_state_t state)
+hdb_register_memory(hdb_db_t db,
+		    uint64_t base_addr,
+		    uint64_t blk_size,
+		    uint32_t numa_node, 
+		    uint32_t state)
 {
     wg_int   lock_id;
     int      ret      = -1;

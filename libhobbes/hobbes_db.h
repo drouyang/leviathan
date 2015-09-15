@@ -215,8 +215,21 @@ hdb_pmi_barrier_retire(hdb_db_t         db,
 int
 hdb_init_system_info(hdb_db_t db,
 		     uint32_t numa_nodes, 
-		     uint32_t mem_blk_size);
+		     uint64_t mem_blk_size);
 
+
+int 
+hdb_register_cpu(hdb_db_t db,
+		 uint32_t cpu_id,
+		 uint32_t numa_node, 
+		 uint32_t state);
+
+int 
+hdb_register_memory(hdb_db_t db,
+		    uint64_t base_addr,
+		    uint64_t blk_size,
+		    uint32_t numa_node, 
+		    uint32_t state);
 
 
 #endif

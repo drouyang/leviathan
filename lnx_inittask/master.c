@@ -8,7 +8,9 @@
 
 
 #include <xpmem.h>
+#include <pet_numa.h>
 #include <pet_cpu.h>
+#include <pet_mem.h>
 #include <pet_hashtable.h>
 #include <pet_log.h>
 
@@ -37,6 +39,58 @@ static void usage(char * exec_name) {
     exit(-1);
 }
 
+
+static int 
+populate_system_info(hdb_db_t db) 
+{
+
+    /* General Info */
+    {
+	uint32_t numa_cnt = pet_num_numa_nodes();
+	uint64_t blk_size = pet_block_size();
+
+	if ((blk_size == (uint64_t)-1) ||
+	    (numa_cnt == (uint64_t)-1)) {
+	    ERROR("Could not detect base system info (blk_size=%lu) (numa_cnt=%u)\n", blk_size, numa_cnt);
+	    return -1;
+	}
+	
+	hdb_init_system_info(db, numa_cnt, blk_size);
+    }
+
+
+    /* CPUs */
+    {
+	struct pet_cpu * cpu_arr  = NULL;
+	
+	uint32_t num_cpus = 0;
+	uint32_t i        = 0;
+
+	int ret = 0;
+
+	if (pet_probe_cpus(&num_cpus, &cpu_arr) != 0) {
+	    ERROR("Error: Could not probe CPUs\n");
+	    return -1;
+	}
+	
+	for (i = 0; i < num_cpus; i++) {
+	    printf("CPU %d: N=%d, state=%d\n", cpu_arr[i].cpu_id, cpu_arr[i].numa_node, cpu_arr[i].state);
+
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, cpu_arr[i].state);
+	    
+	    if (ret == -1) {
+		ERROR("Error register CPU with database\n");
+		return -1;
+	    }
+	}
+    }
+
+
+    /* Memory */
+
+    return 0;
+
+}
 
 
 int master_init(int argc, char ** argv) {
@@ -88,6 +142,18 @@ int master_init(int argc, char ** argv) {
 	}
 
     }
+
+
+
+    db = create_master_db(HDB_MASTER_DB_SIZE);
+
+    if (db == NULL) {
+	printf("Error creating master database\n");
+	return -1;
+    }
+
+
+
 
 
     if ((cpu_list_is_set != 0) && 
@@ -234,12 +300,6 @@ int master_init(int argc, char ** argv) {
 	}
     }
 
-    db = create_master_db(HDB_MASTER_DB_SIZE);
-
-    if (db == NULL) {
-	printf("Error creating master database\n");
-	return -1;
-    }
 
     //    wg_print_db(db);
 
@@ -276,6 +336,9 @@ create_master_db(unsigned int size)
 
     hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_RUNNING);
 	
+
+    populate_system_info(hobbes_master_db);
+
 
     db_addr = hdb_get_db_addr(hobbes_master_db);
 
