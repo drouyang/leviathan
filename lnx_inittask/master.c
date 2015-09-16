@@ -76,7 +76,7 @@ populate_system_info(hdb_db_t db)
 	for (i = 0; i < num_cpus; i++) {
 	    printf("CPU %d: N=%d, state=%d\n", cpu_arr[i].cpu_id, cpu_arr[i].numa_node, cpu_arr[i].state);
 
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, cpu_arr[i].state);
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node);
 	    
 	    if (ret == -1) {
 		ERROR("Error register CPU with database\n");
@@ -106,8 +106,7 @@ populate_system_info(hdb_db_t db)
 	    ret = hdb_register_memory(db, 
 				      blk_arr[i].base_addr, 
 				      blk_arr[i].pages * PAGE_SIZE, 
-				      blk_arr[i].numa_node, 
-				      blk_arr[i].state);
+				      blk_arr[i].numa_node);
 
 	    if (ret == -1) {
 		ERROR("Error registering memory with database\n");

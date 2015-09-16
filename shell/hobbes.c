@@ -37,7 +37,6 @@ list_segments_handler(int argc, char ** argv)
 	return 0;
     }
 
-    printf("%d segments:\n", num_segments);
     printf("-------------------------------------------------------------------------------\n");
     printf("| SEGID          | Segment Name                     | Enclave ID | App ID     |\n");
     printf("-------------------------------------------------------------------------------\n");
@@ -114,7 +113,8 @@ extern int   list_enclaves_main(int argc, char ** argv);
 extern int  dump_cmd_queue_main(int argc, char ** argv);
 extern int        cat_file_main(int argc, char ** argv);
 extern int   cat_into_file_main(int argc, char ** argv);
-
+extern int     list_memory_main(int argc, char ** argv);
+extern int       list_cpus_main(int argc, char ** argv);
 
 
 static struct hobbes_cmd cmds[] = {
@@ -130,6 +130,8 @@ static struct hobbes_cmd cmds[] = {
     {"dump_cmd_queue"  , dump_cmd_queue_main   , "Dump the command queue state for an enclave" },
     {"cat_file"        , cat_file_main         , "'cat' a file on an arbitrary enclave"        },
     {"cat_into_file"   , cat_into_file_main    , "'cat' to a file on an arbitrary enclave"     },
+    {"list_memory"     , list_memory_main      , "List the status of system memory"            },
+    {"list_cpus"       , list_cpus_main        , "List the stuats of local CPUs"               },
     {0, 0, 0}
 };
 

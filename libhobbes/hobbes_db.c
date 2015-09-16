@@ -32,9 +32,8 @@
 #define HDB_REC_PMI_KEYVAL       8
 #define HDB_REC_PMI_BARRIER      9
 #define HDB_REC_SYS_HDR          10
-#define HDB_REC_MEM_BLK          11
-#define HDB_REC_CPU              12
-#define HDB_REC_MEM              13
+#define HDB_REC_CPU              11
+#define HDB_REC_MEM              12
 
 
 /*
@@ -90,28 +89,26 @@
 #define HDB_PMI_BARRIER_SEGIDS	3
 
 /* Columns for System Information */
-#define HDB_SYS_HDR_CPU_CNT       1
-#define HDB_SYS_HDR_NUMA_CNT      2
-#define HDB_SYS_HDR_MEM_BLK_SIZE  3
-#define HDB_SYS_HDR_MEM_BLK_CNT   4
+#define HDB_SYS_HDR_CPU_CNT           1
+#define HDB_SYS_HDR_NUMA_CNT          2
+#define HDB_SYS_HDR_MEM_BLK_SIZE      3
+#define HDB_SYS_HDR_MEM_BLK_CNT       4
+#define HDB_SYS_HDR_MEM_FREE_BLK_CNT  5
 
 
 /* Columns for memory resource records */
 #define HDB_MEM_BASE_ADDR  1
 #define HDB_MEM_BLK_SIZE   2
 #define HDB_MEM_NUMA_NODE  3
-#define HDB_MEM_STATE      4
-#define HDB_MEM_FREE       5
-#define HDB_MEM_ENCLAVE_ID 6
-#define HDB_MEM_APP_ID     7
+#define HDB_MEM_FREE       4
+#define HDB_MEM_ENCLAVE_ID 5
+#define HDB_MEM_APP_ID     6
 
 /* Columns for CPU resource records */
 #define HDB_CPU_ID         1
 #define HDB_CPU_NUMA_NODE  2
-#define HDB_CPU_STATE      3
-#define HDB_CPU_FREE       4
-#define HDB_CPU_ENCLAVE_ID 5
-#define HDB_CPU_APP_ID     6
+#define HDB_CPU_FREE       3
+#define HDB_CPU_ENCLAVE_ID 4
 
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -217,8 +214,10 @@ __init_system_info(hdb_db_t db,
 	return -1;
     }
     
-    wg_set_field(db, hdr_rec, HDB_SYS_HDR_NUMA_CNT,     wg_encode_int(db, numa_nodes));
-    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE, wg_encode_int(db, mem_blk_size));
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_NUMA_CNT,         wg_encode_int(db, numa_nodes));
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE,     wg_encode_int(db, mem_blk_size));
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT,      wg_encode_int(db, 0));
+    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, 0));
 
     return 0;
 }
@@ -247,7 +246,180 @@ hdb_init_system_info(hdb_db_t db,
     
     return ret;
 }
-		     
+
+static uint32_t
+__get_sys_numa_cnt(hdb_db_t db)
+{
+    void     * hdr_rec  = NULL;
+    uint32_t   numa_cnt = 0;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing System Info Header\n");
+	return (uint32_t)-1;
+    }
+    
+    numa_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_NUMA_CNT));
+    
+    return numa_cnt;
+}
+
+
+
+
+uint32_t
+hdb_get_sys_numa_cnt(hdb_db_t db) 
+{
+    uint32_t   numa_cnt = 0;
+    wg_int     lock_id;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    numa_cnt = __get_sys_numa_cnt(db);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return numa_cnt;
+}
+
+static uint64_t 
+__get_sys_blk_size(hdb_db_t db)
+{
+    void     * hdr_rec  = NULL;
+    uint64_t   blk_size = 0;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing System Info Header\n");
+	return -1;
+    }
+    
+    blk_size = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE));
+    
+    return blk_size;
+}
+
+uint64_t 
+hdb_get_sys_blk_size(hdb_db_t db)
+{
+    uint64_t   blk_size = 0;
+    wg_int     lock_id;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    blk_size = __get_sys_blk_size(db);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return blk_size;
+}
+
+
+static uint64_t 
+__get_sys_blk_cnt(hdb_db_t db)
+{
+    void     * hdr_rec  = NULL;
+    uint64_t   blk_cnt = 0;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing System Info Header\n");
+	return -1;
+    }
+    
+    blk_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT));
+    
+    return blk_cnt;
+}
+
+uint64_t 
+hdb_get_sys_blk_cnt(hdb_db_t db)
+{
+    uint64_t   blk_cnt = 0;
+    wg_int     lock_id;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    blk_cnt = __get_sys_blk_cnt(db);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return blk_cnt;
+}
+
+
+static uint64_t 
+__get_sys_free_blk_cnt(hdb_db_t db)
+{
+    void     * hdr_rec  = NULL;
+    uint64_t   blk_cnt = 0;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing System Info Header\n");
+	return -1;
+    }
+    
+    blk_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT));
+    
+    return blk_cnt;
+}
+
+uint64_t 
+hdb_get_sys_free_blk_cnt(hdb_db_t db)
+{
+    uint64_t   blk_cnt = 0;
+    wg_int     lock_id;
+    
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    blk_cnt = __get_sys_free_blk_cnt(db);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return blk_cnt;
+}
+
+
+
+
+/* CPU Record Accessors */
 
 static hdb_cpu_t 
 __get_cpu_by_id(hdb_db_t db,
@@ -280,8 +452,7 @@ __get_cpu_by_id(hdb_db_t db,
 static int
 __register_cpu(hdb_db_t db,
 	       uint32_t cpu_id,
-	       uint32_t numa_node, 
-	       uint32_t state)
+	       uint32_t numa_node)
 {
     void     * hdr_rec  = NULL;
     uint32_t   cpu_cnt  = 0;
@@ -302,14 +473,12 @@ __register_cpu(hdb_db_t db,
     cpu_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT));
 
 
-    cpu = wg_create_record(db, 7);
+    cpu = wg_create_record(db, 5);
     wg_set_field(db, cpu, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_CPU));
     wg_set_field(db, cpu, HDB_CPU_ID,          wg_encode_int(db, cpu_id));
     wg_set_field(db, cpu, HDB_CPU_NUMA_NODE,   wg_encode_int(db, numa_node));
-    wg_set_field(db, cpu, HDB_CPU_STATE,       wg_encode_int(db, state));
-    wg_set_field(db, cpu, HDB_CPU_FREE,        wg_encode_int(db, 1));
+    wg_set_field(db, cpu, HDB_CPU_FREE,        wg_encode_int(db, 0));
     wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, HOBBES_INVALID_ID));
-    wg_set_field(db, cpu, HDB_CPU_APP_ID,      wg_encode_int(db, HOBBES_INVALID_ID));
 
     /* Update the enclave Header information */
     wg_set_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT, wg_encode_int(db, cpu_cnt + 1));
@@ -320,8 +489,7 @@ __register_cpu(hdb_db_t db,
 int 
 hdb_register_cpu(hdb_db_t db,
 		 uint32_t cpu_id,
-		 uint32_t numa_node, 
-		 uint32_t state)
+		 uint32_t numa_node)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -333,7 +501,7 @@ hdb_register_cpu(hdb_db_t db,
 	return -1;
     }
 
-    ret = __register_cpu(db, cpu_id, numa_node, state);
+    ret = __register_cpu(db, cpu_id, numa_node);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -347,8 +515,7 @@ hdb_register_cpu(hdb_db_t db,
 int 
 hdb_assign_cpu(hdb_db_t    db, 
 	       uint32_t    cpu_id,
-	       hobbes_id_t enclave_id, 
-	       hobbes_id_t app_id)
+	       hobbes_id_t enclave_id)
 {
 
 
@@ -356,9 +523,87 @@ hdb_assign_cpu(hdb_db_t    db,
 }
 
 
+static uint64_t *
+__get_cpus(hdb_db_t   db, 
+	   int      * num_cpus)
+{
+    uint64_t * cpu_arr = NULL;
+    void     * db_rec  = NULL;
+    void     * hdr_rec = NULL;
+    int        cnt     = 0;
+    int        i       = 0;
+
+    hdr_rec = wg_find_record(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed database. Missing System info header\n");
+	return NULL;
+    }
+
+    cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT));
+
+    if (cnt == 0) {
+	*num_cpus = 0;
+	return NULL;
+    }
+
+    cpu_arr = calloc(sizeof(uint64_t), cnt);
+
+    for (i = 0; i < cnt; i++) {
+	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_CPU, db_rec);
+
+	if (!db_rec) {
+	    ERROR("System Info Header state mismatch\n");
+	    cnt = i;
+	    break;
+	}
+
+	cpu_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_CPU_ID));
+    }
+
+    *num_cpus = cnt;
+    return cpu_arr;
+
+
+}
+
+
+uint64_t * 
+hdb_get_cpus(hdb_db_t   db,
+	     int      * num_cpus)
+{
+    uint64_t * cpu_arr = NULL;
+    wg_int     lock_id;
+
+    if (!num_cpus) {
+	return NULL;
+    }
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    cpu_arr = __get_cpus(db, num_cpus);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return NULL;
+    }
+
+    return cpu_arr;
+}
+
+
+
+/* Memory resource Accessors */
+
+
 static hdb_mem_t
-__get_mem_blk_by_addr(hdb_db_t db,
-		      uint64_t addr)
+__get_mem_blk_by_addr(hdb_db_t  db,
+		      uintptr_t addr)
 {
     hdb_mem_t      blk   = NULL;
     wg_query     * query = NULL;
@@ -385,14 +630,13 @@ __get_mem_blk_by_addr(hdb_db_t db,
 
 
 static int
-__register_memory(hdb_db_t db,
-		  uint64_t base_addr,
-		  uint64_t blk_size,
-		  uint32_t numa_node, 
-		  uint32_t state)
+__register_memory(hdb_db_t  db,
+		  uintptr_t base_addr,
+		  uint64_t  blk_size,
+		  uint32_t  numa_node)
 {
     void    * hdr_rec  = NULL;
-    uint32_t  blk_cnt  = 0;
+    uint64_t  blk_cnt  = 0;
     hdb_mem_t blk      = NULL;
 
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
@@ -409,13 +653,12 @@ __register_memory(hdb_db_t db,
 
     blk_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT));
 
-    blk = wg_create_record(db, 8);
+    blk = wg_create_record(db, 7);
     wg_set_field(db, blk, HDB_TYPE_FIELD,     wg_encode_int(db, HDB_REC_MEM));
     wg_set_field(db, blk, HDB_MEM_BASE_ADDR,  wg_encode_int(db, base_addr));
     wg_set_field(db, blk, HDB_MEM_BLK_SIZE,   wg_encode_int(db, blk_size));
     wg_set_field(db, blk, HDB_MEM_NUMA_NODE,  wg_encode_int(db, numa_node));
-    wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, state));
-    wg_set_field(db, blk, HDB_MEM_FREE,       wg_encode_int(db, 1));
+    wg_set_field(db, blk, HDB_MEM_FREE,       wg_encode_int(db, 0));
     wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
     wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
 
@@ -429,11 +672,10 @@ __register_memory(hdb_db_t db,
 }
 
 int 
-hdb_register_memory(hdb_db_t db,
-		    uint64_t base_addr,
-		    uint64_t blk_size,
-		    uint32_t numa_node, 
-		    uint32_t state)
+hdb_register_memory(hdb_db_t  db,
+		    uintptr_t base_addr,
+		    uint64_t  blk_size,
+		    uint32_t  numa_node)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -445,7 +687,7 @@ hdb_register_memory(hdb_db_t db,
 	return -1;
     }
 
-    ret = __register_memory(db, base_addr, blk_size, numa_node, state);
+    ret = __register_memory(db, base_addr, blk_size, numa_node);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -453,6 +695,244 @@ hdb_register_memory(hdb_db_t db,
     }
     
     return ret;
+}
+
+
+static hobbes_id_t
+__get_mem_app_id(hdb_db_t  db,
+		     uintptr_t base_addr)
+{
+    hdb_mem_t   blk        = __get_mem_blk_by_addr(db, base_addr);
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
+
+    if (!blk) {
+	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
+	return -1;
+    }
+    
+    app_id = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_APP_ID));
+
+    return app_id;
+}
+
+
+hobbes_id_t 
+hdb_get_mem_app_id(hdb_db_t  db,
+		       uintptr_t base_addr)
+{
+    hobbes_id_t app_id = HOBBES_INVALID_ID;
+    wg_int      lock_id;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    app_id = __get_mem_app_id(db, base_addr);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return app_id;
+}
+
+
+static hobbes_id_t
+__get_mem_enclave_id(hdb_db_t  db,
+		     uintptr_t base_addr)
+{
+    hdb_mem_t   blk        = __get_mem_blk_by_addr(db, base_addr);
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+
+    if (!blk) {
+	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
+	return -1;
+    }
+    
+    enclave_id = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_ENCLAVE_ID));
+
+    return enclave_id;
+}
+
+
+hobbes_id_t 
+hdb_get_mem_enclave_id(hdb_db_t  db,
+		       uintptr_t base_addr)
+{
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+    wg_int      lock_id;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = __get_mem_enclave_id(db, base_addr);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return enclave_id;
+}
+
+
+static int
+__get_mem_free(hdb_db_t  db,
+		    uintptr_t base_addr)
+{
+    hdb_mem_t blk     = __get_mem_blk_by_addr(db, base_addr);
+    int       is_free = -1;
+
+    if (!blk) {
+	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
+	return -1;
+    }
+
+    is_free = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_FREE));
+
+    return is_free;
+}
+
+
+int
+hdb_get_mem_free(hdb_db_t  db,
+		 uintptr_t base_addr)
+{
+    int      is_free = 0;
+    wg_int   lock_id;
+
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    is_free = __get_mem_free(db, base_addr);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return is_free;
+
+}
+
+
+static uint32_t
+__get_mem_numa_node(hdb_db_t  db,
+		    uintptr_t base_addr)
+{
+    hdb_mem_t blk        = __get_mem_blk_by_addr(db, base_addr);
+    uint32_t  numa_node  = HOBBES_INVALID_NUMA_ID;
+
+    if (!blk) {
+	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    numa_node = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_NUMA_NODE));
+
+    return numa_node;
+}
+
+
+uint32_t
+hdb_get_mem_numa_node(hdb_db_t  db,
+		      uintptr_t base_addr)   
+{
+    uint32_t numa_node = 0;
+    wg_int   lock_id;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    numa_node = __get_mem_numa_node(db, base_addr);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    return numa_node;
+}
+
+
+
+
+static uintptr_t *
+__get_mem_blocks(hdb_db_t   db,
+		 uint64_t * num_blks)
+{
+    uintptr_t * addr_arr = NULL;
+    void      * db_rec   = NULL;
+    uint64_t    cnt      = 0;
+    uint64_t    i        = 0;
+
+    cnt       = __get_sys_blk_cnt(db);
+    *num_blks = cnt;
+
+    if ((cnt == 0) || (cnt == -1)) {
+	return NULL;
+    }
+
+    addr_arr = calloc(sizeof(uint64_t), cnt);
+
+    for (i = 0; i < cnt; i++) {
+	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_MEM, db_rec);
+
+	if (!db_rec) {
+	    ERROR("System Info Header state mismatch\n");
+	    cnt = i;
+	    break;
+	}
+
+	addr_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_MEM_BASE_ADDR));
+    }
+
+    return addr_arr;
+}
+
+uintptr_t * 
+hdb_get_mem_blocks(hdb_db_t   db,
+		   uint64_t * num_blks)
+{
+    uintptr_t * addr_arr = NULL;
+    wg_int      lock_id;
+
+   if (!num_blks) {
+	return NULL;
+    }
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    addr_arr = __get_mem_blocks(db, num_blks);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return NULL;
+    }
+
+    return addr_arr;
 }
 
 

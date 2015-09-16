@@ -24,7 +24,8 @@ hobbes_objs := 	hobbes.o	\
 		app_launch.o	\
 		enclave.o	\
 		vm.o		\
-		pisces.o
+		pisces.o        \
+		system.o
 
 
 build = \

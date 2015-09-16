@@ -1,3 +1,10 @@
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -270,7 +277,7 @@ xemem_get_segment_list(int * num_segments)
 	seg_arr[i].segid      = id_arr[i];
 
 	seg_arr[i].enclave_id = hdb_get_xemem_enclave(hobbes_master_db, id_arr[i]);
-	seg_arr[i].app_id = hdb_get_xemem_app(hobbes_master_db, id_arr[i]);
+	seg_arr[i].app_id     = hdb_get_xemem_app(hobbes_master_db, id_arr[i]);
 
 	strncpy(seg_arr[i].name, 
 		hdb_get_xemem_name(hobbes_master_db, id_arr[i]), 

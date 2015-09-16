@@ -10,9 +10,15 @@
 #include <pet_log.h>
 #include <pet_xml.h>
 
+#include "hobbes.h"
 #include "hobbes_util.h"
 #include "hobbes_memory.h"
 #include "hobbes_cmd_queue.h"
+#include "hobbes_db.h"
+
+
+extern hdb_db_t hobbes_master_db;
+
 
 int 
 hobbes_assign_memory(hcq_handle_t hcq,
@@ -90,4 +96,97 @@ hobbes_assign_memory(hcq_handle_t hcq,
     if (cmd_xml != PET_INVALID_XML) pet_xml_free(cmd_xml);
     if (cmd     != HCQ_INVALID_CMD) hcq_cmd_complete(hcq, cmd);
     return -1;
+}
+
+
+uint32_t 
+hobbes_get_numa_cnt(void)
+{
+    return hdb_get_sys_numa_cnt(hobbes_master_db);
+}
+
+uint64_t
+hobbes_get_block_size(void)
+{
+    return hdb_get_sys_blk_size(hobbes_master_db);
+}
+
+uint64_t 
+hobbes_get_mem_size(void)
+{
+    uint64_t blk_cnt  = 0;
+    uint64_t blk_size = 0;
+
+    blk_cnt  = hdb_get_sys_blk_cnt  ( hobbes_master_db );
+    blk_size = hdb_get_sys_blk_size ( hobbes_master_db );
+
+    if ((blk_cnt ==  0) || (blk_size ==  0) ||
+	(blk_cnt == -1) || (blk_size == -1)) {
+	return 0;
+    }
+
+    return blk_cnt * blk_size;
+}
+
+uint64_t 
+hobbes_get_free_mem(void)
+{
+    uint64_t blk_cnt  = 0;
+    uint64_t blk_size = 0;
+
+    blk_cnt  = hdb_get_sys_free_blk_cnt  ( hobbes_master_db );
+    blk_size = hdb_get_sys_blk_size      ( hobbes_master_db );
+
+    if ((blk_cnt ==  0) || (blk_size ==  0) ||
+	(blk_cnt == -1) || (blk_size == -1)) {
+	return 0;
+    }
+
+    return blk_cnt * blk_size;
+}
+
+
+struct hobbes_memory_info * 
+hobbes_get_memory_list(uint64_t * num_mem_blks)
+{
+    struct hobbes_memory_info * blk_arr  = NULL;
+    uint64_t                  * addr_arr = NULL;
+    
+    uint64_t blk_cnt = 0;
+    uint64_t i       = 0;
+
+    addr_arr = hdb_get_mem_blocks(hobbes_master_db, &blk_cnt);
+
+    if (addr_arr == NULL) {
+	ERROR("Could not retrieve memory block list\n");
+	return NULL;
+    }
+    
+    blk_arr = calloc(sizeof(struct hobbes_memory_info), blk_cnt);
+    
+    for (i = 0; i < blk_cnt; i++) {
+	blk_arr[i].base_addr = addr_arr[i];
+	
+	blk_arr[i].size_in_bytes = hdb_get_sys_blk_size(hobbes_master_db);
+
+	blk_arr[i].numa_node     = hdb_get_mem_numa_node  ( hobbes_master_db, addr_arr[i] );
+	blk_arr[i].free          = hdb_get_mem_free       ( hobbes_master_db, addr_arr[i] );
+	blk_arr[i].enclave_id    = hdb_get_mem_enclave_id ( hobbes_master_db, addr_arr[i] );
+	blk_arr[i].app_id        = hdb_get_mem_app_id     ( hobbes_master_db, addr_arr[i] );
+    }
+
+    free(addr_arr);
+
+    *num_mem_blks = blk_cnt;
+
+    return blk_arr;
+}
+
+
+
+struct hobbes_cpu_info *
+hobbes_get_cpu_list(int * num_cpus)
+{
+
+    return NULL;
 }

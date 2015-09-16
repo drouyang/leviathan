@@ -34,7 +34,7 @@ libhobbes_objs := 	xemem.o            \
 			hobbes_enclave.o   \
 			hobbes_app.o       \
 			hobbes_file.o      \
-			hobbes_memory.o    \
+			hobbes_system.o    \
 			hobbes_util.o      \
 			pmi.o
 
