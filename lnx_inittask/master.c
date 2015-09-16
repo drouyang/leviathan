@@ -83,10 +83,41 @@ populate_system_info(hdb_db_t db)
 		return -1;
 	    }
 	}
+
+	free(cpu_arr);
     }
 
 
     /* Memory */
+    {
+	struct mem_block * blk_arr = NULL;
+
+	uint32_t num_blks = 0;
+	uint32_t i        = 0;
+
+	int ret = 0;
+
+	if (pet_probe_mem(&num_blks, &blk_arr) != 0) {
+	    ERROR("Error: Could not probe memory\n");
+	    return -1;
+	}
+
+	for (i = 0; i < num_blks; i++) {
+	    ret = hdb_register_memory(db, 
+				      blk_arr[i].base_addr, 
+				      blk_arr[i].pages * PAGE_SIZE, 
+				      blk_arr[i].numa_node, 
+				      blk_arr[i].state);
+
+	    if (ret == -1) {
+		ERROR("Error registering memory with database\n");
+		return -1;
+	    }		      
+	}
+	
+	free(blk_arr);
+    }
+
 
     return 0;
 
