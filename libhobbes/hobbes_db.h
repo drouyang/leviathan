@@ -239,6 +239,23 @@ hdb_register_cpu(hdb_db_t    db,
 		 uint32_t    numa_node,
 		 cpu_state_t state);
 
+uint32_t 
+hdb_get_cpu_numa_node(hdb_db_t db,
+		      uint32_t cpu_id);
+
+cpu_state_t 
+hdb_get_cpu_state(hdb_db_t db,
+		  uint32_t cpu_id);
+
+hobbes_id_t 
+hdb_get_cpu_enclave_id(hdb_db_t db,
+		       uint32_t cpu_id);
+
+
+uint32_t *
+hdb_get_cpus(hdb_db_t   db,
+	     uint32_t * num_cpus);
+
 
 /* Memory Info */
 

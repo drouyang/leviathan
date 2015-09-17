@@ -185,11 +185,35 @@ hobbes_get_memory_list(uint64_t * num_mem_blks)
 
 
 struct hobbes_cpu_info *
-hobbes_get_cpu_list(int * num_cpus)
+hobbes_get_cpu_list(uint32_t * num_cpus)
 {
-   
+    struct hobbes_cpu_info * cpu_arr = NULL;
+    uint32_t               * id_arr  = NULL;
 
-    return NULL;
+    uint32_t cpu_cnt = 0;
+    uint32_t i       = 0;
+
+    id_arr = hdb_get_cpus(hobbes_master_db, &cpu_cnt);
+    *num_cpus = cpu_cnt;
+
+    if (id_arr == NULL) {
+	ERROR("Could not retrieve CPU list\n");
+	return NULL;
+    }
+
+    cpu_arr = calloc(sizeof(struct hobbes_cpu_info), cpu_cnt);
+
+    for (i = 0; i < cpu_cnt; i++) {
+	cpu_arr[i].cpu_id    = id_arr[i];
+
+	cpu_arr[i].numa_node  = hdb_get_cpu_numa_node  ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].state      = hdb_get_cpu_state      ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].enclave_id = hdb_get_cpu_enclave_id ( hobbes_master_db, id_arr[i] );
+    }
+
+    free(id_arr);
+
+    return cpu_arr;
 }
 
 const char * 

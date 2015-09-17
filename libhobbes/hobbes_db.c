@@ -297,6 +297,8 @@ __get_sys_blk_size(hdb_db_t db)
     void     * hdr_rec  = NULL;
     uint64_t   blk_size = 0;
 
+    printf("db: %p\n", db);
+
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
 
     if (!hdr_rec) {
@@ -514,28 +516,149 @@ hdb_register_cpu(hdb_db_t    db,
 
 }
 
-int 
-hdb_assign_cpu(hdb_db_t    db, 
-	       uint32_t    cpu_id,
-	       hobbes_id_t enclave_id)
+
+static hobbes_id_t
+__get_cpu_enclave_id(hdb_db_t db,
+		     uint32_t cpu_id)
 {
+    hdb_cpu_t   cpu        = __get_cpu_by_id(db, cpu_id);
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
 
+    if (!cpu) {
+	ERROR("Could not find CPU (%u)\b", cpu_id);
+	return HOBBES_INVALID_ID;
+    }
 
-    return -1;
+    enclave_id = wg_decode_int(db, wg_get_field(db, cpu, HDB_CPU_ENCLAVE_ID));
+
+    return enclave_id;
 }
 
 
-static uint64_t *
-__get_cpus(hdb_db_t   db, 
-	   int      * num_cpus)
+hobbes_id_t
+hdb_get_cpu_enclave_id(hdb_db_t db,
+		       uint32_t cpu_id)
 {
-    uint64_t * cpu_arr = NULL;
+    wg_int      lock_id;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+  
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = __get_cpu_enclave_id(db, cpu_id);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    return enclave_id;
+}
+
+
+static cpu_state_t
+__get_cpu_state(hdb_db_t db,
+		uint32_t cpu_id)
+{
+    hdb_cpu_t cpu     = __get_cpu_by_id(db, cpu_id);
+    mem_state_t state = CPU_INVALID;
+
+    if (!cpu) {
+	ERROR("Could not find CPU (%u)\b", cpu_id);
+	return CPU_INVALID;
+    }
+
+    state = wg_decode_int(db, wg_get_field(db, cpu, HDB_CPU_STATE));
+
+    return state;
+}
+
+
+cpu_state_t
+hdb_get_cpu_state(hdb_db_t db,
+		  uint32_t cpu_id)
+{
+    wg_int      lock_id;
+    cpu_state_t state = CPU_INVALID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return CPU_INVALID;
+    }
+
+    state = __get_cpu_state(db, cpu_id);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return CPU_INVALID;
+    }
+
+    return state;
+}
+
+
+static uint32_t
+__get_cpu_numa_node(hdb_db_t db,
+		    uint32_t cpu_id)
+{
+    hdb_cpu_t cpu        = __get_cpu_by_id(db, cpu_id);
+    uint32_t  numa_node  = HOBBES_INVALID_NUMA_ID;
+
+    if (!cpu) {
+	ERROR("Could not find CPU (%u)\n", cpu_id);
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    numa_node = wg_decode_int(db, wg_get_field(db, cpu, HDB_CPU_NUMA_NODE));
+
+    return numa_node;
+}
+
+uint32_t 
+hdb_get_cpu_numa_node(hdb_db_t db,
+		      uint32_t cpu_id)
+{
+    uint32_t numa_node = 0;
+    wg_int   lock_id;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    numa_node = __get_cpu_numa_node(db, cpu_id);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    return numa_node;
+}
+
+
+
+static uint32_t *
+__get_cpus(hdb_db_t   db, 
+	   uint32_t * num_cpus)
+{
+    uint32_t * cpu_arr = NULL;
     void     * db_rec  = NULL;
     void     * hdr_rec = NULL;
     int        cnt     = 0;
     int        i       = 0;
 
-    hdr_rec = wg_find_record(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+    printf("db:%p\n", db);
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
 
     if (!hdr_rec) {
 	ERROR("Malformed database. Missing System info header\n");
@@ -549,7 +672,7 @@ __get_cpus(hdb_db_t   db,
 	return NULL;
     }
 
-    cpu_arr = calloc(sizeof(uint64_t), cnt);
+    cpu_arr = calloc(sizeof(uint32_t), cnt);
 
     for (i = 0; i < cnt; i++) {
 	db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_CPU, db_rec);
@@ -564,17 +687,18 @@ __get_cpus(hdb_db_t   db,
     }
 
     *num_cpus = cnt;
+
     return cpu_arr;
 
 
 }
 
 
-uint64_t * 
+uint32_t * 
 hdb_get_cpus(hdb_db_t   db,
-	     int      * num_cpus)
+	     uint32_t * num_cpus)
 {
-    uint64_t * cpu_arr = NULL;
+    uint32_t * cpu_arr = NULL;
     wg_int     lock_id;
 
     if (!num_cpus) {
@@ -754,7 +878,7 @@ __get_mem_enclave_id(hdb_db_t  db,
 
     if (!blk) {
 	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
-	return -1;
+	return HOBBES_INVALID_ID;
     }
     
     enclave_id = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_ENCLAVE_ID));

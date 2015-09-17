@@ -79,6 +79,42 @@ list_memory_main(int argc, char ** argv)
 int 
 list_cpus_main(int argc, char ** argv)
 {
+    struct hobbes_cpu_info * cpu_arr = NULL;
+    uint32_t num_numa  = 0;
+    uint32_t num_cpus  = 0;
+
+    uint32_t i = 0;
+    
+    num_numa  = hobbes_get_numa_cnt();
+    cpu_arr   = hobbes_get_cpu_list(&num_cpus);
+
+    if (num_cpus == -1) {
+	ERROR("Could not retrieve memory list\n");
+	return -1;
+    }
+
+
+    printf("%u CPUs (%d numa domains)\n", num_cpus, num_numa);
+
+    if (num_cpus == 0) {
+	return 0;
+    }
+
+    printf("--------------------------------------------\n");
+    printf("| CPU ID |  State      | Numa | Enclave ID |\n");
+    printf("--------------------------------------------\n");
+
+    for (i = 0; i < num_cpus; i++) {
+	printf("| %-*u | %-*s | %-*d | %-*d |\n",
+               6,  cpu_arr[i].cpu_id,
+	       11, cpu_state_to_str(cpu_arr[i].state),
+	       4,  cpu_arr[i].numa_node,
+               10, cpu_arr[i].enclave_id);
+    }
+
+    printf("--------------------------------------------\n");
+    
+    free(cpu_arr);
 
     return 0;
 }

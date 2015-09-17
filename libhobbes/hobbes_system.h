@@ -80,7 +80,7 @@ struct hobbes_cpu_info {
 };
 
 struct hobbes_cpu_info *
-hobbes_get_cpu_list(int * num_cpus);
+hobbes_get_cpu_list(uint32_t * num_cpus);
 
 const char * mem_state_to_str(mem_state_t state);
 const char * cpu_state_to_str(cpu_state_t state);
