@@ -13,18 +13,27 @@
 
 
 #include "hobbes.h"
+#include "hobbes_cmd_queue.h"
 
 #define HOBBES_INVALID_CPU_ID    (-1)
 #define HOBBES_INVALID_ADDR      (-1)
 #define HOBBES_INVALID_NUMA_ID   (-1)
 
+typedef enum {
+    MEMORY_INVALID,
+    MEMORY_RSVD,
+    MEMORY_FREE,
+    MEMORY_ALLOCATED
+} mem_state_t;
 
-#if 0 /* Maybe?? */
-typedef uint32_t hobbes_cpu_id_t;
-typedef uint32_t hobbes_numa_id_t;
-#endif
+typedef enum {
+    CPU_INVALID,
+    CPU_RSVD,
+    CPU_FREE,
+    CPU_ALLOCATED
+} cpu_state_t;
 
-#include "hobbes_cmd_queue.h"
+
 
 struct hobbes_system_info {
     uint64_t num_node_nodes;
@@ -54,7 +63,7 @@ struct hobbes_memory_info {
     uintptr_t   base_addr;
     uint64_t    size_in_bytes;
     uint32_t    numa_node;
-    uint8_t     free;
+    mem_state_t state;
     hobbes_id_t enclave_id;
     hobbes_id_t app_id;
 };
@@ -66,12 +75,14 @@ hobbes_get_memory_list(uint64_t * num_mem_blks);
 struct hobbes_cpu_info {
     uint32_t    cpu_id;
     uint32_t    numa_node;
-    uint8_t     free;
+    cpu_state_t state;
     hobbes_id_t enclave_id;
 };
 
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(int * num_cpus);
 
+const char * mem_state_to_str(mem_state_t state);
+const char * cpu_state_to_str(cpu_state_t state);
 
 #endif

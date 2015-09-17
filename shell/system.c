@@ -44,7 +44,7 @@ list_memory_main(int argc, char ** argv)
     }
 
 
-    printf("%lu memory blocks [block size=%lu] (%d numa domains)\n", num_blks, blk_size, num_numa);
+    printf("%lu memory blocks [block size=%luMB] (%d numa domains)\n", num_blks, blk_size / (1024 * 1024), num_numa);
     printf("Total mem: %luMB ; Free Mem: %luMB\n", 
 	   total_mem / (1024 * 1024), 
 	   free_mem  / (1024 * 1024));
@@ -53,21 +53,21 @@ list_memory_main(int argc, char ** argv)
 	return 0;
     }
 
-    printf("-------------------------------------------------------------------------------------\n");
-    printf("| Blk ID | Physical Address                 | Numa | Free | Enclave ID | App ID     |\n");
-    printf("-------------------------------------------------------------------------------------\n");
+    printf("-----------------------------------------------------------------------------\n");
+    printf("| Blk ID | Physical Address   | State      | Numa | Enclave ID | App ID     |\n");
+    printf("-----------------------------------------------------------------------------\n");
 
     for (i = 0; i < num_blks; i++) {
-	printf("| %-*lu | %-*lu | %-*d | %-*d | %-*d | %-*d |\n",
+	printf("| %-*lu | 0x%0*lx | %-*s | %-*d | %-*d | %-*d |\n",
 	       6,  i,
-               32, blk_arr[i].base_addr,
+               16, blk_arr[i].base_addr,
+	       10, mem_state_to_str(blk_arr[i].state),
 	       4,  blk_arr[i].numa_node,
-	       4,  blk_arr[i].free,
                10, blk_arr[i].enclave_id,
                10, blk_arr[i].app_id);
     }
 
-    printf("-------------------------------------------------------------------------------------\n");
+    printf("-----------------------------------------------------------------------------\n");
     
     free(blk_arr);
 

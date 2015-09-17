@@ -234,27 +234,29 @@ hdb_get_sys_blk_size(hdb_db_t db);
 /* CPU Info */
 
 int 
-hdb_register_cpu(hdb_db_t db,
-		 uint32_t cpu_id,
-		 uint32_t numa_node);
+hdb_register_cpu(hdb_db_t    db,
+		 uint32_t    cpu_id,
+		 uint32_t    numa_node,
+		 cpu_state_t state);
 
 
 /* Memory Info */
 
 
 int 
-hdb_register_memory(hdb_db_t  db,
-		    uintptr_t base_addr,
-		    uint64_t  blk_size,
-		    uint32_t  numa_node);
+hdb_register_memory(hdb_db_t    db,
+		    uintptr_t   base_addr,
+		    uint64_t    blk_size,
+		    uint32_t    numa_node,
+		    mem_state_t state);
 
 uint32_t
 hdb_get_mem_numa_node(hdb_db_t  db,
 		      uintptr_t base_addr);
 
-int
-hdb_get_mem_free(hdb_db_t  db,
-		 uintptr_t base_addr);
+mem_state_t
+hdb_get_mem_state(hdb_db_t  db,
+		  uintptr_t base_addr);
 
 hobbes_id_t 
 hdb_get_mem_enclave_id(hdb_db_t  db,

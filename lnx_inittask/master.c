@@ -74,9 +74,24 @@ populate_system_info(hdb_db_t db)
 	}
 	
 	for (i = 0; i < num_cpus; i++) {
-	    printf("CPU %d: N=%d, state=%d\n", cpu_arr[i].cpu_id, cpu_arr[i].numa_node, cpu_arr[i].state);
+	    cpu_state_t state = CPU_INVALID;
 
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node);
+
+	    switch (cpu_arr[i].state) {
+		case PET_CPU_ONLINE:
+		case PET_CPU_OFFLINE:
+		    state = CPU_ALLOCATED;
+		    break;
+		case PET_CPU_RSVD:
+		    state = CPU_RSVD;
+		    break;
+		case PET_CPU_INVALID:
+		default: 
+		    state = CPU_INVALID;
+		    break;
+	    }
+	    
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state);
 	    
 	    if (ret == -1) {
 		ERROR("Error register CPU with database\n");
@@ -103,10 +118,28 @@ populate_system_info(hdb_db_t db)
 	}
 
 	for (i = 0; i < num_blks; i++) {
+	    mem_state_t state = MEMORY_INVALID;
+
+
+	    switch (blk_arr[i].state) {
+		case PET_BLOCK_ONLINE:
+		case PET_BLOCK_OFFLINE:
+		    state = MEMORY_ALLOCATED;
+		    break;
+		case PET_BLOCK_RSVD: 
+		    state = MEMORY_RSVD;
+		    break;
+		case PET_BLOCK_INVALID:
+		default: 
+		    state = MEMORY_INVALID;
+		    break;
+	    }
+
 	    ret = hdb_register_memory(db, 
 				      blk_arr[i].base_addr, 
 				      blk_arr[i].pages * PAGE_SIZE, 
-				      blk_arr[i].numa_node);
+				      blk_arr[i].numa_node,
+				      state);
 
 	    if (ret == -1) {
 		ERROR("Error registering memory with database\n");

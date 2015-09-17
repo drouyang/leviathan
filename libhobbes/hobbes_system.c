@@ -170,7 +170,7 @@ hobbes_get_memory_list(uint64_t * num_mem_blks)
 	blk_arr[i].size_in_bytes = hdb_get_sys_blk_size(hobbes_master_db);
 
 	blk_arr[i].numa_node     = hdb_get_mem_numa_node  ( hobbes_master_db, addr_arr[i] );
-	blk_arr[i].free          = hdb_get_mem_free       ( hobbes_master_db, addr_arr[i] );
+	blk_arr[i].state         = hdb_get_mem_state      ( hobbes_master_db, addr_arr[i] );
 	blk_arr[i].enclave_id    = hdb_get_mem_enclave_id ( hobbes_master_db, addr_arr[i] );
 	blk_arr[i].app_id        = hdb_get_mem_app_id     ( hobbes_master_db, addr_arr[i] );
     }
@@ -187,6 +187,39 @@ hobbes_get_memory_list(uint64_t * num_mem_blks)
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(int * num_cpus)
 {
+   
+
+    return NULL;
+}
+
+const char * 
+mem_state_to_str(mem_state_t state) 
+{
+    
+    switch (state) {
+	case MEMORY_INVALID:   return "INVALID";
+	case MEMORY_RSVD:      return "RSVD";
+	case MEMORY_FREE:      return "FREE";
+	case MEMORY_ALLOCATED: return "ALLOCATED";
+
+	default: return NULL;
+    }
+
+    return NULL;
+}
+
+
+const char * 
+cpu_state_to_str(cpu_state_t state) 
+{
+    switch (state) {
+	case CPU_INVALID:   return "INVALID";
+	case CPU_RSVD:      return "RSVD";
+	case CPU_FREE:      return "FREE";
+	case CPU_ALLOCATED: return "ALLOCATED";
+
+	default: return NULL;
+    }
 
     return NULL;
 }

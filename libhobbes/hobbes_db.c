@@ -100,14 +100,14 @@
 #define HDB_MEM_BASE_ADDR  1
 #define HDB_MEM_BLK_SIZE   2
 #define HDB_MEM_NUMA_NODE  3
-#define HDB_MEM_FREE       4
+#define HDB_MEM_STATE      4
 #define HDB_MEM_ENCLAVE_ID 5
 #define HDB_MEM_APP_ID     6
 
 /* Columns for CPU resource records */
 #define HDB_CPU_ID         1
 #define HDB_CPU_NUMA_NODE  2
-#define HDB_CPU_FREE       3
+#define HDB_CPU_STATE      3
 #define HDB_CPU_ENCLAVE_ID 4
 
 
@@ -174,12 +174,14 @@ hdb_init_master_db(hdb_db_t db)
     wg_set_field(db, rec, HDB_SEGMENT_HDR_CNT,  wg_encode_int(db, 0));
 
     /* Create System Info Header */
-    rec = wg_create_record(db, 5);
-    wg_set_field(db, rec, HDB_TYPE_FIELD,           wg_encode_int(db, HDB_REC_SYS_HDR));
-    wg_set_field(db, rec, HDB_SYS_HDR_CPU_CNT,      wg_encode_int(db, 0));
-    wg_set_field(db, rec, HDB_SYS_HDR_NUMA_CNT,     wg_encode_int(db, 0));
-    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_SIZE, wg_encode_int(db, 0));
-    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_CNT,  wg_encode_int(db, 0));
+    rec = wg_create_record(db, 6);
+    wg_set_field(db, rec, HDB_TYPE_FIELD,               wg_encode_int(db, HDB_REC_SYS_HDR));
+    wg_set_field(db, rec, HDB_SYS_HDR_CPU_CNT,          wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_NUMA_CNT,         wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_SIZE,     wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_CNT,      wg_encode_int(db, 0));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, 0));
+
 
     return 0;
 }
@@ -216,8 +218,6 @@ __init_system_info(hdb_db_t db,
     
     wg_set_field(db, hdr_rec, HDB_SYS_HDR_NUMA_CNT,         wg_encode_int(db, numa_nodes));
     wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE,     wg_encode_int(db, mem_blk_size));
-    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT,      wg_encode_int(db, 0));
-    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, 0));
 
     return 0;
 }
@@ -450,9 +450,10 @@ __get_cpu_by_id(hdb_db_t db,
 
 
 static int
-__register_cpu(hdb_db_t db,
-	       uint32_t cpu_id,
-	       uint32_t numa_node)
+__register_cpu(hdb_db_t    db,
+	       uint32_t    cpu_id,
+	       uint32_t    numa_node,
+	       cpu_state_t state)
 {
     void     * hdr_rec  = NULL;
     uint32_t   cpu_cnt  = 0;
@@ -477,7 +478,7 @@ __register_cpu(hdb_db_t db,
     wg_set_field(db, cpu, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_CPU));
     wg_set_field(db, cpu, HDB_CPU_ID,          wg_encode_int(db, cpu_id));
     wg_set_field(db, cpu, HDB_CPU_NUMA_NODE,   wg_encode_int(db, numa_node));
-    wg_set_field(db, cpu, HDB_CPU_FREE,        wg_encode_int(db, 0));
+    wg_set_field(db, cpu, HDB_CPU_STATE,       wg_encode_int(db, state));
     wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, HOBBES_INVALID_ID));
 
     /* Update the enclave Header information */
@@ -487,9 +488,10 @@ __register_cpu(hdb_db_t db,
 }
 
 int 
-hdb_register_cpu(hdb_db_t db,
-		 uint32_t cpu_id,
-		 uint32_t numa_node)
+hdb_register_cpu(hdb_db_t    db,
+		 uint32_t    cpu_id,
+		 uint32_t    numa_node,
+		 cpu_state_t state)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -501,7 +503,7 @@ hdb_register_cpu(hdb_db_t db,
 	return -1;
     }
 
-    ret = __register_cpu(db, cpu_id, numa_node);
+    ret = __register_cpu(db, cpu_id, numa_node, state);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -630,10 +632,11 @@ __get_mem_blk_by_addr(hdb_db_t  db,
 
 
 static int
-__register_memory(hdb_db_t  db,
-		  uintptr_t base_addr,
-		  uint64_t  blk_size,
-		  uint32_t  numa_node)
+__register_memory(hdb_db_t    db,
+		  uintptr_t   base_addr,
+		  uint64_t    blk_size,
+		  uint32_t    numa_node,
+		  mem_state_t state)
 {
     void    * hdr_rec  = NULL;
     uint64_t  blk_cnt  = 0;
@@ -658,7 +661,7 @@ __register_memory(hdb_db_t  db,
     wg_set_field(db, blk, HDB_MEM_BASE_ADDR,  wg_encode_int(db, base_addr));
     wg_set_field(db, blk, HDB_MEM_BLK_SIZE,   wg_encode_int(db, blk_size));
     wg_set_field(db, blk, HDB_MEM_NUMA_NODE,  wg_encode_int(db, numa_node));
-    wg_set_field(db, blk, HDB_MEM_FREE,       wg_encode_int(db, 0));
+    wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, state));
     wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
     wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
 
@@ -672,10 +675,11 @@ __register_memory(hdb_db_t  db,
 }
 
 int 
-hdb_register_memory(hdb_db_t  db,
-		    uintptr_t base_addr,
-		    uint64_t  blk_size,
-		    uint32_t  numa_node)
+hdb_register_memory(hdb_db_t    db,
+		    uintptr_t   base_addr,
+		    uint64_t    blk_size,
+		    uint32_t    numa_node,
+		    mem_state_t state)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -687,7 +691,7 @@ hdb_register_memory(hdb_db_t  db,
 	return -1;
     }
 
-    ret = __register_memory(db, base_addr, blk_size, numa_node);
+    ret = __register_memory(db, base_addr, blk_size, numa_node, state);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -702,7 +706,7 @@ static hobbes_id_t
 __get_mem_app_id(hdb_db_t  db,
 		     uintptr_t base_addr)
 {
-    hdb_mem_t   blk        = __get_mem_blk_by_addr(db, base_addr);
+    hdb_mem_t   blk    = __get_mem_blk_by_addr(db, base_addr);
     hobbes_id_t app_id = HOBBES_INVALID_ID;
 
     if (!blk) {
@@ -784,47 +788,46 @@ hdb_get_mem_enclave_id(hdb_db_t  db,
 }
 
 
-static int
-__get_mem_free(hdb_db_t  db,
+static mem_state_t
+__get_mem_state(hdb_db_t  db,
 		    uintptr_t base_addr)
 {
     hdb_mem_t blk     = __get_mem_blk_by_addr(db, base_addr);
-    int       is_free = -1;
+    mem_state_t state = MEMORY_INVALID;
 
     if (!blk) {
 	ERROR("Could not find memory block (%p)\n", (void *)base_addr);
-	return -1;
+	return MEMORY_INVALID;
     }
 
-    is_free = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_FREE));
+    state = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_STATE));
 
-    return is_free;
+    return state;
 }
 
 
-int
-hdb_get_mem_free(hdb_db_t  db,
-		 uintptr_t base_addr)
+mem_state_t
+hdb_get_mem_state(hdb_db_t  db,
+		  uintptr_t base_addr)
 {
-    int      is_free = 0;
     wg_int   lock_id;
-
+    mem_state_t state = MEMORY_INVALID;
 
     lock_id = wg_start_read(db);
 
     if (!lock_id) {
 	ERROR("Could not lock database\n");
-	return -1;
+	return MEMORY_INVALID;
     }
 
-    is_free = __get_mem_free(db, base_addr);
+    state = __get_mem_state(db, base_addr);
 
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Catastrophic database locking error\n");
-	return -1;
+	return MEMORY_INVALID;
     }
 
-    return is_free;
+    return state;
 
 }
 
