@@ -17,6 +17,7 @@
 #include <pet_log.h>
 
 #include <v3vee.h>
+#include <v3_ioctl.h>
 
 #include "init.h"
 #include "pisces.h"
@@ -54,6 +55,26 @@ pisces_send_resp(int      fd,
 }
 
 
+static int 
+issue_v3_cmd(u64 cmd, uintptr_t arg) 
+{
+        int palacios_fd = 0;
+        int ret         = 0;
+        
+        palacios_fd = open(V3_DEV_FILENAME, O_RDWR);
+        
+        if (palacios_fd < 0) {
+                printf("Could not open palacios CMD file (%s)\n", V3_DEV_FILENAME);
+                return -1;
+        }
+        
+        ret = ioctl(palacios_fd, cmd, arg);
+
+        
+        close(palacios_fd);
+
+        return ret;
+}
 
 
 
@@ -132,7 +153,6 @@ __add_cpu(int      pisces_fd,
     }
 			   
     
-#if 0
     if (palacios_enabled) {
 
 	/* Notify Palacios of New CPU */
@@ -141,7 +161,6 @@ __add_cpu(int      pisces_fd,
 	    ERROR("Error: Could not add CPU to Palacios\n");
 	}
     }
-#endif
 			    
     CPU_SET(logical_cpu, &enclave_cpus);
     pisces_send_resp(pisces_fd, 0);
