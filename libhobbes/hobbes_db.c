@@ -795,6 +795,13 @@ __register_memory(hdb_db_t    db,
     /* Update the enclave Header information */
     wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT, wg_encode_int(db, blk_cnt + 1));
 
+    if (state == MEMORY_FREE) {
+	uint64_t free_mem = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT));
+
+	wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, free_mem + 1));
+    }
+
+
     return 0;
 }
 

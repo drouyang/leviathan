@@ -70,8 +70,6 @@ int master_init(int argc, char ** argv) {
     }
 
 
-    /* Initialize the system resource state */
-    populate_system_info(db);
 
 
     /* Begin the resource reservations */
@@ -143,19 +141,34 @@ int master_init(int argc, char ** argv) {
     } 
 	
     if (cpu_list_is_set) {
-	reserve_cpu_list(cpu_list);
+	if (reserve_cpu_list(cpu_list) == -1) {
+	    ERROR("Could not reserve CPU list (%s)\n", cpu_list);
+	    return -1;
+	}
     } else if (cpu_str_is_set) {
-	reserve_cpus(num_cpus, numa_zone);
+	if (reserve_cpus(num_cpus, numa_zone) == -1) {
+	    ERROR("Could not reserve %d CPUs on NUMA zone %d\n", num_cpus, numa_zone);
+	    return -1;
+	}
     } else {
-	/* Default to reserve CPU 0 */
-	reserve_cpu_list("0");
+	/* Default to reserve CPU 0 */	
+	if (reserve_cpu_list("0") == -1) {
+	    ERROR("Could not reserve CPU 0 (default) for master enclave\n");
+	    return -1;
+	}
     }
 
     if (mem_str_is_set) {
-	reserve_memory(mem_size_MB, numa_zone);
+	if (reserve_memory(mem_size_MB, numa_zone) == -1) {
+	    ERROR("Could not reserve %uMB of memory on NUMA zone %d for master enclave\n", mem_size_MB, numa_zone);
+	    return -1;
+	}
     } else {
 	/* Default to reserve 1GB on NUMA node 0 */
-	reserve_memory(1024, 0);
+	if (reserve_memory(1024, 0) == -1) {
+	    ERROR("Could not reserve default 1GB of memory on NUMA zone 0\n");
+	    return -1;
+	}
     }
 
 
@@ -198,6 +211,9 @@ int master_init(int argc, char ** argv) {
 	    }
 	}
     }
+
+    /* Initialize the system resource state */
+    populate_system_info(db);
 
 
     /* Export Database */
@@ -314,18 +330,20 @@ reserve_memory(int mem_size_MB,
 	       int numa_zone)
 {
     struct mem_block * blk_arr = NULL;
-    uint32_t sys_blk_cnt = 0;
 
-    uint32_t num_blks = 0;
-    int blk_size = pet_block_size();
+    uint32_t sys_blk_cnt = 0;
+    uint32_t num_blks    = 0;
+    int      blk_size_MB = pet_block_size() / (1024 * 1024);
     
     int ret = 0;
     int i   = 0;
 
     /* Rounding up allocation to match underlying block size */
-    mem_size_MB += blk_size - (mem_size_MB % blk_size);
-    num_blks     = mem_size_MB / blk_size;
+    num_blks = mem_size_MB / blk_size_MB + ((mem_size_MB % blk_size_MB) != 0);
     
+    printf("Reserving %u memory blocks (%uMB) for master enclave\n", 
+	   num_blks, num_blks * blk_size_MB);
+
     /* Probe memory */
     ret = pet_probe_mem_node(&sys_blk_cnt, &blk_arr, numa_zone);
     
@@ -352,7 +370,24 @@ reserve_memory(int mem_size_MB,
     }
 
     /* reserve any more that we might need */
+
     
+
+    for (i = 0; i < sys_blk_cnt; i++) {
+	
+	if (blk_arr[i].state == PET_BLOCK_ONLINE) {
+	    pet_lock_block(blk_arr[i].base_addr / pet_block_size());
+	    num_blks--;
+	}
+
+	/* We've reserved enough */
+	if (num_blks == 0) {
+	    return 0;
+	}
+    }
+
+    
+
 
     return 0;
 } 
@@ -424,6 +459,8 @@ static int
 populate_system_info(hdb_db_t db) 
 {
 
+    printf("Assigning Resources to Leviathan\n");
+
     /* General Info */
     {
 	uint32_t numa_cnt = pet_num_numa_nodes();
@@ -474,7 +511,7 @@ populate_system_info(hdb_db_t db)
 	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state);
 	    
 	    if (ret == -1) {
-		ERROR("Error register CPU with database\n");
+		ERROR("Error registering CPU with database\n");
 		return -1;
 	    }
 	}
@@ -487,8 +524,10 @@ populate_system_info(hdb_db_t db)
     {
 	struct mem_block * blk_arr = NULL;
 
-	uint32_t num_blks = 0;
-	uint32_t i        = 0;
+	uint32_t num_blks  = 0;
+	uint32_t free_blks = 0;
+	uint32_t i         = 0;
+
 
 	int ret = 0;
 
@@ -498,11 +537,22 @@ populate_system_info(hdb_db_t db)
 	}
 
 	for (i = 0; i < num_blks; i++) {
-	    mem_state_t state = MEMORY_INVALID;
-
+	    int         blk_index = blk_arr[i].base_addr / pet_block_size();
+	    mem_state_t state     = MEMORY_INVALID;
 
 	    switch (blk_arr[i].state) {
 		case PET_BLOCK_ONLINE:
+		    pet_offline_block(blk_index);
+
+		    if (pet_block_status(blk_index) != PET_BLOCK_OFFLINE) {
+			state = MEMORY_RSVD;
+			break;
+		    }
+		    
+		    free_blks++;
+		    state = MEMORY_FREE;
+
+		    break;
 		case PET_BLOCK_OFFLINE:
 		    state = MEMORY_ALLOCATED;
 		    break;
@@ -524,8 +574,10 @@ populate_system_info(hdb_db_t db)
 	    if (ret == -1) {
 		ERROR("Error registering memory with database\n");
 		return -1;
-	    }		      
+	    }		      	    
 	}
+	
+	printf("Registered %u memory blocks (%u free) with Leviathan\n", num_blks, free_blks);
 	
 	free(blk_arr);
     }
