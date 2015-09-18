@@ -94,7 +94,8 @@
 #define HDB_SYS_HDR_MEM_BLK_SIZE      3
 #define HDB_SYS_HDR_MEM_BLK_CNT       4
 #define HDB_SYS_HDR_MEM_FREE_BLK_CNT  5
-
+#define HDB_SYS_HDR_MEM_FREE_LIST     6
+#define HDB_SYS_HDR_MEM_BLK_LIST      7
 
 /* Columns for memory resource records */
 #define HDB_MEM_BASE_ADDR  1
@@ -103,6 +104,12 @@
 #define HDB_MEM_STATE      4
 #define HDB_MEM_ENCLAVE_ID 5
 #define HDB_MEM_APP_ID     6
+#define HDB_MEM_NEXT_FREE  7
+#define HDB_MEM_PREV_FREE  8
+#define HDB_MEM_NEXT_BLK   9
+#define HDB_MEM_PREV_BLK   10
+
+
 
 /* Columns for CPU resource records */
 #define HDB_CPU_ID         1
@@ -174,13 +181,17 @@ hdb_init_master_db(hdb_db_t db)
     wg_set_field(db, rec, HDB_SEGMENT_HDR_CNT,  wg_encode_int(db, 0));
 
     /* Create System Info Header */
-    rec = wg_create_record(db, 6);
+    rec = wg_create_record(db, 8);
     wg_set_field(db, rec, HDB_TYPE_FIELD,               wg_encode_int(db, HDB_REC_SYS_HDR));
     wg_set_field(db, rec, HDB_SYS_HDR_CPU_CNT,          wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_SYS_HDR_NUMA_CNT,         wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_SIZE,     wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_CNT,      wg_encode_int(db, 0));
     wg_set_field(db, rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, 0));
+
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_BLK_LIST,     wg_encode_record(db, NULL));
+    wg_set_field(db, rec, HDB_SYS_HDR_MEM_FREE_LIST,    wg_encode_record(db, NULL));
+    
 
 
     return 0;
@@ -754,6 +765,301 @@ __get_mem_blk_by_addr(hdb_db_t  db,
     return blk;
 }
 
+static uintptr_t
+__get_mem_blk_addr(hdb_db_t  db,
+		   hdb_mem_t blk)
+{
+    return wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_BASE_ADDR));
+}
+
+
+static uint32_t 
+__get_mem_blk_numa(hdb_db_t  db, 
+		   hdb_mem_t blk)
+{
+    return wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_NUMA_NODE));
+}
+
+static int
+__remove_free_mem_blk(hdb_db_t   db,
+		      void     * hdr,
+		      hdb_mem_t  blk)
+{
+    hdb_mem_t next_blk = wg_decode_record(db, wg_get_field(db, blk, HDB_MEM_NEXT_FREE));
+    hdb_mem_t prev_blk = wg_decode_record(db, wg_get_field(db, blk, HDB_MEM_PREV_FREE));
+
+    if (wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_STATE)) != MEMORY_FREE) {
+	ERROR("Tried to remove a non-free memory block from free list\n");
+	return -1;
+    }
+
+    /* Update the head of the list if necessary */
+    if (blk == wg_decode_record(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_FREE_LIST))) {
+	wg_set_field(db, hdr, HDB_SYS_HDR_MEM_FREE_LIST, wg_encode_record(db, next_blk));
+    }
+
+    if (next_blk) {
+	wg_set_field(db, next_blk, HDB_MEM_PREV_FREE, wg_encode_record(db, prev_blk));
+    }
+
+    if (prev_blk) {
+	wg_set_field(db, prev_blk, HDB_MEM_NEXT_FREE, wg_encode_record(db, next_blk));
+    }
+
+    wg_set_field(db, blk, HDB_MEM_NEXT_FREE, wg_encode_record(db, NULL));
+    wg_set_field(db, blk, HDB_MEM_PREV_FREE, wg_encode_record(db, NULL));
+    
+    return 0;
+}
+
+
+
+static int 
+__insert_free_mem_blk(hdb_db_t   db, 
+		      void     * hdr,
+		      hdb_mem_t  blk)
+{
+    uintptr_t   blk_addr = __get_mem_blk_addr(db, blk);
+    void      * iter_blk = wg_decode_record(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_FREE_LIST));
+
+    if (iter_blk == NULL) {
+	/* First entry: Prev=NULL, Next=NULL, HDR=this_blk */
+	    
+	wg_set_field(db, blk, HDB_MEM_NEXT_FREE,         wg_encode_record(db, NULL));
+	wg_set_field(db, blk, HDB_MEM_PREV_FREE,         wg_encode_record(db, NULL));
+	wg_set_field(db, hdr, HDB_SYS_HDR_MEM_FREE_LIST, wg_encode_record(db, blk));
+	    
+    } else if (blk_addr < __get_mem_blk_addr(db, iter_blk)) {
+	/* Add to the head of the list: 
+	 *   Prev=NULL, Next=iter_blk, HDR=this_blk, iter_blk.prev=this_blk 
+	 */
+
+	wg_set_field(db, blk,      HDB_MEM_PREV_FREE,          wg_encode_record(db, NULL));
+	wg_set_field(db, blk,      HDB_MEM_NEXT_FREE,          wg_encode_record(db, iter_blk));
+	wg_set_field(db, iter_blk, HDB_MEM_PREV_FREE,          wg_encode_record(db, blk));
+	wg_set_field(db, hdr,      HDB_SYS_HDR_MEM_FREE_LIST,  wg_encode_record(db, blk));
+
+    } else {
+
+	hdb_mem_t next_blk  = NULL;
+	    
+	while (1) {
+	    uintptr_t next_addr = 0;
+		
+	    next_blk = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_FREE));
+		
+	    if (next_blk == NULL) {
+		break;
+	    }
+		
+	    next_addr = __get_mem_blk_addr(db, next_blk);
+		
+	    if (next_addr > blk_addr) {
+		break;
+	    }
+		
+	    iter_blk = next_blk;
+	}
+	
+	    
+	/* At this point iter_blk must be valid, but next_blk may or may not be NULL 
+	 *  Prev = iter_blk, next = next_blk, iter_blk.next = this_blk, if(next_blk) next_blk.prev=this_blk
+	 */
+
+	wg_set_field(db, blk,      HDB_MEM_PREV_FREE, wg_encode_record(db, iter_blk));
+	wg_set_field(db, blk,      HDB_MEM_NEXT_FREE, wg_encode_record(db, next_blk));
+	wg_set_field(db, iter_blk, HDB_MEM_NEXT_FREE, wg_encode_record(db, blk));
+
+	if (next_blk) {
+	    wg_set_field(db, next_blk, HDB_MEM_PREV_FREE, wg_encode_record(db, blk));
+	}
+    }
+
+    {
+	uint64_t free_mem = wg_decode_int(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_FREE_BLK_CNT));
+	wg_set_field(db, hdr, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, free_mem + 1));
+	
+    }
+
+    return 0;	
+}
+
+static int 
+__insert_mem_blk(hdb_db_t   db,
+		 void     * hdr,
+		 hdb_mem_t  blk)
+{
+    uint64_t  blk_cnt  = 0;
+    uintptr_t blk_addr = __get_mem_blk_addr(db, blk);
+
+    blk_cnt = wg_decode_int(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_BLK_CNT));
+
+    /* Do block list insertion */
+    {
+	void * iter_blk = wg_decode_record(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_BLK_LIST));
+
+	if (iter_blk == NULL) {
+	    /* First entry: Prev=NULL, Next=NULL, HDR=this_blk */
+	    
+	    wg_set_field(db, blk, HDB_MEM_NEXT_BLK,         wg_encode_record(db, NULL));
+	    wg_set_field(db, blk, HDB_MEM_PREV_BLK,         wg_encode_record(db, NULL));
+
+	    wg_set_field(db, hdr, HDB_SYS_HDR_MEM_BLK_LIST, wg_encode_record(db, blk));
+	    
+	} else if (blk_addr < __get_mem_blk_addr(db, iter_blk)) {
+	    /* Add to the head of the list: 
+	     *   Prev=NULL, Next=iter_blk, HDR=this_blk, iter_blk.prev=this_blk 
+	     */
+
+	    wg_set_field(db, blk,      HDB_MEM_PREV_BLK,         wg_encode_record(db, NULL));
+	    wg_set_field(db, blk,      HDB_MEM_NEXT_BLK,         wg_encode_record(db, iter_blk));
+	    wg_set_field(db, iter_blk, HDB_MEM_PREV_BLK,         wg_encode_record(db, blk));
+	    wg_set_field(db, hdr,      HDB_SYS_HDR_MEM_BLK_LIST, wg_encode_record(db, blk));
+
+	} else {
+
+	    hdb_mem_t next_blk  = NULL;
+	    
+	    while (1) {
+		uintptr_t next_addr = 0;
+		
+		next_blk = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_BLK));
+		
+		if (next_blk == NULL) {
+		    break;
+		}
+		
+		next_addr = __get_mem_blk_addr(db, next_blk);
+		
+		if (next_addr > blk_addr) {
+		    break;
+		}
+		
+		iter_blk = next_blk;
+	    }
+	    
+	    
+	    /* At this point iter_blk must be valid, but next_blk may or may not be NULL 
+	     *  Prev = iter_blk, next = next_blk, iter_blk.next = this_blk, if(next_blk) next_blk.prev=this_blk
+	     */
+
+	    wg_set_field(db, blk,      HDB_MEM_PREV_BLK,         wg_encode_record(db, iter_blk));
+	    wg_set_field(db, blk,      HDB_MEM_NEXT_BLK,         wg_encode_record(db, next_blk));
+	    wg_set_field(db, iter_blk, HDB_MEM_NEXT_BLK,         wg_encode_record(db, blk));
+
+	    if (next_blk) {
+		wg_set_field(db, next_blk, HDB_MEM_PREV_BLK,         wg_encode_record(db, blk));
+	    }
+	}
+    }
+    
+    /* Update header to account for new block */
+    wg_set_field(db, hdr, HDB_SYS_HDR_MEM_BLK_CNT, wg_encode_int(db, blk_cnt + 1));
+
+
+    /* Do free list insertion */
+    if (wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_STATE)) == MEMORY_FREE) {
+	__insert_free_mem_blk(db, hdr, blk);
+    }
+
+    return 0;
+}
+
+uintptr_t 
+hdb_allocate_memory(hdb_db_t db,
+		    uint32_t numa_node, 
+		    uint32_t blk_span)
+{
+    void    * hdr_rec  = NULL;
+    hdb_mem_t iter_blk = NULL;
+    uintptr_t ret_addr = NULL;
+
+    hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
+
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return 0;
+    }
+    
+    /* Scan free list */
+    iter_blk = wg_decode_record(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_LIST));
+    
+    if (!iter_blk) {
+	ERROR("Could not find any free memory\n");
+	return 0;
+    }
+
+    /* We assume the system is sane and NUMA interleaving is disabled*/
+    while (iter_blk) {
+	uint32_t blk_numa = __get_mem_blk_numa(db, iter_blk);
+
+	if ((numa_node == blk_numa) || (numa_node == -1)) {
+	    break;
+	}
+
+	iter_blk = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_FREE));
+    }
+
+
+    if (blk_span == 1) {
+
+	__remove_free_mem_blk(db, hdr_rec, iter_blk);
+	wg_set_field(db, iter_blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));
+
+	return __get_mem_blk_addr(db, iter_blk);	
+    } else {
+	// allocate a contiguous range
+	int i = 0; 
+
+	while (iter_blk) {
+	    hdb_mem_t next_free_blk = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_FREE));
+	    hdb_mem_t next_blk      = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_BLK));
+	    
+	    for (i = 0; i < blk_span - 1; i++) {
+		
+		if (next_blk != next_free_blk) {
+		    iter_blk = next_blk;
+		    break;
+		}
+
+		next_free_blk = wg_decode_record(db, wg_get_field(db, next_blk, HDB_MEM_NEXT_FREE));
+		next_blk      = wg_decode_record(db, wg_get_field(db, next_blk, HDB_MEM_NEXT_BLK));
+	    }
+	    
+	    if (i == blk_span - 1) {
+		break;
+	    }
+	}
+
+	if (iter_blk == NULL) {
+	    return 0;
+	}
+
+	ret_addr = __get_mem_blk_addr(db, iter_blk);
+	    
+	/* Allocate N Blocks starting at iter_blk */
+	{
+	    
+	    for (i = 0; i < blk_span; i++) {
+		__remove_free_mem_blk(db, hdr_rec, iter_blk);
+		wg_set_field(db, iter_blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));	    
+		
+		iter_blk = wg_decode_record(db, wg_get_field(db, iter_blk, HDB_MEM_NEXT_FREE));
+	    }
+	}
+    }
+
+    return ret_addr;
+}
+
+
+void
+hdb_print_mem_free_list(hdb_db_t db)
+{
+
+    return;
+}
+
 
 static int
 __register_memory(hdb_db_t    db,
@@ -763,7 +1069,6 @@ __register_memory(hdb_db_t    db,
 		  mem_state_t state)
 {
     void    * hdr_rec  = NULL;
-    uint64_t  blk_cnt  = 0;
     hdb_mem_t blk      = NULL;
 
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_SYS_HDR, NULL);
@@ -773,14 +1078,18 @@ __register_memory(hdb_db_t    db,
 	return -1;
     }
 
+    if (blk_size != wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE))) {
+	ERROR("Memory is not the correct size (requested block size = %lu)\n", blk_size);
+	return -1;
+    }
+
     if (__get_mem_blk_by_addr(db, base_addr)) {
 	ERROR("Tried to register a memory block (%p) that was already present\n", (void *)base_addr);
 	return -1;
     }
 
-    blk_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT));
 
-    blk = wg_create_record(db, 7);
+    blk = wg_create_record(db, 11);
     wg_set_field(db, blk, HDB_TYPE_FIELD,     wg_encode_int(db, HDB_REC_MEM));
     wg_set_field(db, blk, HDB_MEM_BASE_ADDR,  wg_encode_int(db, base_addr));
     wg_set_field(db, blk, HDB_MEM_BLK_SIZE,   wg_encode_int(db, blk_size));
@@ -789,21 +1098,15 @@ __register_memory(hdb_db_t    db,
     wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
     wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
 
-    /* TODO: Add a flow link to the next physical contiguous block for contiguous allocations */
-    /* TODO: Add flow link from previous physically contiguous block for contiguous allocations */
-
-    /* Update the enclave Header information */
-    wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_CNT, wg_encode_int(db, blk_cnt + 1));
-
-    if (state == MEMORY_FREE) {
-	uint64_t free_mem = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT));
-
-	wg_set_field(db, hdr_rec, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, free_mem + 1));
+    /* Insert block into  */
+    if (__insert_mem_blk(db, hdr_rec, blk) == -1) {
+	ERROR("Could not insert memory block into blk lists\n");
+	return -1;
     }
-
 
     return 0;
 }
+
 
 int 
 hdb_register_memory(hdb_db_t    db,
@@ -814,16 +1117,19 @@ hdb_register_memory(hdb_db_t    db,
 {
     wg_int   lock_id;
     int      ret      = -1;
-    
+
     lock_id = wg_start_write(db);
     
     if (!lock_id) {
 	ERROR("Could not lock database\n");
 	return -1;
     }
+    
+    
+
 
     ret = __register_memory(db, base_addr, blk_size, numa_node, state);
-    
+
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
 	return -1;
@@ -975,7 +1281,7 @@ __get_mem_numa_node(hdb_db_t  db,
 	return HOBBES_INVALID_NUMA_ID;
     }
 
-    numa_node = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_NUMA_NODE));
+    numa_node = __get_mem_blk_numa(db, blk);
 
     return numa_node;
 }

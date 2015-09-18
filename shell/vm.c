@@ -258,6 +258,11 @@ hobbes_create_vm(char        * cfg_file,
 	return -1;
     }
 
+    /* Allocate memory */
+
+    /* Update configuration to enable hobbes features */
+
+
     DEBUG("Creating VM Enclave\n");
     return __create_vm(xml, name, host_enclave_id);
 

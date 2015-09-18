@@ -193,6 +193,20 @@ pisces_enclave_create(pet_xml_t   xml,
 	    }
 	}
 
+
+	/* Allocate anything not specified using default sizes (1 CPU, 1 memory block) */
+	if (boot_cpu == -1) {
+	    // Allocate 1 boot cpu
+	    
+	}
+
+	if (block_id == -1) {
+	    // allocate num_blocks of memory
+	    
+
+	}
+
+
 	
 	if (pisces_launch(pisces_id, boot_cpu, numa_zone, block_id, num_blocks) != 0) {
 	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);

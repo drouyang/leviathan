@@ -52,7 +52,15 @@ int hobbes_assign_memory(hcq_handle_t hcq,
 			 bool         zeroed);
 			 
 
-//int hobbes_register_cpu(
+
+uintptr_t 
+hobbes_alloc_memblock(uint32_t numa_node,
+		      uint32_t block_span);
+
+
+int
+hobbes_alloc_cpu(uint32_t numa_node);
+
 
 uint32_t  hobbes_get_numa_cnt(void);
 uint64_t  hobbes_get_free_mem(void);

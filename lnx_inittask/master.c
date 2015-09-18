@@ -480,8 +480,10 @@ populate_system_info(hdb_db_t db)
     {
 	struct pet_cpu * cpu_arr  = NULL;
 	
-	uint32_t num_cpus = 0;
-	uint32_t i        = 0;
+	uint32_t num_cpus  = 0;
+	uint32_t free_cpus = 0;
+
+	uint32_t i         = 0;
 
 	int ret = 0;
 
@@ -496,11 +498,25 @@ populate_system_info(hdb_db_t db)
 
 	    switch (cpu_arr[i].state) {
 		case PET_CPU_ONLINE:
-		case PET_CPU_OFFLINE:
-		    state = CPU_ALLOCATED;
+		    /* Comment this out for now, otherwise it will break everything
+		       int cpu_id = cpu_arr[i].cpu_id;
+
+		      pet_offline_cpu(cpu_id);
+
+		    if (pet_cpu_status(cpu_id) != PET_CPU_OFFLINE) {
+			state = CPU_ALLOCATED;
+			break;
+		    }
+		    
+		    free_cpus++;
+		    state = CPU_FREE;
+
 		    break;
+		    */
+		    break;
+		case PET_CPU_OFFLINE:
 		case PET_CPU_RSVD:
-		    state = CPU_RSVD;
+		    state = CPU_ALLOCATED;
 		    break;
 		case PET_CPU_INVALID:
 		default: 
@@ -515,6 +531,9 @@ populate_system_info(hdb_db_t db)
 		return -1;
 	    }
 	}
+
+	
+	printf("Registered %u CPUs (%u free) with Leviathan\n", num_cpus, free_cpus);
 
 	free(cpu_arr);
     }
@@ -547,7 +566,7 @@ populate_system_info(hdb_db_t db)
 		      pet_offline_block(blk_index);
 
 		    if (pet_block_status(blk_index) != PET_BLOCK_OFFLINE) {
-			state = MEMORY_RSVD;
+			state = MEMORY_ALLOCATED;
 			break;
 		    }
 		    
@@ -558,10 +577,8 @@ populate_system_info(hdb_db_t db)
 		    */
 
 		case PET_BLOCK_OFFLINE:
-		    state = MEMORY_ALLOCATED;
-		    break;
 		case PET_BLOCK_RSVD: 
-		    state = MEMORY_RSVD;
+		    state = MEMORY_ALLOCATED;
 		    break;
 		case PET_BLOCK_INVALID:
 		default: 
