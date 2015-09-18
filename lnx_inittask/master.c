@@ -537,12 +537,14 @@ populate_system_info(hdb_db_t db)
 	}
 
 	for (i = 0; i < num_blks; i++) {
-	    int         blk_index = blk_arr[i].base_addr / pet_block_size();
 	    mem_state_t state     = MEMORY_INVALID;
 
 	    switch (blk_arr[i].state) {
 		case PET_BLOCK_ONLINE:
-		    pet_offline_block(blk_index);
+		    /* Comment this out for now, otherwise it will break everything
+		       int         blk_index = blk_arr[i].base_addr / pet_block_size();
+
+		      pet_offline_block(blk_index);
 
 		    if (pet_block_status(blk_index) != PET_BLOCK_OFFLINE) {
 			state = MEMORY_RSVD;
@@ -553,6 +555,8 @@ populate_system_info(hdb_db_t db)
 		    state = MEMORY_FREE;
 
 		    break;
+		    */
+
 		case PET_BLOCK_OFFLINE:
 		    state = MEMORY_ALLOCATED;
 		    break;
