@@ -30,6 +30,7 @@ target :=    libhobbes.a
 libhobbes_objs := 	xemem.o            \
 			hobbes.o           \
 			hobbes_db.o        \
+			hobbes_sys_db.o    \
 			hobbes_cmd_queue.o \
 			hobbes_enclave.o   \
 			hobbes_app.o       \

@@ -14,6 +14,7 @@
 
 #include <hobbes.h>
 #include <hobbes_system.h>
+#include <hobbes_sys_db.h>
 
 int 
 list_memory_main(int argc, char ** argv)
@@ -70,7 +71,10 @@ list_memory_main(int argc, char ** argv)
     printf("-----------------------------------------------------------------------------\n");
     
     free(blk_arr);
-
+    {
+	extern hdb_db_t hobbes_master_db;
+	hdb_sys_print_free_blks(hobbes_master_db);
+    }
     return 0;
 }
 

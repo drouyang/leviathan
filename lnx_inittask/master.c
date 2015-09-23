@@ -19,6 +19,7 @@
 #include "master.h"
 #include "hobbes_ctrl.h"
 #include "hobbes_db.h"
+#include "hobbes_sys_db.h"
 #include "hobbes_util.h"
 
 #define PAGE_SIZE sysconf(_SC_PAGESIZE)
@@ -559,23 +560,23 @@ populate_system_info(hdb_db_t db)
 	    mem_state_t state     = MEMORY_INVALID;
 
 	    switch (blk_arr[i].state) {
-		case PET_BLOCK_ONLINE:
-		    /* Comment this out for now, otherwise it will break everything
-		       int         blk_index = blk_arr[i].base_addr / pet_block_size();
-
-		      pet_offline_block(blk_index);
-
-		    if (pet_block_status(blk_index) != PET_BLOCK_OFFLINE) {
-			state = MEMORY_ALLOCATED;
+		case PET_BLOCK_ONLINE: {
+		    /* 
+		       Comment this out for now, otherwise it will break everything
+		    int blk_index = blk_arr[i].base_addr / pet_block_size();
+		    
+		    if (pet_offline_block(blk_index) != 0) {
+		  	state = MEMORY_ALLOCATED;
 			break;
 		    }
 		    
 		    free_blks++;
 		    state = MEMORY_FREE;
-
+		    
 		    break;
 		    */
-
+		
+		}
 		case PET_BLOCK_OFFLINE:
 		case PET_BLOCK_RSVD: 
 		    state = MEMORY_ALLOCATED;

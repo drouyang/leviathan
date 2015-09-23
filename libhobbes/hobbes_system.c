@@ -14,6 +14,7 @@
 #include "hobbes_util.h"
 #include "hobbes_memory.h"
 #include "hobbes_cmd_queue.h"
+#include "hobbes_sys_db.h"
 #include "hobbes_db.h"
 
 
