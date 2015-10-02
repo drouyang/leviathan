@@ -667,6 +667,12 @@ __remove_free_mem_blk(hdb_db_t   db,
     __wg_set_record(db, blk, HDB_MEM_NEXT_FREE, NULL);
     __wg_set_record(db, blk, HDB_MEM_PREV_FREE, NULL);
     
+   {
+	uint64_t free_mem = wg_decode_int(db, wg_get_field(db, hdr, HDB_SYS_HDR_MEM_FREE_BLK_CNT));
+	wg_set_field(db, hdr, HDB_SYS_HDR_MEM_FREE_BLK_CNT, wg_encode_int(db, free_mem - 1));
+	
+    }
+
     return 0;
 }
 

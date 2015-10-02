@@ -19,6 +19,9 @@
 #define HOBBES_INVALID_ADDR      (-1)
 #define HOBBES_INVALID_NUMA_ID   (-1)
 
+#define HOBBES_ANY_NUMA_ID       (-1)
+#define HOBBES_ANY_CPU_ID        (-1)
+
 typedef enum {
     MEMORY_INVALID,
     MEMORY_RSVD,
@@ -45,13 +48,12 @@ struct hobbes_system_info {
 };
 
 
-int hobbes_assign_memory(hcq_handle_t hcq,
-			 uintptr_t    base_addr, 
-			 uint64_t     size,
-			 bool         allocated,
-			 bool         zeroed);
-			 
 
+
+
+uintptr_t 
+hobbes_alloc_memory(uint32_t  numa_node,
+		    uintptr_t size_in_MB);
 
 uintptr_t 
 hobbes_alloc_memblock(uint32_t numa_node,
@@ -63,9 +65,9 @@ hobbes_alloc_cpu(uint32_t numa_node);
 
 
 uint32_t  hobbes_get_numa_cnt(void);
-uint64_t  hobbes_get_free_mem(void);
-uint64_t  hobbes_get_mem_size(void);
-uint64_t  hobbes_get_block_size(void);
+uint64_t  hobbes_get_free_mem(void);   /* Returns size in Bytes */
+uint64_t  hobbes_get_mem_size(void);   /* Returns size in Bytes */
+uint64_t  hobbes_get_block_size(void); /* Returns size in Bytes */
 
 struct hobbes_memory_info {
     uintptr_t   base_addr;
@@ -92,5 +94,16 @@ hobbes_get_cpu_list(uint32_t * num_cpus);
 
 const char * mem_state_to_str(mem_state_t state);
 const char * cpu_state_to_str(cpu_state_t state);
+
+
+
+/* Function to be moved out of here */
+int hobbes_assign_memory(hcq_handle_t hcq,
+			 uintptr_t    base_addr, 
+			 uint64_t     size,
+			 bool         allocated,
+			 bool         zeroed);
+
+
 
 #endif
