@@ -11,7 +11,6 @@ int pisces_file_load(char * filename, void * addr);
 
 
 int pisces_init();
-int pisces_get_fd();
 
 
 #endif

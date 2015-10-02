@@ -293,34 +293,16 @@ __shutdown(int      pisces_fd,
 
 
 
-
-
 int 
-pisces_cmd_init( void )
-{
-    pisces_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
-    
-    register_pisces_cmd(PISCES_CMD_ADD_MEM,            __add_memory );
-    register_pisces_cmd(PISCES_CMD_ADD_CPU,            __add_cpu    );
-    register_pisces_cmd(PISCES_CMD_REMOVE_CPU,         __remove_cpu );
-    register_pisces_cmd(PISCES_CMD_LAUNCH_JOB,         __launch_job );
-    register_pisces_cmd(PISCES_CMD_LOAD_FILE,          __load_file  );
-    register_pisces_cmd(PISCES_CMD_SHUTDOWN,           __shutdown   );
-
-
-    return 0;
-}
-
-
-int 
-pisces_handle_cmd(int pisces_fd)
+__handle_cmd(int    fd, 
+	     void * priv_data)
 {
     struct pisces_cmd cmd;
     pisces_cmd_fn     handler = NULL;
 
     int ret = 0;
  
-    ret = read(pisces_fd, &cmd, sizeof(struct pisces_cmd));
+    ret = read(fd, &cmd, sizeof(struct pisces_cmd));
 	    
     if (ret != sizeof(struct pisces_cmd)) {
 	printf("Error reading pisces CMD (ret=%d)\n", ret);
@@ -331,13 +313,39 @@ pisces_handle_cmd(int pisces_fd)
 
     if (handler == NULL) {
 	ERROR("Received invalid pisces Command (%lu)\n", cmd.cmd);
-	pisces_send_resp(pisces_fd, -1);
+	pisces_send_resp(fd, -1);
 	return 0;
     }
     
-    return handler(pisces_fd, cmd.cmd);
+    return handler(fd, cmd.cmd);
 
 }
+
+
+
+int 
+pisces_cmd_init(int cmd_fd)
+{
+    pisces_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
+    
+    if (pisces_cmd_handlers == NULL) {
+	ERROR("Could not allocate Pisces Command hashtable\n");
+	return -1;
+    }	   
+
+    register_pisces_cmd(PISCES_CMD_ADD_MEM,            __add_memory );
+    register_pisces_cmd(PISCES_CMD_ADD_CPU,            __add_cpu    );
+    register_pisces_cmd(PISCES_CMD_REMOVE_CPU,         __remove_cpu );
+    register_pisces_cmd(PISCES_CMD_LAUNCH_JOB,         __launch_job );
+    register_pisces_cmd(PISCES_CMD_LOAD_FILE,          __load_file  );
+    register_pisces_cmd(PISCES_CMD_SHUTDOWN,           __shutdown   );
+
+    add_fd_handler(cmd_fd, __handle_cmd, NULL);
+
+    return 0;
+}
+
+
 
 int 
 register_pisces_cmd(uint64_t        cmd, 

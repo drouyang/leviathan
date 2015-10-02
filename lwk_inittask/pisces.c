@@ -38,6 +38,9 @@ struct pisces_user_file_info {
 
 static int pisces_fd = 0;
 
+
+
+
 int 
 pisces_init( void )
 {
@@ -48,17 +51,12 @@ pisces_init( void )
 	return -1;
     }
     
-    pisces_cmd_init();
-    
+    pisces_cmd_init(pisces_fd);
+
     return 0;
 }
 
 
-int 
-pisces_get_fd( void )
-{
-    return pisces_fd;
-}
 
 
 
