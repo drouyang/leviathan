@@ -71,29 +71,48 @@ hobbes_get_free_mem(void)
 
 
 uintptr_t 
-hobbes_alloc_memory(uint32_t  numa_node, 
-		    uintptr_t size_in_MB)
+hobbes_alloc_mem(uint32_t  numa_node, 
+		 uintptr_t size_in_MB)
 {
     uint32_t block_span = ((size_in_MB / (hobbes_get_block_size() / (1024 * 1024))) +
 			   (size_in_MB % (hobbes_get_block_size() / (1024 * 1024)) != 0));
 
-    return hobbes_alloc_memblock(numa_node, block_span);
+    return hobbes_alloc_mem_block(numa_node, block_span);
 }
 
 
 uintptr_t 
-hobbes_alloc_memblock(uint32_t numa_node,
-		      uint32_t block_span)
+hobbes_alloc_mem_block(uint32_t numa_node,
+		       uint32_t block_span)
 {
     uintptr_t block_paddr = 0;
 
     printf("Allocating %d blocks of memory\n", block_span);
 
-    block_paddr = hdb_allocate_memory(hobbes_master_db, numa_node, block_span);
+    block_paddr = hdb_alloc_block(hobbes_master_db, numa_node, block_span);
 
     return block_paddr;
 }
 
+
+int 
+hobbes_alloc_mem_blocks(uint32_t    numa_node,
+			uint32_t    num_blocks,
+			uint32_t    block_span,
+			uintptr_t * block_array)
+{
+    return hdb_alloc_blocks(hobbes_master_db, numa_node, num_blocks, block_span, block_array);
+}
+
+int 
+hobbes_free_mem(uintptr_t addr,
+		uintptr_t size_in_MB)
+{
+    uint32_t block_span = ((size_in_MB / (hobbes_get_block_size() / (1024 * 1024))) +
+			   (size_in_MB % (hobbes_get_block_size() / (1024 * 1024)) != 0));
+
+    return hdb_free_block(hobbes_master_db, addr, block_span);
+}
 
 
 

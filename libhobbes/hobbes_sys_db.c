@@ -826,10 +826,61 @@ __insert_mem_blk(hdb_db_t   db,
     return 0;
 }
 
+static int
+__free_block(hdb_db_t  db,
+	     uintptr_t base_addr,
+	     uint32_t  block_span)
+{
+    void * hdr = NULL;
+    int    i   = 0;
+
+    hdr = __get_sys_hdr(db);
+
+    if (!hdr) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+
+    for (i = 0; i < block_span; i++) {
+	hdb_mem_t blk = __get_mem_blk_by_addr(db, base_addr);
+	
+	wg_set_field(db, blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_FREE));
+	__insert_free_mem_blk(db, hdr, blk);
+    }
+    
+    return 0;
+}
+
+
+int 
+hdb_free_block(hdb_db_t  db,
+	       uintptr_t base_addr,
+	       uint32_t  block_span)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __free_block(db, base_addr, block_span);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
 static uintptr_t 
-__allocate_memory(hdb_db_t db,
-		  uint32_t numa_node, 
-		  uint32_t blk_span)
+__alloc_block(hdb_db_t db,
+	      uint32_t numa_node, 
+	      uint32_t blk_span)
 {
     void    * hdr_rec  = NULL;
     hdb_mem_t iter_blk = NULL;
@@ -922,9 +973,9 @@ __allocate_memory(hdb_db_t db,
 
 
 uintptr_t 
-hdb_allocate_memory(hdb_db_t db,
-		    uint32_t numa_node, 
-		    uint32_t blk_span)
+hdb_alloc_block(hdb_db_t db,
+		uint32_t numa_node, 
+		uint32_t blk_span)
 {
     wg_int    lock_id;
     uintptr_t ret = 0;
@@ -936,7 +987,7 @@ hdb_allocate_memory(hdb_db_t db,
 	return -1;
     }
 
-    ret = __allocate_memory(db, numa_node, blk_span);
+    ret = __alloc_block(db, numa_node, blk_span);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -947,12 +998,135 @@ hdb_allocate_memory(hdb_db_t db,
 }
 
 
-void
-hdb_print_mem_free_list(hdb_db_t db)
+static int
+__alloc_blocks(hdb_db_t    db,
+	       uint32_t    numa_node, 
+	       uint32_t    num_blocks,
+	       uint32_t    block_span,
+	       uintptr_t * block_array)
 {
+    int i   = 0;
+    int ret = 0;
 
-    return;
+    memset(block_array, 0, sizeof(uintptr_t) * num_blocks);
+
+    for (i = 0; i < num_blocks; i++) {
+	block_array[i] = __alloc_block(db, numa_node, block_span);
+
+	if (block_array[i] == 0) {
+	    ret = -1;
+	    break;
+	}
+    }
+    
+    if (ret == -1) {
+
+	for (i = 0; i < num_blocks; i++) {
+	    
+	    if (block_array[i] != 0) {
+		__free_block(db, block_array[i], block_span);
+	    }
+	}
+    }
+    
+    return ret;
 }
+
+
+int
+hdb_alloc_blocks(hdb_db_t    db,
+		 uint32_t    numa_node,
+		 uint32_t    num_blocks, 
+		 uint32_t    block_span, 
+		 uintptr_t * block_array)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __alloc_blocks(db, numa_node, num_blocks, block_span, block_array);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
+
+
+static int
+__alloc_block_addr(hdb_db_t  db,
+		   uint32_t  numa_node,
+		   uintptr_t base_addr)
+{
+    void      * hdr_rec = NULL;
+    hdb_mem_t   blk     = NULL;
+    mem_state_t state   = MEMORY_INVALID;
+
+    hdr_rec = __get_sys_hdr(db);
+
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+
+    blk = __get_mem_blk_by_addr(db, base_addr);
+
+    if (!blk) {
+	ERROR("Could not get memory block for address (%p)\n", (void *)base_addr);
+	return -1;
+    }
+
+    state = wg_decode_int(db, wg_get_field(db, blk, HDB_MEM_STATE));
+
+    if (state != MEMORY_FREE) {
+	ERROR("Memory block (addr=%p) is not available\n", (void *)base_addr);
+	return -1;
+    }
+
+    if (__remove_free_mem_blk(db, hdr_rec, blk) != 0) {
+	ERROR("Could not remove block (addr=%p) from free list\n", (void *)base_addr);
+	return -1;
+    }
+
+    wg_set_field(db, blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));
+
+    return 0;
+}
+
+int
+hdb_alloc_block_addr(hdb_db_t  db,
+		     uint32_t  numa_node,
+		     uintptr_t base_addr)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __alloc_block_addr(db, numa_node, base_addr);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+
+    return ret;
+}
+
 
 
 static int

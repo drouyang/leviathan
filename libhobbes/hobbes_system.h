@@ -52,12 +52,24 @@ struct hobbes_system_info {
 
 
 uintptr_t 
-hobbes_alloc_memory(uint32_t  numa_node,
-		    uintptr_t size_in_MB);
+hobbes_alloc_mem(uint32_t  numa_node,
+		 uintptr_t size_in_MB);
 
 uintptr_t 
-hobbes_alloc_memblock(uint32_t numa_node,
-		      uint32_t block_span);
+hobbes_alloc_mem_block(uint32_t numa_node,
+		       uint32_t block_span);
+
+int
+hobbes_alloc_mem_blocks(uint32_t    numa_node,
+			uint32_t    num_blocks,
+			uint32_t    block_span,
+			uintptr_t * block_array);
+
+
+int
+hobbes_free_mem(uintptr_t addr, 
+		uintptr_t size_in_MB);
+
 
 
 int

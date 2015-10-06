@@ -73,11 +73,31 @@ hdb_register_memory(hdb_db_t    db,
 		    uint32_t    numa_node,
 		    mem_state_t state);
 
-uintptr_t 
-hdb_allocate_memory(hdb_db_t db,
-		    uint32_t numa_node,
-		    uint32_t block_span);
 
+
+
+int
+hdb_alloc_blocks(hdb_db_t    db,
+		 uint32_t    numa_node,
+		 uint32_t    num_blocks, 
+		 uint32_t    block_span,
+		 uintptr_t * block_array);
+
+
+uintptr_t 
+hdb_alloc_block(hdb_db_t db,
+		uint32_t numa_node,
+		uint32_t block_span);
+
+int
+hdb_alloc_block_addr(hdb_db_t  db, 
+		     uint32_t  numa_node,
+		     uintptr_t base_addr);
+
+int 
+hdb_free_block(hdb_db_t  db,
+	       uintptr_t base_addr, 
+	       uint32_t  block_span);
 
 uint32_t
 hdb_get_mem_numa_node(hdb_db_t  db,
