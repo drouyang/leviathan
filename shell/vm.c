@@ -103,6 +103,7 @@ create_vm_main(int argc, char ** argv)
 
 static int
 __allocate_vm_memory(hobbes_id_t enclave_id, 
+		     hobbes_id_t host_enclave_id,
 		     pet_xml_t   xml)
 {
     uintptr_t   block_size     = 0;
@@ -261,6 +262,18 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 	}	
     }
 
+    /* Assign memory to host enclave (if necessary) */
+    if (hobbes_get_enclave_type(host_enclave_id) == PISCES_ENCLAVE) {
+	int i = 0;
+	
+	for (i = 0; i < region_cnt; i++) {
+	    if (hobbes_assign_memory(host_enclave_id, regions[i], block_size, true, false) != 0) {
+		ERROR("Error: Could not assign VM memory to host enclave (%d)\n", host_enclave_id);
+		goto err1;
+	    }
+	}
+    }
+
     free(numa_arr);
     free(regions);
 
@@ -356,10 +369,13 @@ __create_vm(pet_xml_t   xml,
 	    goto err1;
 	}
 
-	if (__allocate_vm_memory(enclave_id, mem_tree) == -1) {
+	if (__allocate_vm_memory(enclave_id, host_enclave_id, mem_tree) == -1) {
 	    ERROR("Could not allocate memory for VM\n");
 	    goto err1;
 	}
+
+
+	
     }
 
 
