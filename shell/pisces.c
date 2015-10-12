@@ -46,48 +46,6 @@ add_cpu_to_pisces(int pisces_id,
     return ret;
 }
 
-static int
-add_mem_node_to_pisces(int pisces_id, 
-		       int numa_node)
-{
-    int ret = -1;
-    
-    ret = pisces_add_mem_node(pisces_id, numa_node);
-
-    return ret;
-}
-
-static int 
-add_mem_block_to_pisces(int pisces_id, 
-			int block_id)
-{
-    int ret = -1;
-
-    ret = pisces_add_mem_explicit(pisces_id, block_id);
-
-    return ret;
-}
-
-static int 
-add_mem_blocks_to_pisces(int pisces_id, 
-			 int numa_node, 
-			 int num_blocks, 
-			 int contig)
-{
-    int ret = -1;
-
-    if (contig == 0) {
-	ret = pisces_add_mem(pisces_id, num_blocks, numa_node);
-    } else {
-	ERROR("Contiguous block allocations not yet supported\n");
-	return -1;
-    }
-
-
-    return ret;
-}
-
-
 
 
 	   
@@ -159,8 +117,9 @@ pisces_enclave_create(pet_xml_t   xml,
     {
 	int boot_cpu   = -1;
 	int numa_zone  = -1;
-	int block_id   = -1;
-	int num_blocks =  1;
+	
+	uintptr_t mem_size  = hobbes_get_block_size();
+	uintptr_t base_addr = -1;
 
 	pet_xml_t  boot_env_tree = pet_xml_get_subtree(xml, "boot_env");
 
@@ -170,25 +129,17 @@ pisces_enclave_create(pet_xml_t   xml,
 	    char      * cpu      = pet_xml_get_val(boot_env_tree,     "cpu");
 	    char      * mem_blk  = pet_xml_get_val(boot_env_tree,     "memory");
 
-	   numa_zone = smart_atoi(numa_zone, numa);
-	   boot_cpu  = smart_atoi(boot_cpu,  cpu);
-	   block_id  = smart_atoi(block_id,  mem_blk);
+	   numa_zone = smart_atoi   (numa_zone, numa);
+	   boot_cpu  = smart_atoi   (boot_cpu,  cpu);
+	   base_addr = smart_atou64 (base_addr, mem_blk);
 
 	    if (mem_tree) {
-		char * mem_size = pet_xml_get_val(mem_tree, "size");
+		char * size_str = pet_xml_get_val(mem_tree, "size");
 
-		if (mem_size) {
-		    int dflt_size_in_MB = pet_block_size() / (1024 * 1024);
-		    int size_in_MB      = 0;
+		mem_size = smart_atou64(0, size_str) * (1024 * 1024);
 
-		    size_in_MB = smart_atoi(dflt_size_in_MB, mem_size);
-		    
-		    if (size_in_MB % dflt_size_in_MB) {
-			WARN("Memory size is not a multiple of the HW block size [%lu].\n", pet_block_size());
-			WARN("Memory size will be truncated.\n");
-		    }
-
-		    num_blocks = size_in_MB / dflt_size_in_MB;
+		if (mem_size == 0) {
+		    mem_size = hobbes_get_block_size();
 		}
 	    }
 	}
@@ -200,24 +151,35 @@ pisces_enclave_create(pet_xml_t   xml,
 	    
 	}
 
-	if (block_id == -1) {
-	    // allocate num_blocks of memory
-	    
+	if (base_addr == -1) {
+	    base_addr = hobbes_alloc_mem(enclave_id, numa_zone, mem_size);
 
+	    if (base_addr == 0) {
+		ERROR("Could not allocate memory for Pisces Enclave\n");
+		return -1;
+	    }
+	} else {
+	    int ret = hobbes_alloc_mem_addr(enclave_id, base_addr, mem_size);
+	    
+	    if (ret == -1) {
+		ERROR("Could not allocate specified memory (%p) for Pisces Enclave\n", (void *)base_addr);
+		return -1;
+	    }
 	}
 
-
+	printf("Launching Enclave\n");
 	
-	if (pisces_launch(pisces_id, boot_cpu, numa_zone, block_id, num_blocks) != 0) {
+	if (pisces_launch(pisces_id, numa_zone, boot_cpu, base_addr, mem_size, 1) != 0) {
 	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);
 	    ERROR("ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
-	    
 
 	    hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_CRASHED);
 
 	    return -1;
 	}
 
+
+	printf("Launched\n");
     }
 
     /* Wait for 2 seconds for enclave userspace to initialize
@@ -242,77 +204,76 @@ pisces_enclave_create(pet_xml_t   xml,
     {
 	pet_xml_t memory_tree = pet_xml_get_subtree(xml, "memory");
 
-	if (memory_tree) {
-	    pet_xml_t block_tree  = pet_xml_get_subtree(memory_tree, "block");
-	    pet_xml_t blocks_tree = pet_xml_get_subtree(memory_tree, "blocks");
-	    pet_xml_t node_tree   = pet_xml_get_subtree(memory_tree, "node");
+	while (memory_tree) {
+	    uintptr_t size       =  0;
+	    int       numa_node  = -1;
+	    int       block_size =  hobbes_get_block_size();
+	    uintptr_t base_addr  = -1;
+	    
+	    size       = smart_atou64(size,      pet_xml_get_val(memory_tree, "size"))       * (1024 * 1024); /* Convert MB to bytes */
+	    block_size = smart_atoi(block_size,  pet_xml_get_val(memory_tree, "block_size")) * (1024 * 1024); /* Convert MB to bytes */
+	    numa_node  = smart_atoi(numa_node,   pet_xml_get_val(memory_tree, "numa"));
+	    base_addr  = smart_atou64(base_addr, pet_xml_get_val(memory_tree, "base_addr"));
+	    
+	    if ((size % block_size) != 0) {
+		WARN("Size does not match system block size. Rounding up...\n");
+		size += block_size - (size % block_size);
+	    }
 
-	    while (block_tree) {
-		int block_id = -1;
+	    if (size > 0) {
 		
-		block_id = smart_atoi(block_id, pet_xml_tag_str(block_tree));
+		if (base_addr != -1) {
 
-		if (block_id != -1) {
-		    if (add_mem_block_to_pisces(pisces_id, block_id) != 0) {
-			WARN("Could not add memory block <%d> to enclave (%d), continuing...\n", 
-			     block_id, pisces_id);
+		    if (hobbes_alloc_mem_addr(enclave_id, base_addr, size) != 0) {
+			WARN("Could not allocate memory region at (%p) to enclave (%d), continuing...\n", 
+			     (void *)base_addr, enclave_id);
+			goto mem_out;
 		    }
-		} else {
-		    WARN("Invalid Block ID (%s) in memory configuration for enclave (%d), continuing...\n",
-			 pet_xml_tag_str(block_tree), pisces_id);
-		}
 		    
-			   
-
-		block_tree = pet_xml_get_next(block_tree);
-	    }
-	    
-	    while (node_tree) {
-		int numa_node = -1;
-		
-		numa_node = smart_atoi(numa_node, pet_xml_tag_str(node_tree));
-
-		if (numa_node != -1) {
-		    if (add_mem_node_to_pisces(pisces_id, numa_node) != 0) {
-			WARN("Could not add NUMA node <%d> to enclave (%d), continuing...\n", 
-			     numa_node, pisces_id);
-		    } 
-		} else {
-		    WARN("Invalid NUMA node (%s) in memory configuration for enclave (%d), continuing...\n",
-			 pet_xml_tag_str(node_tree), pisces_id);
-		}
-
-		node_tree = pet_xml_get_next(node_tree);
-	    }
-
-	    
-	    while (blocks_tree) {
-		int numa_node  = -1;
-		int num_blocks =  0;
-		int contig     =  0;
-
-		numa_node  = smart_atoi(numa_node,  pet_xml_get_val(blocks_tree, "numa"));
-		contig     = smart_atoi(contig,     pet_xml_get_val(blocks_tree, "contig"));
-		num_blocks = smart_atoi(num_blocks, pet_xml_tag_str(blocks_tree));		
-		
-		if (num_blocks > 0) {
-		    if (add_mem_blocks_to_pisces(pisces_id, numa_node, num_blocks, contig) != 0) {
-			WARN("Could not add memory blocks (%d) to enclave (%d), continuing...\n", 
-			     num_blocks, pisces_id);
+		    if (hobbes_assign_memory(enclave_id, base_addr, size, false, true) != 0) {
+			ERROR("Error: Could not assign memory to enclave (%d)\n", enclave_id);
+			hobbes_free_mem(base_addr, size);
+			goto mem_out;
 		    }
+
 		} else {
-		    WARN("Invalid number of blocks (%s) in enclave configuration. Ignoring...\n", 
-			 pet_xml_tag_str(blocks_tree));
+		    uint32_t    num_regions = size / block_size;
+		    uintptr_t * regions     = NULL;
+
+		    int i = 0;
+
+		    regions = calloc(sizeof(uintptr_t), num_regions);
+		    
+		    if (!regions) {
+			ERROR("Could not allocate region array\n");
+			goto mem_out;
+		    }
+
+		    if (hobbes_alloc_mem_regions(enclave_id, numa_node, num_regions, block_size, regions) != 0) {
+			ERROR("Could not allocate %d memory regions for enclave (%d)\n", num_regions, enclave_id);
+			goto mem_out;
+		    }
+
+		    for (i = 0; i < num_regions; i++) {
+			if (hobbes_assign_memory(enclave_id, regions[i], block_size, false, true) != 0) {
+			    ERROR("Error: Could not assign memory to enclave (%d)\n", enclave_id);
+			    hobbes_free_mem(regions[i], block_size);
+			    goto mem_out;
+			}
+		    }
 		}
 		
-
-		blocks_tree = pet_xml_get_next(blocks_tree);
+	    } else {
+		WARN("Invalid size of memory region (%s). Ignoring...\n", 
+		     pet_xml_tag_str(memory_tree));
 	    }
-
-
+	    
+	mem_out:
+	    memory_tree = pet_xml_get_next(memory_tree);
+	
 	}
     }
-
+    
     /* Dynamically add additional CPUs (if requested) */
     {
 	pet_xml_t cpus_tree = pet_xml_get_subtree(xml, "cpus");
@@ -372,7 +333,6 @@ pisces_enclave_create(pet_xml_t   xml,
     }
 
 
-
     return 0;
 }
 
@@ -384,10 +344,12 @@ pisces_enclave_destroy(hobbes_id_t enclave_id)
     char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);
     int    dev_id = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
 
-    if (pisces_teardown(dev_id) != 0) {
+    if (pisces_teardown(dev_id, 0) != 0) {
 	ERROR("Could not teardown pisces enclave (%s)\n", name);
 	return -1;
     }
+
+    hobbes_free_enclave_mem(enclave_id);
 
     if (hdb_delete_enclave(hobbes_master_db, enclave_id) != 0) {
 	ERROR("Could not delete enclave from database\n");

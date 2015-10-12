@@ -563,6 +563,7 @@ populate_system_info(hdb_db_t db)
 		case PET_BLOCK_ONLINE: {
 		    /* 
 		       Comment this out for now, otherwise it will break everything
+		    */
 		    int blk_index = blk_arr[i].base_addr / pet_block_size();
 		    
 		    if (pet_offline_block(blk_index) != 0) {
@@ -574,7 +575,7 @@ populate_system_info(hdb_db_t db)
 		    state = MEMORY_FREE;
 		    
 		    break;
-		    */
+		
 		
 		}
 		case PET_BLOCK_OFFLINE:

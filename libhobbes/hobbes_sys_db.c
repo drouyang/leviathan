@@ -621,6 +621,35 @@ __get_mem_blk_by_addr(hdb_db_t  db,
     return blk;
 }
 
+
+static hdb_mem_t
+__get_mem_blk_by_enclave_id(hdb_db_t    db,
+			    hobbes_id_t enclave_id)
+{
+    hdb_mem_t      blk   = NULL;
+    wg_query     * query = NULL;
+    wg_query_arg   arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_MEM);
+
+    arglist[1].column = HDB_MEM_ENCLAVE_ID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, enclave_id);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+    
+    blk   = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return blk;
+}
+
+
 static uintptr_t
 __get_mem_blk_addr(hdb_db_t  db,
 		   hdb_mem_t blk)
@@ -826,13 +855,12 @@ __insert_mem_blk(hdb_db_t   db,
     return 0;
 }
 
+
 static int
 __free_block(hdb_db_t  db,
-	     uintptr_t base_addr,
-	     uint32_t  block_span)
+	     hdb_mem_t blk)
 {
     void * hdr = NULL;
-    int    i   = 0;
 
     hdr = __get_sys_hdr(db);
 
@@ -841,11 +869,34 @@ __free_block(hdb_db_t  db,
 	return -1;
     }
 
+    wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, MEMORY_FREE));
+
+    __insert_free_mem_blk(db, hdr, blk);
+
+    return 0;
+}
+
+
+static int
+__free_span(hdb_db_t  db,
+	    uintptr_t base_addr,
+	    uint32_t  block_span)
+{
+    hdb_mem_t blk = __get_mem_blk_by_addr(db, base_addr);
+    int i = 0;
+
+    if (blk == NULL) {
+	ERROR("Tried to free and invalid block at (%p)\n", (void *)base_addr);
+	return -1;
+    }
+
     for (i = 0; i < block_span; i++) {
-	hdb_mem_t blk = __get_mem_blk_by_addr(db, base_addr);
-	
-	wg_set_field(db, blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_FREE));
-	__insert_free_mem_blk(db, hdr, blk);
+
+	__free_block(db, blk);
+
+	blk = __wg_get_record(db, blk, HDB_MEM_NEXT_BLK);
     }
     
     return 0;
@@ -867,7 +918,7 @@ hdb_free_block(hdb_db_t  db,
 	return -1;
     }
 
-    ret = __free_block(db, base_addr, block_span);
+    ret = __free_span(db, base_addr, block_span);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -877,10 +928,76 @@ hdb_free_block(hdb_db_t  db,
     return ret;
 }
 
+static int
+__free_enclave_blocks(hdb_db_t    db,
+		      hobbes_id_t enclave_id)
+{
+    hdb_mem_t blk = NULL;
+
+    while ((blk = __get_mem_blk_by_enclave_id(db, enclave_id)) != NULL) {
+	__free_block(db, blk);
+    }
+
+    return 0;
+}
+
+
+int
+hdb_free_enclave_blocks(hdb_db_t    db,
+			hobbes_id_t enclave_id)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __free_enclave_blocks(db, enclave_id);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
+static int
+__alloc_block(hdb_db_t    db,
+	      hdb_mem_t   blk,
+	      hobbes_id_t enclave_id)
+{
+    void    * hdr_rec  = NULL;    
+
+    hdr_rec = __get_sys_hdr(db);
+
+    if (!hdr_rec) {
+	ERROR("Malformed Database. Missing System Info Header\n");
+	return -1;
+    }
+
+    if (blk == NULL) {
+	ERROR("Tried to allocate and invalid block\n");
+	return -1;
+    }
+
+    __remove_free_mem_blk(db, hdr_rec, blk);
+    wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, MEMORY_ALLOCATED));
+    wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, enclave_id));
+
+    return 0;
+}
+
+
 static uintptr_t 
-__alloc_block(hdb_db_t db,
-	      uint32_t numa_node, 
-	      uint32_t blk_span)
+__alloc_span(hdb_db_t    db,
+	     hobbes_id_t enclave_id,
+	     int         numa_node, 
+	     uint32_t    blk_span)
 {
     void    * hdr_rec  = NULL;
     hdb_mem_t iter_blk = NULL;
@@ -890,7 +1007,7 @@ __alloc_block(hdb_db_t db,
 
     if (!hdr_rec) {
 	ERROR("Malformed Database. Missing System Info Header\n");
-	return 0;
+	return -1;
     }
     
     /* Scan free list */
@@ -898,7 +1015,7 @@ __alloc_block(hdb_db_t db,
     
     if (!iter_blk) {
 	ERROR("Could not find any free memory\n");
-	return 0;
+	return -1;
     }
 
     /* We assume the system is sane and NUMA interleaving is disabled*/
@@ -913,10 +1030,13 @@ __alloc_block(hdb_db_t db,
     }
 
 
-    if (blk_span == 1) {
+    if (iter_blk == NULL) {
+	/* Couldn't find anything */
+	return -1;
+    }
 
-	__remove_free_mem_blk(db, hdr_rec, iter_blk);
-	wg_set_field(db, iter_blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));
+    if (blk_span == 1) {
+	__alloc_block(db, iter_blk, enclave_id);
 
 	return __get_mem_blk_addr(db, iter_blk);	
     } else {
@@ -937,7 +1057,7 @@ __alloc_block(hdb_db_t db,
 		if ((numa_node != -1) &&
 		    (numa_node != __get_mem_blk_numa(db, next_blk))) {
 		    /* Error because NUMA should not be interleaved */
-		    return 0;
+		    return -1;
 		}
 		    
 
@@ -951,19 +1071,21 @@ __alloc_block(hdb_db_t db,
 	}
 
 	if (iter_blk == NULL) {
-	    return 0;
+	    return -1;
 	}
 
 	ret_addr = __get_mem_blk_addr(db, iter_blk);
 	    
+	printf("allocating span starting at %p\n", (void *)ret_addr);
 	/* Allocate N Blocks starting at iter_blk */
 	{
 	    
 	    for (i = 0; i < blk_span; i++) {
-		__remove_free_mem_blk(db, hdr_rec, iter_blk);
-		wg_set_field(db, iter_blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));	    
 		
-		iter_blk = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_FREE);
+		printf("Allocating block %d of span\n", i);
+		__alloc_block(db, iter_blk, enclave_id);
+		
+		iter_blk = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_BLK);
 	    }
 	}
     }
@@ -973,9 +1095,10 @@ __alloc_block(hdb_db_t db,
 
 
 uintptr_t 
-hdb_alloc_block(hdb_db_t db,
-		uint32_t numa_node, 
-		uint32_t blk_span)
+hdb_alloc_block(hdb_db_t    db,
+		hobbes_id_t enclave_id,
+		int         numa_node, 
+		uint32_t    blk_span)
 {
     wg_int    lock_id;
     uintptr_t ret = 0;
@@ -987,7 +1110,7 @@ hdb_alloc_block(hdb_db_t db,
 	return -1;
     }
 
-    ret = __alloc_block(db, numa_node, blk_span);
+    ret = __alloc_span(db, enclave_id, numa_node, blk_span);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1000,7 +1123,8 @@ hdb_alloc_block(hdb_db_t db,
 
 static int
 __alloc_blocks(hdb_db_t    db,
-	       uint32_t    numa_node, 
+	       hobbes_id_t enclave_id,
+	       int         numa_node, 
 	       uint32_t    num_blocks,
 	       uint32_t    block_span,
 	       uintptr_t * block_array)
@@ -1011,9 +1135,9 @@ __alloc_blocks(hdb_db_t    db,
     memset(block_array, 0, sizeof(uintptr_t) * num_blocks);
 
     for (i = 0; i < num_blocks; i++) {
-	block_array[i] = __alloc_block(db, numa_node, block_span);
+	block_array[i] = __alloc_span(db, enclave_id, numa_node, block_span);
 
-	if (block_array[i] == 0) {
+	if (block_array[i] == -1) {
 	    ret = -1;
 	    break;
 	}
@@ -1023,8 +1147,8 @@ __alloc_blocks(hdb_db_t    db,
 
 	for (i = 0; i < num_blocks; i++) {
 	    
-	    if (block_array[i] != 0) {
-		__free_block(db, block_array[i], block_span);
+	    if ((block_array[i] != 0) && (block_array[i] != -1)) {
+		__free_span(db, block_array[i], block_span);
 	    }
 	}
     }
@@ -1035,7 +1159,8 @@ __alloc_blocks(hdb_db_t    db,
 
 int
 hdb_alloc_blocks(hdb_db_t    db,
-		 uint32_t    numa_node,
+		 hobbes_id_t enclave_id,
+		 int         numa_node,
 		 uint32_t    num_blocks, 
 		 uint32_t    block_span, 
 		 uintptr_t * block_array)
@@ -1050,7 +1175,7 @@ hdb_alloc_blocks(hdb_db_t    db,
 	return -1;
     }
 
-    ret = __alloc_blocks(db, numa_node, num_blocks, block_span, block_array);
+    ret = __alloc_blocks(db, enclave_id, numa_node, num_blocks, block_span, block_array);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1062,10 +1187,11 @@ hdb_alloc_blocks(hdb_db_t    db,
 
 
 
+
 static int
-__alloc_block_addr(hdb_db_t  db,
-		   uint32_t  numa_node,
-		   uintptr_t base_addr)
+__alloc_block_addr(hdb_db_t    db,
+		   hobbes_id_t enclave_id,
+		   uintptr_t   base_addr)
 {
     void      * hdr_rec = NULL;
     hdb_mem_t   blk     = NULL;
@@ -1092,20 +1218,43 @@ __alloc_block_addr(hdb_db_t  db,
 	return -1;
     }
 
-    if (__remove_free_mem_blk(db, hdr_rec, blk) != 0) {
-	ERROR("Could not remove block (addr=%p) from free list\n", (void *)base_addr);
-	return -1;
-    }
-
-    wg_set_field(db, blk, HDB_MEM_STATE, wg_encode_int(db, MEMORY_ALLOCATED));
+    __alloc_block(db, blk, enclave_id);
 
     return 0;
 }
 
+
+
+
+
+static int
+__alloc_blocks_addr(hdb_db_t    db,
+		    hobbes_id_t enclave_id,
+		    uint32_t    block_span,
+		    uintptr_t   base_addr)
+{
+    int i = 0;
+    uintptr_t tmp_addr = base_addr;
+    
+    
+    for (i = 0; i < block_span; i++) {
+
+	if (__alloc_block_addr(db, enclave_id, tmp_addr) != 0) {
+	    __free_span(db, base_addr, i);
+	    return -1;
+	}
+	
+	tmp_addr += __get_sys_blk_size(db);
+    }
+ 
+    return 0;
+}
+
 int
-hdb_alloc_block_addr(hdb_db_t  db,
-		     uint32_t  numa_node,
-		     uintptr_t base_addr)
+hdb_alloc_block_addr(hdb_db_t    db,
+		     hobbes_id_t enclave_id, 
+		     uint32_t    block_span,
+		     uintptr_t   base_addr)
 {
     wg_int lock_id;
     int    ret = 0;
@@ -1117,7 +1266,7 @@ hdb_alloc_block_addr(hdb_db_t  db,
 	return -1;
     }
 
-    ret = __alloc_block_addr(db, numa_node, base_addr);
+    ret = __alloc_blocks_addr(db, enclave_id, block_span, base_addr);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1126,6 +1275,7 @@ hdb_alloc_block_addr(hdb_db_t  db,
 
     return ret;
 }
+
 
 
 
@@ -1297,7 +1447,7 @@ hdb_get_mem_enclave_id(hdb_db_t  db,
 
 static mem_state_t
 __get_mem_state(hdb_db_t  db,
-		    uintptr_t base_addr)
+		uintptr_t base_addr)
 {
     hdb_mem_t blk     = __get_mem_blk_by_addr(db, base_addr);
     mem_state_t state = MEMORY_INVALID;

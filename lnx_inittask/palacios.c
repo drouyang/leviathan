@@ -25,26 +25,31 @@ static int
 __hobbes_launch_vm(hcq_handle_t hcq,
 		   hcq_cmd_t    cmd)
 {
-    hobbes_id_t enclave_id    = -1;
+    hobbes_id_t enclave_id     = -1;
+    char      * enclave_id_str = NULL;
 
-    pet_xml_t   xml           =  NULL;
-    char      * xml_str       =  NULL;
-    uint32_t    data_size     =  0;
+    pet_xml_t   xml            =  NULL;
+    char      * xml_str        =  NULL;
+    uint32_t    data_size      =  0;
 
-    char      * enclave_name  =  NULL;
-    int         vm_id         = -1;
+    char      * enclave_name   =  NULL;
+    int         vm_id          = -1;
 
-    int         ret           = -1;
-    char      * err_str       = NULL;
+    int         ret            = -1;
+    char      * err_str        = NULL;
 
 
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
 
-    if ((xml_str == NULL) || (xml_str[data_size] != '\0')) {
+    if ((xml_str == NULL) || (xml_str[data_size - 1] != '\0')) {
+	ERROR("data_size=%u, xml_str=%p\n", data_size, xml_str);
+	ERROR("strlen=%lu\n", strlen(xml_str));
+	ERROR("Invalid Command string=(%s)\n", xml_str);
+
 	err_str = "Received invalid command string";
 	goto out2;
     }
-
+ 
     xml = pet_xml_parse_str(xml_str);
 
     if (!xml) {
@@ -52,93 +57,36 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	goto out2;
     }
 
-    {
-	/* Add VM to the Master DB */
 
+    /* Extract meta data config fields */
+    {
 	enclave_name = pet_xml_get_val(xml, "name");
 
-	enclave_id = hdb_create_enclave(hobbes_master_db, 
-					enclave_name, 
-					-1, 
-					LINUX_VM_ENCLAVE, 
-					hobbes_get_my_enclave_id());
+	if (enclave_name == NULL) {
+	    err_str = "Invalid VM Spec. Missing \'name\' field\n";
+	    goto out2;
+	}
 
+	enclave_id_str = pet_xml_get_val(xml, "enclave_id");
+    
+	if (enclave_id_str == NULL) {
+	    err_str = "Invalid VM Spec. Missing \'enclave_id\' field\n";
+	    goto out2;
+	}
+	
+	enclave_id = smart_atoi(-1, enclave_id_str);
+	
 	if (enclave_id == -1) {
-	    err_str = "Could not create enclave in database";
-	    goto out1;
-	}
-
-	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
+	    err_str = "Invalid VM Spec. Invalid \'enclave_id\' field";
+	    goto out2;
+	} 
 
     }
 
-    {
-	/*
-	 *  Temporary extension modification 
-	 *  This will move to config generation library when its done
-	 */
-	pet_xml_t ext_tree = pet_xml_get_subtree(xml,      "extensions");
-	pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
-	char * id_str = NULL;
-	
-	while (ext_iter != NULL) {
-	    char * ext_name = pet_xml_get_val(ext_iter, "name");
-	    
-	    if (strncasecmp("HOBBES_ENV", ext_name, strlen("HOBBES_ENV")) == 0) {
-		break;
-	    }
-	    
-	    ext_iter = pet_xml_get_next(ext_iter);
-	}
-	
-	if (ext_iter == NULL) {
-	    ext_iter = pet_xml_add_subtree(ext_tree, "extension");
-	    pet_xml_add_val(ext_iter, "name", "HOBBES_ENV");
-	}
-	
-	asprintf(&id_str, "%u", enclave_id);
-	pet_xml_add_val(ext_iter, "enclave_id", id_str);
-	
-	free(id_str);
-    }
+    printf("enclave_id= %d\n", enclave_id);
+ 
 
-
-
-    {
-	/* 
-	 * Temporarily add the XPMEM device if it is not present. 
-	 *  This will move to config generation library when its done
-	 */
-	pet_xml_t dev_tree = pet_xml_get_subtree(xml, "devices");
-	pet_xml_t dev_iter = NULL;
-
-	if (dev_tree == NULL) {
-	    ERROR("Invalid VM config syntax. Missing devices section\n");
-	    return -1;
-	}
-	
-	dev_iter = pet_xml_get_subtree(dev_tree, "device");
-	
-	while (dev_iter != NULL) {
-	    char * dev_class = pet_xml_get_val(dev_iter, "class");
-	    
-	    if (strncasecmp("XPMEM", dev_class, strlen("XPMEM")) == 0) {
-		break;
-	    }
-	    
-	    dev_iter = pet_xml_get_next(dev_iter);
-	}
-	
-	if (dev_iter == NULL) {
-	    dev_iter = pet_xml_add_subtree_tail(dev_tree, "device");
-	    pet_xml_add_val(dev_iter, "class", "XPMEM");
-	    pet_xml_add_val(dev_iter, "id",    "XPMEM");
-	    pet_xml_add_val(dev_iter, "bus",   "pci0");
-	}
-	
-    }
-
-
+    printf("loading VM\n");
     /* Load VM Image */
     {
 	u8 * img_data = NULL;
@@ -147,6 +95,7 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	img_data = v3_build_vm_image(xml, &img_size);
 
 	if (img_data) {
+	    printf("Creating VM\n");
 	    vm_id = v3_create_vm(enclave_name, img_data, img_size);
 	    
 	    if (vm_id == -1) {
@@ -161,8 +110,6 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	/* Cleanup if there was an error */
        	if ((img_data == NULL) || 
 	    (vm_id    == -1)) {
-
-	    hdb_delete_enclave(hobbes_master_db, enclave_id);
 	    
 	    goto out1;
 	}
@@ -171,7 +118,8 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	hdb_set_enclave_dev_id(hobbes_master_db, enclave_id, vm_id);
     }
 
-    
+    printf("launching VM\n");
+
     /* Launch VM */
     {
 	ret = v3_launch_vm(vm_id);
@@ -223,7 +171,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 
     type = hobbes_get_enclave_type(*enclave_id);
 
-    if (type != LINUX_VM_ENCLAVE) {
+    if (type != VM_ENCLAVE) {
 	err_str = "Enclave is not a VM";
 	goto out;
     }
@@ -264,10 +212,6 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 	hobbes_set_enclave_state(*enclave_id, ENCLAVE_ERROR);
 	goto out;
     }
-
-
-    /* Remove enclave from the database */
-    hdb_delete_enclave(hobbes_master_db, *enclave_id);
 
 
  out:

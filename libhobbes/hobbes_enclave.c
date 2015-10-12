@@ -231,8 +231,7 @@ enclave_type_to_str(enclave_type_t type)
 	case INVALID_ENCLAVE:   return "INVALID_ENCLAVE";
 	case MASTER_ENCLAVE:    return "MASTER_ENCLAVE";
 	case PISCES_ENCLAVE:    return "PISCES_ENCLAVE";
-	case PISCES_VM_ENCLAVE: return "PISCES_VM_ENCLAVE";
-	case LINUX_VM_ENCLAVE:  return "LINUX_VM_ENCLAVE";
+	case VM_ENCLAVE:        return "VM_ENCLAVE";
 
 	default : return NULL;
     }

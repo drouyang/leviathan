@@ -12,7 +12,6 @@
 
 #include "hobbes.h"
 #include "hobbes_util.h"
-#include "hobbes_memory.h"
 #include "hobbes_cmd_queue.h"
 #include "hobbes_sys_db.h"
 #include "hobbes_db.h"
@@ -71,50 +70,66 @@ hobbes_get_free_mem(void)
 
 
 uintptr_t 
-hobbes_alloc_mem(uint32_t  numa_node, 
-		 uintptr_t size_in_bytes)
+hobbes_alloc_mem(hobbes_id_t enclave_id,
+		 int         numa_node, 
+		 uintptr_t   size_in_bytes)
 {
     uint32_t block_span = ( ((size_in_bytes / hobbes_get_block_size())     ) +
 			    ((size_in_bytes % hobbes_get_block_size()) != 0) );
 
-    return hobbes_alloc_mem_block(numa_node, block_span);
+    return hobbes_alloc_mem_block(enclave_id, numa_node, block_span);
 }
 
 
 uintptr_t 
-hobbes_alloc_mem_block(uint32_t numa_node,
-		       uint32_t block_span)
+hobbes_alloc_mem_block(hobbes_id_t enclave_id,
+		       int         numa_node,
+		       uint32_t    block_span)
 {
     uintptr_t block_paddr = 0;
 
     printf("Allocating %d blocks of memory\n", block_span);
 
-    block_paddr = hdb_alloc_block(hobbes_master_db, numa_node, block_span);
+    block_paddr = hdb_alloc_block(hobbes_master_db, enclave_id, numa_node, block_span);
 
     return block_paddr;
 }
 
 int 
-hobbes_alloc_mem_regions(uint32_t    numa_node,
+hobbes_alloc_mem_regions(hobbes_id_t enclave_id,
+			 int         numa_node,
 			 uint32_t    num_regions,
-			 uint32_t    size_in_bytes,
+			 uintptr_t   size_in_bytes,
 			 uintptr_t * region_array)
 {
     uint32_t block_span = ( ((size_in_bytes / hobbes_get_block_size())     ) +
 			    ((size_in_bytes % hobbes_get_block_size()) != 0) );
     
-    return hobbes_alloc_mem_blocks(numa_node, num_regions, block_span, region_array);
+    return hobbes_alloc_mem_blocks(enclave_id, numa_node, num_regions, block_span, region_array);
 }
 
 
 int 
-hobbes_alloc_mem_blocks(uint32_t    numa_node,
+hobbes_alloc_mem_blocks(hobbes_id_t enclave_id,
+			int         numa_node,
 			uint32_t    num_blocks,
 			uint32_t    block_span,
 			uintptr_t * block_array)
 {
-    return hdb_alloc_blocks(hobbes_master_db, numa_node, num_blocks, block_span, block_array);
+    return hdb_alloc_blocks(hobbes_master_db, enclave_id, numa_node, num_blocks, block_span, block_array);
 }
+
+int
+hobbes_alloc_mem_addr(hobbes_id_t enclave_id, 
+		      uintptr_t   base_addr,
+		      uintptr_t   size_in_bytes)
+{
+    uint32_t block_span = ( ((size_in_bytes / hobbes_get_block_size())     ) +
+			    ((size_in_bytes % hobbes_get_block_size()) != 0) );
+    
+    return hdb_alloc_block_addr(hobbes_master_db, enclave_id, block_span, base_addr);
+}
+
 
 int hobbes_free_mem_block(uintptr_t addr, 
 			  uint32_t  block_span)
@@ -132,6 +147,11 @@ hobbes_free_mem(uintptr_t addr,
     return hobbes_free_mem_block(addr, block_span);
 }
 
+int
+hobbes_free_enclave_mem(hobbes_id_t enclave_id)
+{
+    return hdb_free_enclave_blocks(hobbes_master_db, enclave_id);
+}
 
 
 struct hobbes_memory_info * 
@@ -241,12 +261,13 @@ cpu_state_to_str(cpu_state_t state)
 
 
 int 
-hobbes_assign_memory(hcq_handle_t hcq,
+hobbes_assign_memory(hobbes_id_t  enclave_id,
 		     uintptr_t    base_addr, 
 		     uint64_t     size,
 		     bool         allocated,
 		     bool         zeroed)
 {
+    hcq_handle_t hcq   = HCQ_INVALID_HANDLE;
 
     hcq_cmd_t cmd      = HCQ_INVALID_CMD;
     pet_xml_t cmd_xml  = PET_INVALID_XML;
@@ -258,6 +279,12 @@ hobbes_assign_memory(hcq_handle_t hcq,
     int       ret      = -1;
 
     
+    hcq = hobbes_open_enclave_cmdq(enclave_id);
+
+    if (hcq == HCQ_INVALID_HANDLE) {
+	ERROR("Could not connect to enclave's command queue\n");
+	goto err;
+    }
 
     cmd_xml = pet_xml_new_tree("memory");
 
@@ -306,14 +333,17 @@ hobbes_assign_memory(hcq_handle_t hcq,
 
     hcq_cmd_complete(hcq, cmd);
 
+    hcq_disconnect(hcq);
+
     smart_free(tmp_str);
     pet_xml_free(cmd_xml);
 
     return ret;
 
  err:
-    if (tmp_str != NULL)            smart_free(tmp_str);                 
-    if (cmd_xml != PET_INVALID_XML) pet_xml_free(cmd_xml);
-    if (cmd     != HCQ_INVALID_CMD) hcq_cmd_complete(hcq, cmd);
+    if (tmp_str != NULL)               smart_free(tmp_str);                 
+    if (cmd_xml != PET_INVALID_XML)    pet_xml_free(cmd_xml);
+    if (cmd     != HCQ_INVALID_CMD)    hcq_cmd_complete(hcq, cmd);
+    if (hcq     != HCQ_INVALID_HANDLE) hcq_disconnect(hcq);
     return -1;
 }

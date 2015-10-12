@@ -22,8 +22,8 @@ Column 2: [int] enclave type
     INVALID_ENCLAVE   = 0
     MASTER_ENCLAVE    = 1
     PISCES_ENCLAVE    = 2
-    PISCES_VM_ENCLAVE = 3
-    LINUX_VM_ENCLAVE  = 4
+    VM_ENCLAVE        = 3
+    
 Column 3: [int] management device ID    - local device interface ID for ioctls
 Column 4: [int] enclave state
     ENCLAVE_INITTED   = 0

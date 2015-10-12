@@ -50,26 +50,38 @@ struct hobbes_system_info {
 
 
 
+uintptr_t
+hobbes_alloc_node(hobbes_id_t enclave_id,
+		  int         numa_node);
 
 uintptr_t 
-hobbes_alloc_mem(uint32_t  numa_node,
-		 uintptr_t size_in_bytes);
+hobbes_alloc_mem(hobbes_id_t enclave_id,
+		 int         numa_node,
+		 uintptr_t   size_in_bytes);
 
 int
-hobbes_alloc_mem_regions(uint32_t    numa_node,
+hobbes_alloc_mem_regions(hobbes_id_t enclave_id,
+			 int         numa_node,
 			 uint32_t    num_regions,
-			 uint32_t    size_in_bytes,
+			 uintptr_t   size_in_bytes,
 			 uintptr_t * region_array);
 
 uintptr_t 
-hobbes_alloc_mem_block(uint32_t numa_node,
-		       uint32_t block_span);
+hobbes_alloc_mem_block(hobbes_id_t enclave_id,
+		       int         numa_node,
+		       uint32_t    block_span);
 
 int
-hobbes_alloc_mem_blocks(uint32_t    numa_node,
+hobbes_alloc_mem_blocks(hobbes_id_t enclave_id,
+			int         numa_node,
 			uint32_t    num_blocks,
 			uint32_t    block_span,
 			uintptr_t * block_array);
+
+int 
+hobbes_alloc_mem_addr(hobbes_id_t enclave_id,
+		      uintptr_t   base_addr, 
+		      uintptr_t   size_in_bytes);
 
 
 int
@@ -82,7 +94,10 @@ hobbes_free_mem_block(uintptr_t addr,
 		      uint32_t  block_span);
 
 int
-hobbes_alloc_cpu(uint32_t numa_node);
+hobbes_free_enclave_mem(hobbes_id_t enclave_id);
+
+int
+hobbes_alloc_cpu(int numa_node);
 
 
 uint32_t  hobbes_get_numa_cnt(void);
@@ -118,12 +133,13 @@ const char * cpu_state_to_str(cpu_state_t state);
 
 
 
-/* Function to be moved out of here */
-int hobbes_assign_memory(hcq_handle_t hcq,
-			 uintptr_t    base_addr, 
-			 uint64_t     size,
-			 bool         allocated,
-			 bool         zeroed);
+
+int 
+hobbes_assign_memory(hobbes_id_t  enclave_id,
+		     uintptr_t    base_addr, 
+		     uint64_t     size,
+		     bool         allocated,
+		     bool         zeroed);
 
 
 

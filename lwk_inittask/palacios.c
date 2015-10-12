@@ -26,17 +26,18 @@ static int
 __hobbes_launch_vm(hcq_handle_t hcq,
 		   hcq_cmd_t    cmd)
 {
-    hobbes_id_t enclave_id    = -1;
+    hobbes_id_t enclave_id     = -1;
+    char      * enclave_id_str = NULL;
 
-    pet_xml_t   xml           =  NULL;
-    char      * xml_str       =  NULL;
-    uint32_t    data_size     =  0;
+    pet_xml_t   xml            =  NULL;
+    char      * xml_str        =  NULL;
+    uint32_t    data_size      =  0;
 
-    char      * enclave_name  =  NULL;
-    int         vm_id         = -1;
+    char      * enclave_name   =  NULL;    
+    int         vm_id          = -1;
 
-    int         ret           = -1;
-    char      * err_str       = NULL;
+    int         ret            = -1;
+    char      * err_str        = NULL;
 
 
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
@@ -53,92 +54,20 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	goto out2;
     }
 
-    /* Add VM to the Master DB */
-    {
-
-	enclave_name = pet_xml_get_val(xml, "name");
-
-	enclave_id = hdb_create_enclave(hobbes_master_db, 
-					enclave_name, 
-					-1, 
-					PISCES_VM_ENCLAVE, 
-					hobbes_get_my_enclave_id());
-
-	if (enclave_id == -1) {
-	    err_str = "Could not create enclave in database";
-	    goto out1;
-	}
-
-	enclave_name = hdb_get_enclave_name(hobbes_master_db, enclave_id);
-
+    
+    enclave_id_str = pet_xml_get_val(xml, "enclave_id");
+    
+    if (enclave_id_str == NULL) {
+	err_str = "Invalid VM Spec. Missing \'enclave_id\' field\n";
+	goto out2;
     }
 
-    {
-	/* 
-	 * Temporary extension modification 
-	 * This will move to config generation library when its done
-	 */
-	
-	pet_xml_t ext_tree = pet_xml_get_subtree(xml, "extensions");
-	pet_xml_t ext_iter = pet_xml_get_subtree(ext_tree, "extension");
-	char * id_str = NULL;
-	
-	while (ext_iter != NULL) {
-	    char * ext_name = pet_xml_get_val(ext_iter, "name");
-	    
-	    if (strncasecmp("HOBBES_ENV", ext_name, strlen("HOBBES_ENV")) == 0) {
-		break;
-	    }
-	    
-	    ext_iter = pet_xml_get_next(ext_iter);
-	}
-	
-	if (ext_iter == NULL) {
-	    ext_iter = pet_xml_add_subtree(ext_tree, "extension");
-	    pet_xml_add_val(ext_iter, "name", "HOBBES_ENV");
-	}
-	
-	asprintf(&id_str, "%u", enclave_id);
-	pet_xml_add_val(ext_iter, "enclave_id", id_str);
-	
-	free(id_str);
+    enclave_id = smart_atoi(-1, enclave_id_str);
+ 
+    if (enclave_id == -1) {
+	err_str = "Invalid VM Spec. Invalid \'enclave_id\' field";
+	goto out2;
     }
-
-
-    {
-	/* 
-	 * Temporarily add the XPMEM device if it is not present. 
-	 *  This will move to config generation library when its done
-	 */
-	pet_xml_t dev_tree = pet_xml_get_subtree(xml, "devices");
-	pet_xml_t dev_iter = NULL;
-
-	if (dev_tree == NULL) {
-	    ERROR("Invalid VM config syntax. Missing devices section\n");
-	    goto out1;
-	}
-	
-	dev_iter = pet_xml_get_subtree(dev_tree, "device");
-	
-	while (dev_iter != NULL) {
-	    char * dev_class = pet_xml_get_val(dev_iter, "class");
-	    
-	    if (strncasecmp("XPMEM", dev_class, strlen("XPMEM")) == 0) {
-		break;
-	    }
-	    
-	    dev_iter = pet_xml_get_next(dev_iter);
-	}
-	
-	if (dev_iter == NULL) {
-	    dev_iter = pet_xml_add_subtree_tail(dev_tree, "device");
-	    pet_xml_add_val(dev_iter, "class", "XPMEM");
-	    pet_xml_add_val(dev_iter, "id",    "XPMEM");
-	    pet_xml_add_val(dev_iter, "bus",   "pci0");
-	}
-	
-    }
-
 
     /* Load VM Image */
     {
@@ -163,8 +92,6 @@ __hobbes_launch_vm(hcq_handle_t hcq,
        	if ((img_data == NULL) || 
 	    (vm_id    == -1)) {
 
-	    hdb_delete_enclave(hobbes_master_db, enclave_id);
-	    
 	    goto out1;
 	}
 
@@ -224,7 +151,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 
     type = hobbes_get_enclave_type(*enclave_id);
 
-    if (type != PISCES_VM_ENCLAVE) {
+    if (type != VM_ENCLAVE) {
 	err_str = "Enclave is not a VM";
 	goto out;
     }
@@ -265,10 +192,6 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 	hobbes_set_enclave_state(*enclave_id, ENCLAVE_ERROR);
 	goto out;
     }
-
-
-    /* Remove enclave from the database */
-    hdb_delete_enclave(hobbes_master_db, *enclave_id);
 
 
  out:

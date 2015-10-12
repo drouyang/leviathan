@@ -22,8 +22,7 @@ typedef enum {
     INVALID_ENCLAVE   = 0,
     MASTER_ENCLAVE    = 1,
     PISCES_ENCLAVE    = 2,
-    PISCES_VM_ENCLAVE = 3,
-    LINUX_VM_ENCLAVE  = 4
+    VM_ENCLAVE        = 3
 } enclave_type_t;
 
 
