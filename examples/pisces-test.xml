@@ -5,13 +5,15 @@
     
     <boot_env>
 <!--       <cpu>2</cpu> -->
-<!--       <memory size="512"></memory> -->
+       <memory size="512"></memory>
     </boot_env>
    
-    <memory>
-        <blocks contig="0">4</blocks>
-    </memory>
-    
+
+    <memory size="512" block_size="128" numa="-1" /> 
+
+<!--
+    <memory size="512" base_addr="0x1800000">
+-->
     <cpus>
         <cores>1</cores>
     </cpus>
