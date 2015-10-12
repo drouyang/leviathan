@@ -5,7 +5,7 @@ PETLIB_PATH?=../petlib
 WHITEDB_PATH?=../whitedb-0.7.3
 
 
-CFLAGS = -Wall -Werror -Wno-nonnull  \
+CFLAGS = -g -Wall -Werror -Wno-nonnull  \
 	-D_GNU_SOURCE                \
 	-I$(WHITEDB_PATH)/Db         \
 	-I$(XPMEM_PATH)/include      \
