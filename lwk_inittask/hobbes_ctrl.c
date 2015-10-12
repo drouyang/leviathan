@@ -224,7 +224,7 @@ __add_memory(hcq_handle_t hcq,
 	memset(&rgn, 0, sizeof(struct pmem_region));
 
 	rgn.start            = base_addr;
-	rgn.end              = size;
+	rgn.end              = base_addr + size;
 	rgn.type_is_set      = 1;
 	rgn.type             = PMEM_TYPE_UMEM;
 	rgn.allocated_is_set = 1;
@@ -233,6 +233,7 @@ __add_memory(hcq_handle_t hcq,
 	ret = pmem_add(&rgn);
 
 	if (ret != 0) {
+	    ERROR("pmem_add error: (ret=%d)\n", ret);
 	    err_str = "Error in pmem_add";
 	    goto out;
 	}
