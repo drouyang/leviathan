@@ -205,6 +205,7 @@ __create_enclave_record(hdb_db_t         db,
 
     /* Verify that enclave_id is available */
     if (__get_enclave_by_id(db, enclave_id)) {
+	ERROR("Enclave with ID (%d) already exists\n", enclave_id);
 	return HOBBES_INVALID_ID;
     }
 
@@ -215,6 +216,13 @@ __create_enclave_record(hdb_db_t         db,
 	name = auto_name;
     }
     
+
+    /* Verify that name is available */
+    if (__get_enclave_by_name(db, name)) {
+	ERROR("Enclave with the name (%s) already exists\n", name);
+	return HOBBES_INVALID_ID;
+    }
+
     /* Insert enclave into the db */
     enclave = wg_create_record(db, 8);
     wg_set_field(db, enclave, HDB_TYPE_FIELD,       wg_encode_int(db, HDB_REC_ENCLAVE));
