@@ -23,17 +23,17 @@
 #define HOBBES_ANY_CPU_ID        (-1)
 
 typedef enum {
-    MEMORY_INVALID,
-    MEMORY_RSVD,
-    MEMORY_FREE,
-    MEMORY_ALLOCATED
+    MEMORY_INVALID   = 0,
+    MEMORY_RSVD      = 1,
+    MEMORY_FREE      = 2,
+    MEMORY_ALLOCATED = 3
 } mem_state_t;
 
 typedef enum {
-    CPU_INVALID,
-    CPU_RSVD,
-    CPU_FREE,
-    CPU_ALLOCATED
+    CPU_INVALID   = 0,
+    CPU_RSVD      = 1,
+    CPU_FREE      = 2,
+    CPU_ALLOCATED = 3
 } cpu_state_t;
 
 
