@@ -42,7 +42,7 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 
     xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
 
-    if ((xml_str == NULL) || (xml_str[data_size] != '\0')) {
+    if ((xml_str == NULL) || (xml_str[data_size - 1] != '\0')) {
 	err_str = "Received invalid command string";
 	goto out2;
     }
