@@ -5,13 +5,19 @@ PETLIB_PATH?=../petlib
 WHITEDB_PATH?=../whitedb-0.7.3
 
 
-CFLAGS = -g -Wall -Werror -D_GNU_SOURCE -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -I../libhobbes -static  
+CFLAGS = 	-g			\
+		-D_GNU_SOURCE		\
+	 	-Wall -Werror          	\
+		-I$(WHITEDB_PATH)/Db   	\
+		-I$(PETLIB_PATH) 	\
+		-I../libhobbes		\
+		-static  
 
 
 CC = gcc
 AR = ar
 
-libs  := ../libhobbes/libhobbes.a
+libs  := ../petlib/petlib.a
 
 
 
@@ -47,7 +53,7 @@ build = \
 all: $(execs) $(libs)
 
 
-hobbes: $(hobbes_objs)
+hobbes-gui: $(hobbes_objs)
 	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) -lm -o $@)
 
 
