@@ -17,7 +17,7 @@ CFLAGS = 	-g			\
 CC = gcc
 AR = ar
 
-libs  := ../petlib/petlib.a
+libs  := ../libhobbes/libhobbes.a
 
 
 
