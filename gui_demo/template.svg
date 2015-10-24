@@ -5,12 +5,83 @@
   <!-- Debug Rect
   	 <rect x="0" y="0" height="100%" width="100%" fill="white" stroke="red" />
 	-->
+	
   <svg x="1%" y="1%" width="98%" height="80%">
 
    
    <!-- Socket Block -->
+  <svg x="1.00%" y="1.00%" width="23.00%" height="31.34%" viewBox="0 0 1000 1000"> 
 
-    <svg x="1%" y="1%" width="48%" height="100%"> <!-- scaled dimensions based on socket count -->
+    <!--<svg x="1%" y="1%" width="48%" height="100%" viewBox="0 0 1000 1000"> --><!-- scaled dimensions based on socket count -->
+      <!-- Debug Rect
+		     <rect x="0" y="0" height="100%" width="100%" fill="white" stroke="red" />
+		-->
+      <rect x="1%" y="1%" rx="10%" ry="10%" width="98%" height="98%" fill="black" stroke="black" style="stroke-width:0.5%;opacity:0.5"/>
+      
+
+	<!-- Mem block -->
+	<svg x="3%" y="7.5%" width="40%" height="85%">
+		<rect x="1%" y="1%" width="98%" height="98%" fill="white" stroke="black" stroke-width="2"/>
+		<svg x="2%" y="2%" width="96%" height="96%" viewBox="0 0 100 101" preserveAspectRatio="none"> <!-- Y height of viewBox = num blocks -->
+      		<!-- Debug Rect
+				<rect x="0" y="0" width="100%" height="100%" fill="white" stroke="red" />
+			-->
+			<rect x="0" y="0"   width="100%" height="1" fill="green" />
+			<rect x="0" y="50"  width="100%" height="1" fill="green" />
+			<rect x="0" y="100" width="100%" height="1" fill="green" />
+		
+		</svg>
+	</svg>
+	
+	<svg x="7%" y="92.5%" width="32%" height="120%" viewBox="0 0 100 350" preserveAspectRatio="none">
+		<text x="50%" y="0" dy=".75em" text-anchor="middle" font-weight="bold" fill="white" >Mem Blocks</text>
+	</svg>
+	
+	<!-- End mem block -->
+
+
+	<!-- CPU block -->
+      <svg x="45%" y="25%" width="50%" height="50%">
+		<rect x="1%" y="1%" rx="10%" ry="10%" width="98%" height="98%" fill="white" stroke="black"/>
+		<svg x="2%" y="2%" height="96%" width="96%">
+		
+			<!-- cx = ((100 / cols ) / 2) * (1 + 2 * col_idx) -->
+			<!-- cy = ((100 / rows ) / 2) * (1 + 2 * row_idx) -->
+			<!-- r = ((100 / cnt) / 2) - 2 -->
+			
+			<circle cx="16.67%" cy="16.67%" r="13%" fill="blue" stroke="black" stroke-width="10"/>
+			<!-- x = cx - r -->
+			<!-- y = cy - r -->
+			<!-- width = height = r * 2 -->
+			<svg x="3.67%" y="3.67%" width="26%" height="26%" viewBox="0 0 40 40">
+				<text x="50%" y="0" dy="60%" text-anchor="middle"  fill="white">1</text>
+			</svg>
+			<circle cx="50%"    cy="16.67%" r="13%" fill="blue" stroke="black" stroke-width="10"/>
+			<svg x="37%" y="3.67%" width="26%" height="26%" viewBox="0 0 40 40">
+				<text x="50%" y="0" dy="60%" text-anchor="middle" fill="white">2</text>
+			</svg>
+			<circle cx="83.33%" cy="16.67%" r="13%" fill="blue" stroke="black" stroke-width="10"/>
+			<svg x="70.33%" y="3.67%" width="26%" height="26%" viewBox="0 0 40 40">
+				<text x="50%" y="0" dy="60%" text-anchor="middle"  fill="white">3</text>
+ 			</svg>
+ 		</svg>
+ 	</svg> 
+	<svg x="49%" y="75%" width="42%" height="120%" viewBox="0 0 100 300" preserveAspectRatio="none">
+		<text x="50%" y="0" dy=".75em" text-anchor="middle"   font-weight="bold" font-size="14" fill="white" >CPU Cores</text>
+	</svg>
+      <!-- end cpu block -->
+      
+ 
+    </svg> 
+
+    <!-- end socket block -->
+
+
+
+   <!-- Socket Block -->
+  <svg x="26.00%" y="1.00%" width="23.00%" height="31.34%" viewBox="0 0 1000 1000"> 
+
+    <!--<svg x="1%" y="1%" width="48%" height="100%" viewBox="0 0 1000 1000"> --><!-- scaled dimensions based on socket count -->
       <!-- Debug Rect
 		     <rect x="0" y="0" height="100%" width="100%" fill="white" stroke="red" />
 		-->
@@ -30,7 +101,11 @@
 		
 		</svg>
 	</svg>
-	<text x="23%" y="92.5%"  dy=".75em" text-anchor="middle"  font-size="25" font-weight="bold" fill="white" >Mem Blocks</text>
+	
+	<svg x="7%" y="92.5%" width="32%" height="120%" viewBox="0 0 100 350" preserveAspectRatio="none">
+		<text x="50%" y="0" dy=".75em" text-anchor="middle" font-weight="bold" fill="white" >Mem Blocks</text>
+	</svg>
+	
 	<!-- End mem block -->
 
 
