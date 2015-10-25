@@ -54,6 +54,12 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 	goto out2;
     }
 
+    enclave_name = pet_xml_get_val(xml, "name");
+
+    if (enclave_name == NULL) {
+	err_str = "Invalid VM Spec. Missing \'name\' field\n";
+	goto out2;
+    }
     
     enclave_id_str = pet_xml_get_val(xml, "enclave_id");
     
