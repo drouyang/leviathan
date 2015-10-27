@@ -115,6 +115,7 @@ extern int        cat_file_main(int argc, char ** argv);
 extern int   cat_into_file_main(int argc, char ** argv);
 extern int     list_memory_main(int argc, char ** argv);
 extern int       list_cpus_main(int argc, char ** argv);
+extern int	   console_main(int argc, char ** argv);
 
 
 static struct hobbes_cmd cmds[] = {
@@ -132,6 +133,7 @@ static struct hobbes_cmd cmds[] = {
     {"cat_into_file"   , cat_into_file_main    , "'cat' to a file on an arbitrary enclave"     },
     {"list_memory"     , list_memory_main      , "List the status of system memory"            },
     {"list_cpus"       , list_cpus_main        , "List the stuats of local CPUs"               },
+    {"console"	       , console_main	       , "Attach to an Enclave Console"		       },
     {0, 0, 0}
 };
 

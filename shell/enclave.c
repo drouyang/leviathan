@@ -353,3 +353,43 @@ list_enclaves_main(int argc, char ** argv)
 }
 
 
+
+int
+console_main(int argc, char ** argv)
+{
+    hobbes_id_t    enclave_id   = HOBBES_INVALID_ID;
+    enclave_type_t enclave_type = INVALID_ENCLAVE;
+
+    if (argc < 2) {
+	printf("Usage: hobbes enclave <enclave name>\n");
+	return -1;
+    }
+
+    enclave_id = hobbes_get_enclave_id(argv[1]);
+
+    if (enclave_id == HOBBES_INVALID_ID) {
+	ERROR("Invalid enclave\n");
+	return -1;
+    }
+
+    enclave_type = hobbes_get_enclave_type(enclave_id);
+
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Could not find enclave (%d)\n", enclave_id);
+	return -1;
+    }
+
+
+
+    switch (enclave_type) {
+	case VM_ENCLAVE:
+	    return vm_enclave_console(enclave_id);
+
+	case PISCES_ENCLAVE:
+	    return pisces_enclave_console(enclave_id);
+
+	default:
+	    ERROR("No console available for enclave type %d\n", enclave_type);
+	    return -1;
+    }
+} 

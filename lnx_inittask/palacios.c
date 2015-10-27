@@ -120,6 +120,9 @@ __hobbes_launch_vm(hcq_handle_t hcq,
 
     printf("launching VM\n");
 
+    /* BJK: it can take some time for the device file to respond to access() */
+    usleep(5000);
+
     /* Launch VM */
     {
 	ret = v3_launch_vm(vm_id);

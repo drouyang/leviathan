@@ -19,4 +19,6 @@ int hobbes_create_vm(char      * cfg_file,
 
 int hobbes_destroy_vm(hobbes_id_t enclave_id);
 
+int vm_enclave_console(hobbes_id_t enclave_id);
+
 #endif

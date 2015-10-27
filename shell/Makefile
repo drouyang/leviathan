@@ -24,6 +24,7 @@ hobbes_objs := 	hobbes.o	\
 		app_launch.o	\
 		enclave.o	\
 		vm.o		\
+		vm_console.o	\
 		pisces.o        \
 		system.o
 
@@ -55,7 +56,7 @@ all: $(execs) $(libs)
 
 
 hobbes: $(hobbes_objs)
-	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) -lm -o $@)
+	$(call build,CC,$(CC) $(CFLAGS) $^ $(libs) -lm -lcurses -ltinfo -o $@)
 
 
 

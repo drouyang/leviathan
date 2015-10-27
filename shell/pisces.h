@@ -12,6 +12,7 @@
 
 int pisces_enclave_create(pet_xml_t xml, char * name);
 int pisces_enclave_destroy(hobbes_id_t enclave_id);
+int pisces_enclave_console(hobbes_id_t enclave_id);
 
 
 #endif
