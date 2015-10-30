@@ -23,34 +23,59 @@
 #include <hobbes.h>
 #include <hobbes_util.h>
 #include <hobbes_system.h>
+#include <hobbes_enclave.h>
 
 
 bool use_topo_file = true;
 
 struct hobbes_memory_info * sys_mem_blk_info = NULL;
 struct hobbes_cpu_info    * sys_cpu_info     = NULL;
+
 uint64_t sys_mem_blk_cnt = 0;
-uint32_t sys_cpu_cnt = 0;
+uint32_t sys_cpu_cnt     = 0;
 
 
-static const char *
-__get_mem_fill_str(struct hobbes_memory_info * info)
-{
 
-    if ((info->state == MEMORY_ALLOCATED) && 
-	(info->numa_node == -1)) {
-	return "black";
-    } else if (info->state == MEMORY_FREE) {
-	return "lightgrey";
-    } else if (info->state == MEMORY_ALLOCATED) {
-	if ((info->enclave_id == HOBBES_MASTER_ENCLAVE_ID) ||
-	    (info->enclave_id == -1)) {
-	    return "green";
-	}
-    }
+struct color {
+    hobbes_id_t   enclave_id;
+    char        * bg_color;
+    char        * font_color;
+    int           use_flag;
+};
 
-    return "red";
-}
+#define BG_DEFAULT "white"
+#define BG_MASTER  "green"
+#define BG_FREE    "lightgrey"
+#define BG_INVALID "black"
+
+#define FONT_DEFAULT "black"
+#define FONT_MASTER  "white"
+#define FONT_FREE    "black"
+#define FONT_INVALID "white"
+
+struct color enclave_colors[] = {
+    {HOBBES_INVALID_ID, "mediumslateblue", "black"},
+    {HOBBES_INVALID_ID, "lightskyblue",    "black"},
+    {HOBBES_INVALID_ID, "darkorange",      "black"},
+    {HOBBES_INVALID_ID, "indigo",          "white"},
+    {HOBBES_INVALID_ID, "orangered",       "white"},
+    {HOBBES_INVALID_ID, "royalblue",       "white"},
+    {HOBBES_INVALID_ID, "saddlebrown",     "white"},
+    {HOBBES_INVALID_ID, "indianred",       "white"},
+    {HOBBES_INVALID_ID, "burlywood",       "black"},
+    {HOBBES_INVALID_ID, "turquoise",       "black"},
+    {HOBBES_INVALID_ID, "maroon",          "white"},
+    {HOBBES_INVALID_ID, "olive",           "white"},
+    {HOBBES_INVALID_ID, "teal",            "black"},
+    {HOBBES_INVALID_ID, "gold",            "black"},
+    {HOBBES_INVALID_ID, "yellow",          "black"},
+    {HOBBES_INVALID_ID, "palegreen",       "black"},
+    {HOBBES_INVALID_ID, "darkgreen",       "white"},
+    {HOBBES_INVALID_ID, "lightpink",       "black"}
+};
+
+
+
 
 
 static int 
@@ -104,6 +129,178 @@ __get_mem_blk_entry(int numa_idx,
     return NULL;
 }
 
+
+struct hobbes_cpu_info * 
+__get_cpu_entry(int numa_idx, 
+		int cpu)
+{
+    int i = 0;
+    
+    for (i = 0; i < sys_cpu_cnt; i++) {
+	if (sys_cpu_info[i].numa_node != numa_idx)  continue;
+
+	if (cpu == 0) {
+	    return &sys_cpu_info[i];
+	} else {
+	    cpu--;
+	}
+    }
+
+    return NULL;
+}
+
+
+static struct color * 
+__alloc_free_color(hobbes_id_t enclave_id)
+{
+    int color_cnt   = sizeof(enclave_colors) / sizeof(struct color);
+    int i = 0;
+
+    for (i = 0; i < color_cnt; i++) {
+	if (enclave_colors[i].enclave_id == HOBBES_INVALID_ID) {
+	    enclave_colors[i].enclave_id = enclave_id;
+	    return &enclave_colors[i];
+	}
+    }
+
+    return NULL;
+}
+
+
+static struct color *
+__get_color(hobbes_id_t enclave_id)
+{
+    int color_cnt   = sizeof(enclave_colors) / sizeof(struct color);
+    int i = 0;
+
+    for (i = 0; i < color_cnt; i++) {
+	if (enclave_colors[i].enclave_id == enclave_id) {
+	    return &enclave_colors[i];
+	}
+    }
+
+    return NULL;
+}
+
+
+static int
+__assign_colors()
+{
+    int color_cnt   = sizeof(enclave_colors) / sizeof(struct color);
+    int enclave_cnt = 0;
+    int i = 0;
+
+    struct enclave_info * enclaves = NULL;
+
+    /* Clear all use flags */
+    for (i = 0; i < color_cnt; i++) {
+	enclave_colors[i].use_flag = 0;
+    }
+
+    /* retrieve enclave list */
+    
+    enclaves = hobbes_get_enclave_list(&enclave_cnt);
+
+    if (enclaves == NULL) {
+	ERROR("Could not retrieve enclave list\n");
+	return -1;
+    }
+    
+
+    /* increment use flags for enclaves in list */
+    for (i = 0; i < enclave_cnt; i++) {
+	struct color * clr = __get_color(enclaves[i].id);
+	
+	if (enclaves[i].id == HOBBES_MASTER_ENCLAVE_ID) continue;
+	if (!clr) continue;
+
+	clr->use_flag = 1;
+    }
+
+
+    /* garbage collect unused colors */
+    for (i = 0; i < color_cnt; i++) {
+	struct color * clr = &enclave_colors[i];
+
+	if ( (clr->enclave_id != HOBBES_INVALID_ID) &&
+	     (clr->use_flag   == 0) ) {
+	    // free color
+	    clr->enclave_id = HOBBES_INVALID_ID;
+	}
+    }
+    
+    
+    /* Assign colors to new enclaves */
+    for (i = 0; i < enclave_cnt; i++) {
+	struct color * clr = __get_color(enclaves[i].id);
+	
+	if (enclaves[i].id == HOBBES_MASTER_ENCLAVE_ID) continue;
+	if (clr) continue;
+
+	clr = __alloc_free_color(enclaves[i].id);
+
+	if (!clr) {
+	    ERROR("Could not locate free color for enclave\n");
+	    return -1;
+	}
+    }  
+
+    
+    return 0;
+}
+
+
+static const char *
+__get_mem_fill_str(int numa_idx, int blk)
+{
+    struct hobbes_memory_info * info = __get_mem_blk_entry(numa_idx, blk);
+
+
+    if ((info->state == MEMORY_ALLOCATED) && 
+	(info->numa_node == -1)) {
+	return BG_INVALID;
+    } else if (info->state == MEMORY_FREE) {
+	return BG_FREE;
+    } else if (info->state == MEMORY_ALLOCATED) {
+	if ((info->enclave_id == HOBBES_MASTER_ENCLAVE_ID) ||
+	    (info->enclave_id == HOBBES_INVALID_ID)) {
+	    return BG_MASTER;
+	} else  {
+	    struct color * clr = __get_color(info->enclave_id);
+	    
+	    if (!clr) return BG_INVALID;
+	    
+	    return clr->bg_color;
+	}
+    }
+
+    return BG_INVALID;
+}
+
+static const char *
+__get_cpu_fill_str(int numa_idx, int cpu)
+{
+    struct hobbes_cpu_info * info = __get_cpu_entry(numa_idx, cpu);
+
+    if (info->state == CPU_FREE) {
+	return BG_FREE;
+    } else if(info->state == CPU_ALLOCATED) {
+	if ((info->enclave_id == HOBBES_MASTER_ENCLAVE_ID) ||
+	    (info->enclave_id == HOBBES_INVALID_ID)) {
+	    return BG_MASTER;
+	} else {
+	    struct color * clr = __get_color(info->enclave_id);
+
+	    if (!clr) return BG_INVALID;
+
+	    return clr->bg_color;
+	} 
+    }
+	
+    return BG_INVALID;
+}
+
+
 static int
 generate_mem_svg(ezxml_t numa_canvas,
 		 int     numa_idx)
@@ -148,7 +345,6 @@ generate_mem_svg(ezxml_t numa_canvas,
     ezxml_set_attr_d(mem_canvas, "preserveAspectRatio", "none");
 
     for (i = 0; i < blk_cnt; i++) {
-	struct hobbes_memory_info * entry = __get_mem_blk_entry(numa_idx, i);
 	ezxml_t blk_rect = NULL;
 
 	blk_rect = ezxml_add_child(mem_canvas, "rect", i);
@@ -160,7 +356,7 @@ generate_mem_svg(ezxml_t numa_canvas,
        
 	ezxml_set_attr_d(blk_rect, "width",  "100%");
 	ezxml_set_attr_d(blk_rect, "height", "1");
-	ezxml_set_attr_d(blk_rect, "fill",   __get_mem_fill_str(entry));
+	ezxml_set_attr_d(blk_rect, "fill",   __get_mem_fill_str(numa_idx, i));
 
     }
 
@@ -264,7 +460,7 @@ generate_cpu_svg(ezxml_t numa_canvas,
 	    ezxml_set_attr_d(cpu_circle, "r", tmp_str);
 	    smart_free(tmp_str);
 
-	    ezxml_set_attr_d(cpu_circle, "fill",   "blue");
+	    ezxml_set_attr_d(cpu_circle, "fill",   __get_cpu_fill_str(numa_idx, i));
 	    ezxml_set_attr_d(cpu_circle, "stroke", "black");
 	    ezxml_set_attr_d(cpu_circle, "stroke-width", "10");
 	    
@@ -446,6 +642,13 @@ int main(int argc, char ** argv) {
     }
 
 
+    
+    if (__assign_colors() != 0) {
+	printf("Error: Could not assign enclave colors\n");
+	hobbes_client_deinit();
+	return -1;
+    }
+
 
     svg_xml = generate_svg();
 
@@ -459,8 +662,6 @@ int main(int argc, char ** argv) {
 
 
     hobbes_client_deinit();
-
-
 
     return 0;
 }
