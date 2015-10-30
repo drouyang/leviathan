@@ -16,8 +16,6 @@
 #include "hobbes_util.h"
 #include "pisces.h"
 
-#define PISCES_INBUF_SIZE 4096
-
 
 extern hdb_db_t hobbes_master_db;
 
@@ -362,36 +360,33 @@ pisces_enclave_destroy(hobbes_id_t enclave_id)
 }
 
 
+
+
 int
 pisces_enclave_console(hobbes_id_t enclave_id)
 {
-    char * name    = hdb_get_enclave_name(hobbes_master_db, enclave_id);
-    int    dev_id  = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
-    int    cons_fd = pisces_get_cons_fd(dev_id);;
+    int    dev_id    = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
+    int    cons_fd   = pisces_get_cons_fd(dev_id);
+    FILE * cons_file = NULL;
+
+    char * line      = NULL;
+    size_t line_size = 0;
 
     if (cons_fd < 0) {
-	ERROR("Could not connect pisces enclave console (%s)\n", name);
+	ERROR("Could not connect pisces enclave console (%s)\n", 
+	      hdb_get_enclave_name(hobbes_master_db, enclave_id));
 	return -1;
     }
 
-    while (1) {
-	size_t bytes_read = 0;
-	char   in_buf[PISCES_INBUF_SIZE + 1];
+    cons_file = fdopen(cons_fd, "r+");
 
-	bytes_read = read(cons_fd, in_buf, PISCES_INBUF_SIZE);
-	if (bytes_read == -1) {
-	    ERROR("Pisces console error\n");
-	    return -1;
-	}
-
-	if (bytes_read == 0)
-	    break;
-
-	in_buf[bytes_read] = '\0';
-	printf("%s", in_buf);
+    while (getline(&line, &line_size, cons_file) != -1) {
+	printf("%s", line);
     }
 
-    close(cons_fd);
+    free(line);
+
+    fclose(cons_file);
 
     return 0;
 }
