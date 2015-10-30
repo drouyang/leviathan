@@ -828,18 +828,18 @@ vm_pisces_handle(int    cons_fd,
 
     /* The Pisces init task will keep kicking as long as the queue is not
      * empty; there is no guarantee that the number of kicks equals the number
-     * of console messages. In fact htey will almost never be equal.
+     * of console messages. In fact they will almost never be equal.
      *
      * The strategy is to first clear all pending notifications, then simply
      * dequeue and process messages until there are none left. Of course, more
-     * nofications could (and likely will) come while processing, which just
+     * notifications could (and likely will) come while processing, which just
      * means cons_fd will be active again when we're done
      *
      * Note that it's possible to have a notification without any new console
      * messages. This can happen if we get kicked and a new message arrives
      * while already executing this loop. We will process the message without
      * acking the notification, and then will get kicked once we return, at
-     * which point there may not necessaruly be any new messages to process.
+     * which point there may not necessarily be any new messages to process.
      */
 
     /* Make sure we have at least one notification - we got kicked afterall */
