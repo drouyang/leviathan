@@ -63,14 +63,6 @@ struct hobbes_vm_cons_keycode {
 } __attribute__((packed));
 
 
-struct hobbes_vm_cons_ioc {
-    paddr_t       ring_buf_pa;
-    unsigned long num_pages;
-    int           cons_fd;
-} __attribute__((packed));
-
-
-
 
 static struct hashtable * hobbes_cons_state_table;
 extern hdb_db_t           hobbes_master_db;
@@ -454,7 +446,7 @@ __hobbes_vm_cons_connect(hcq_handle_t hcq,
 
     struct hobbes_vm_cons_connect_info * connect_info = NULL;
     struct hobbes_vm_cons_state        * state        = NULL; 
-    struct hobbes_vm_cons_ioc            ioc;
+    struct v3_hobbes_console_info        cons_info;
 
     state = malloc(sizeof(struct hobbes_vm_cons_state));
     if (state == NULL) {
@@ -519,16 +511,15 @@ __hobbes_vm_cons_connect(hcq_handle_t hcq,
     }
 
     /* Connect the console */
-    ioc.ring_buf_pa = state->ring_buf_pmem.start;
-    ioc.num_pages   = connect_info->num_pages;
-    status = __issue_vm_cmd(state->vm_id, V3_VM_CONSOLE_CONNECT, (uintptr_t)&ioc);
-    if ((status      != 0) ||
-	(ioc.cons_fd <= 0)) {
+    cons_info.ring_buf_pa = (uintptr_t)state->ring_buf_pmem.start;
+    cons_info.num_pages   = (u32)connect_info->num_pages;
+    status = __issue_vm_cmd(state->vm_id, V3_VM_CONSOLE_CONNECT, (uintptr_t)&cons_info);
+    if (status!= 0) {
 	err_str = "Could not connect VM console";
 	goto out_connect;
     }
 
-    state->cons_fd = ioc.cons_fd;
+    state->cons_fd = cons_info.cons_fd;
 
     /* Add fd to the poll list */
     status = add_fd_handler(state->cons_fd, __hobbes_cons_event, state);
