@@ -515,10 +515,10 @@ populate_system_info(hdb_db_t db)
 		    break;
 		    */
 		    break;
-		case PET_CPU_OFFLINE:
 		case PET_CPU_RSVD:
 		    state = CPU_ALLOCATED;
 		    break;
+		case PET_CPU_OFFLINE:
 		case PET_CPU_INVALID:
 		default: 
 		    state = CPU_INVALID;
@@ -549,6 +549,7 @@ populate_system_info(hdb_db_t db)
 	uint32_t i         = 0;
 
 
+
 	int ret = 0;
 
 	if (pet_probe_mem(&num_blks, &blk_arr) != 0) {
@@ -557,7 +558,8 @@ populate_system_info(hdb_db_t db)
 	}
 
 	for (i = 0; i < num_blks; i++) {
-	    mem_state_t state     = MEMORY_INVALID;
+	    mem_state_t state      = MEMORY_INVALID;
+	    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
 
 	    switch (blk_arr[i].state) {
 		case PET_BLOCK_ONLINE: {
@@ -567,21 +569,22 @@ populate_system_info(hdb_db_t db)
 		    int blk_index = blk_arr[i].base_addr / pet_block_size();
 		    
 		    if (pet_offline_block(blk_index) != 0) {
-		  	state = MEMORY_ALLOCATED;
+		  	state      = MEMORY_ALLOCATED;
+			enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 			break;
 		    }
 		    
 		    free_blks++;
-		    state = MEMORY_FREE;
+		    state      = MEMORY_FREE;
 		    
 		    break;
-		
-		
 		}
-		case PET_BLOCK_OFFLINE:
+
 		case PET_BLOCK_RSVD: 
-		    state = MEMORY_ALLOCATED;
+		    state      = MEMORY_ALLOCATED;
+		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
+		case PET_BLOCK_OFFLINE:
 		case PET_BLOCK_INVALID:
 		default: 
 		    state = MEMORY_INVALID;
@@ -592,7 +595,8 @@ populate_system_info(hdb_db_t db)
 				      blk_arr[i].base_addr, 
 				      blk_arr[i].pages * PAGE_SIZE, 
 				      blk_arr[i].numa_node,
-				      state);
+				      state, 
+				      enclave_id);
 
 	    if (ret == -1) {
 		ERROR("Error registering memory with database\n");

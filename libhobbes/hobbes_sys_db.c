@@ -1284,7 +1284,8 @@ __register_memory(hdb_db_t    db,
 		  uintptr_t   base_addr,
 		  uint64_t    blk_size,
 		  uint32_t    numa_node,
-		  mem_state_t state)
+		  mem_state_t state,
+		  hobbes_id_t enclave_id)
 {
     void    * hdr_rec  = NULL;
     hdb_mem_t blk      = NULL;
@@ -1313,7 +1314,7 @@ __register_memory(hdb_db_t    db,
     wg_set_field(db, blk, HDB_MEM_BLK_SIZE,   wg_encode_int(db, blk_size));
     wg_set_field(db, blk, HDB_MEM_NUMA_NODE,  wg_encode_int(db, numa_node));
     wg_set_field(db, blk, HDB_MEM_STATE,      wg_encode_int(db, state));
-    wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, blk, HDB_MEM_ENCLAVE_ID, wg_encode_int(db, enclave_id));
     wg_set_field(db, blk, HDB_MEM_APP_ID,     wg_encode_int(db, HOBBES_INVALID_ID));
 
     __wg_set_record(db, blk, HDB_MEM_NEXT_FREE, NULL);
@@ -1336,7 +1337,8 @@ hdb_register_memory(hdb_db_t    db,
 		    uintptr_t   base_addr,
 		    uint64_t    blk_size,
 		    uint32_t    numa_node,
-		    mem_state_t state)
+		    mem_state_t state,
+		    hobbes_id_t enclave_id)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -1348,7 +1350,7 @@ hdb_register_memory(hdb_db_t    db,
 	return -1;
     }
     
-    ret = __register_memory(db, base_addr, blk_size, numa_node, state);
+    ret = __register_memory(db, base_addr, blk_size, numa_node, state, enclave_id);
 
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");

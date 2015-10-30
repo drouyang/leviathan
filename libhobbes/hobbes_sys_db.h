@@ -71,7 +71,8 @@ hdb_register_memory(hdb_db_t    db,
 		    uintptr_t   base_addr,
 		    uint64_t    blk_size,
 		    uint32_t    numa_node,
-		    mem_state_t state);
+		    mem_state_t state,
+		    hobbes_id_t enclave_id);
 
 
 
