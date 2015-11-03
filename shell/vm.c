@@ -305,6 +305,7 @@ __create_vm(pet_xml_t   xml,
 	    hobbes_id_t host_enclave_id)
 {
     hobbes_id_t enclave_id   = INVALID_ENCLAVE;
+    char      * xml_name     = NULL;
     char      * enclave_name = NULL;
     char      * target       = pet_xml_get_val(xml, "host_enclave");
     char      * err_str      = NULL;
@@ -322,10 +323,14 @@ __create_vm(pet_xml_t   xml,
     }
 
     {
+	xml_name = pet_xml_get_val(xml, "name");
+
+	if (xml_name)
+	    enclave_name = xml_name;
+	else
+	    enclave_name = name;
+
 	/* Add VM to the Master DB */
-
-	enclave_name = pet_xml_get_val(xml, "name");
-
 	enclave_id = hdb_create_enclave(hobbes_master_db, 
 					enclave_name, 
 					-1, 
@@ -337,7 +342,7 @@ __create_vm(pet_xml_t   xml,
 	    return -1;
 	}
 
-	if (enclave_name == NULL) {
+	if (xml_name == NULL) {
 	    enclave_name = hobbes_get_enclave_name(enclave_id);
 	    pet_xml_add_val(xml, "name", enclave_name);
 	}	
