@@ -311,7 +311,6 @@ __get_cpu_by_id(hdb_db_t db,
     arglist[1].value  = wg_encode_query_param_int(db, cpu_id);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
-    
     cpu   = wg_fetch(db, query);
 
     wg_free_query(db, query);
@@ -321,12 +320,19 @@ __get_cpu_by_id(hdb_db_t db,
     return cpu;
 }
 
+static uint32_t
+__get_cpu_id(hdb_db_t  db,
+	     hdb_cpu_t cpu)
+{
+    return wg_decode_int(db, wg_get_field(db, cpu, HDB_CPU_ID));
+}
 
 static int
 __register_cpu(hdb_db_t    db,
 	       uint32_t    cpu_id,
 	       uint32_t    numa_node,
-	       cpu_state_t state)
+	       cpu_state_t state,
+	       hobbes_id_t enclave_id)
 {
     uint32_t   cpu_cnt  = 0;
     hdb_cpu_t  cpu      = NULL;
@@ -350,7 +356,7 @@ __register_cpu(hdb_db_t    db,
     wg_set_field(db, cpu, HDB_CPU_ID,          wg_encode_int(db, cpu_id));
     wg_set_field(db, cpu, HDB_CPU_NUMA_NODE,   wg_encode_int(db, numa_node));
     wg_set_field(db, cpu, HDB_CPU_STATE,       wg_encode_int(db, state));
-    wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, HOBBES_INVALID_ID));
+    wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, enclave_id));
 
     /* Update the enclave Header information */
     wg_set_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT, wg_encode_int(db, cpu_cnt + 1));
@@ -362,7 +368,8 @@ int
 hdb_register_cpu(hdb_db_t    db,
 		 uint32_t    cpu_id,
 		 uint32_t    numa_node,
-		 cpu_state_t state)
+		 cpu_state_t state,
+		 hobbes_id_t enclave_id)
 {
     wg_int   lock_id;
     int      ret      = -1;
@@ -374,7 +381,7 @@ hdb_register_cpu(hdb_db_t    db,
 	return -1;
     }
 
-    ret = __register_cpu(db, cpu_id, numa_node, state);
+    ret = __register_cpu(db, cpu_id, numa_node, state, enclave_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -513,6 +520,152 @@ hdb_get_cpu_numa_node(hdb_db_t db,
     return numa_node;
 }
 
+static hdb_cpu_t 
+__find_free_cpu(hdb_db_t db,
+		uint32_t numa_node)
+{
+    hdb_cpu_t      cpu   = NULL;
+    wg_query     * query = NULL;
+    wg_query_arg   arglist[3];
+
+    int i      = 0;
+    int argcnt = 2;
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_CPU);
+
+    arglist[1].column = HDB_CPU_STATE;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, CPU_FREE);
+	
+    if (numa_node != HOBBES_ANY_NUMA_ID) {
+	arglist[2].column = HDB_CPU_NUMA_NODE;
+	arglist[2].cond   = WG_COND_EQUAL;
+	arglist[2].value  = wg_encode_query_param_int(db, numa_node);
+
+	argcnt++;
+    }
+
+    query = wg_make_query(db, NULL, 0, arglist, argcnt);
+    cpu   = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+
+    for (i = 0; i < argcnt; i++) {
+	wg_free_query_param(db, arglist[i].value);
+    }
+    
+    return cpu;
+}
+
+
+
+static uint32_t
+__alloc_cpu(hdb_db_t    db,
+	    uint32_t    cpu_id,
+	    uint32_t    numa_node,
+	    hobbes_id_t enclave_id)
+{
+    hdb_cpu_t cpu    = NULL;
+ 
+    if (cpu_id == HOBBES_ANY_CPU_ID) {
+	cpu = __find_free_cpu(db, numa_node);
+    } else {
+	cpu = __get_cpu_by_id(db, cpu_id);
+    }
+    
+    if (!cpu) {
+	ERROR("Could not retrieve CPU for allocation\n");
+	return HOBBES_INVALID_CPU_ID;
+    }
+
+    cpu_id = __get_cpu_id(db, cpu);
+
+    if (__get_cpu_state(db, cpu_id) != CPU_FREE) {	
+	ERROR("CPU (%d) is not available\n", cpu_id);
+	return HOBBES_INVALID_CPU_ID;
+    }
+    
+    wg_set_field(db, cpu, HDB_CPU_STATE,      wg_encode_int(db, CPU_ALLOCATED));
+    wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID, wg_encode_int(db, enclave_id)); 
+
+    return cpu_id;
+}
+
+
+uint32_t 
+hdb_alloc_cpu(hdb_db_t    db,
+	      uint32_t    cpu_id,
+	      uint32_t    numa_node,
+	      hobbes_id_t enclave_id)
+{
+    uint32_t ret_val = HOBBES_INVALID_CPU_ID;
+    wg_int   lock_id;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_CPU_ID;
+    }
+
+    ret_val = __alloc_cpu(db, cpu_id, numa_node, enclave_id);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_CPU_ID;
+    }
+
+    return ret_val;
+}
+
+static int
+__free_cpu(hdb_db_t db,
+	   uint32_t cpu_id)
+{
+    hdb_cpu_t cpu = __get_cpu_by_id(db, cpu_id);
+
+    if (!cpu) {
+	ERROR("Could not find CPU (%d)\n", cpu_id);
+	return -1;
+    }
+
+    if (__get_cpu_state(db, cpu_id) != CPU_ALLOCATED) {
+	ERROR("Tried to free unallocated CPU (%d)\n", cpu_id);
+	return -1;
+    }
+
+    wg_set_field(db, cpu, HDB_CPU_STATE,      wg_encode_int(db, CPU_FREE));
+    wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID, wg_encode_int(db, HOBBES_INVALID_ID));
+
+    return 0;
+}
+
+
+int
+hdb_free_cpu(hdb_db_t db,
+	     uint32_t cpu_id)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __free_cpu(db, cpu_id);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return ret;
+}
 
 
 static uint32_t *

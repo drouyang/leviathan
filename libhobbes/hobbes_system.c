@@ -69,6 +69,8 @@ hobbes_get_free_mem(void)
 
 
 
+
+
 uintptr_t 
 hobbes_alloc_mem(hobbes_id_t enclave_id,
 		 int         numa_node, 
@@ -151,6 +153,33 @@ int
 hobbes_free_enclave_mem(hobbes_id_t enclave_id)
 {
     return hdb_free_enclave_blocks(hobbes_master_db, enclave_id);
+}
+
+
+
+/****
+ * CPU
+ ****/
+
+uint32_t
+hobbes_alloc_cpu(hobbes_id_t enclave_id,
+		 uint32_t    numa_node)
+{
+    return hdb_alloc_cpu(hobbes_master_db, HOBBES_ANY_CPU_ID, numa_node, enclave_id);
+}
+
+
+uint32_t 
+hobbes_alloc_specific_cpu(hobbes_id_t enclave_id,
+			  uint32_t    cpu_id)
+{
+    return hdb_alloc_cpu(hobbes_master_db, cpu_id, HOBBES_ANY_NUMA_ID, enclave_id);
+}
+
+int 
+hobbes_free_cpu(uint32_t cpu_id)
+{
+    return hdb_free_cpu(hobbes_master_db, cpu_id);
 }
 
 

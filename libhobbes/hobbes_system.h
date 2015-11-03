@@ -48,11 +48,27 @@ struct hobbes_system_info {
 };
 
 
+uint32_t  hobbes_get_numa_cnt(void);
 
 
-uintptr_t
-hobbes_alloc_node(hobbes_id_t enclave_id,
-		  int         numa_node);
+/* CPU allocation */
+
+uint32_t
+hobbes_alloc_cpu(hobbes_id_t enclave_id,
+		 uint32_t    numa_node);
+
+
+uint32_t
+hobbes_alloc_specific_cpu(hobbes_id_t enclave_id,
+			  uint32_t    cpu_id);
+
+int 
+hobbes_free_cpu(uint32_t cpu_id);
+
+
+
+/* Memory Allocation */
+
 
 uintptr_t 
 hobbes_alloc_mem(hobbes_id_t enclave_id,
@@ -96,14 +112,18 @@ hobbes_free_mem_block(uintptr_t addr,
 int
 hobbes_free_enclave_mem(hobbes_id_t enclave_id);
 
-int
-hobbes_alloc_cpu(int numa_node);
 
 
-uint32_t  hobbes_get_numa_cnt(void);
+
+
 uint64_t  hobbes_get_free_mem(void);   /* Returns size in Bytes */
 uint64_t  hobbes_get_mem_size(void);   /* Returns size in Bytes */
 uint64_t  hobbes_get_block_size(void); /* Returns size in Bytes */
+
+
+
+
+
 
 struct hobbes_memory_info {
     uintptr_t   base_addr;
@@ -114,10 +134,6 @@ struct hobbes_memory_info {
     hobbes_id_t app_id;
 };
 
-
-struct hobbes_memory_info * 
-hobbes_get_memory_list(uint64_t * num_mem_blks);
-
 struct hobbes_cpu_info {
     uint32_t    cpu_id;
     uint32_t    numa_node;
@@ -125,11 +141,18 @@ struct hobbes_cpu_info {
     hobbes_id_t enclave_id;
 };
 
+
+
+struct hobbes_memory_info * 
+hobbes_get_memory_list(uint64_t * num_mem_blks);
+
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(uint32_t * num_cpus);
 
 const char * mem_state_to_str(mem_state_t state);
 const char * cpu_state_to_str(cpu_state_t state);
+
+
 
 
 
