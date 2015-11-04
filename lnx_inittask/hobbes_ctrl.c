@@ -1,4 +1,3 @@
-	
 /* Hobbes Enclave Commands 
  * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  */
@@ -55,7 +54,7 @@ __handle_cmd(int    fd,
 
     cmd_code = hcq_get_cmd_code(hcq, cmd);    
 
-    printf("Hobbes cmd code=%lu\n", cmd_code);
+    //    printf("Hobbes cmd code=%lu\n", cmd_code);
     
     handler = (hobbes_cmd_fn)pet_htable_search(hobbes_cmd_handlers, (uintptr_t)cmd_code);
     
@@ -119,8 +118,15 @@ static int
 __ping(hcq_handle_t hcq,
        uint64_t     cmd)
 {
-    printf("Ping\n");
-    hcq_cmd_return(hcq, cmd, 0, strlen("pong") + 1, "pong");
+    uint8_t * ping_data = NULL;
+    uint32_t  data_size = 0;
+
+    ping_data = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    //    printf("Ping (Size=%u bytes)\n", data_size);
+
+    hcq_cmd_return(hcq, cmd, 0, data_size, ping_data);
+
     return 0;
 }
 

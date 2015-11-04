@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <sys/time.h>
+
 
 #include <pet_log.h>
 #include <pet_xml.h>
@@ -131,22 +133,35 @@ void
 hobbes_close_enclave_cmdq(hcq_handle_t hcq)
 {
     hcq_disconnect(hcq);
-
 }
 
 
 int 
-hobbes_ping_enclave(hobbes_id_t enclave_id)
+hobbes_ping_enclave(hobbes_id_t enclave_id, 
+		    uint32_t    size_in_bytes)
 {
     hcq_handle_t   hcq       = hobbes_open_enclave_cmdq(enclave_id);
     hcq_cmd_t      cmd       = HCQ_INVALID_CMD;
     int            ret       = 0;
     char         * resp      = NULL;
+    uint8_t      * data      = NULL;
     uint32_t       resp_size = 0;
 
+    struct timeval start, end, issue;
+    uint64_t start_us, end_us, issue_us;
+
     printf("%s: ping\n", hobbes_get_my_enclave_name());
-    
-    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_PING, 0, NULL);
+
+    data = calloc(1, size_in_bytes);
+
+    if (data == NULL) {
+	ERROR("Could not allocate ping data buffer (size=%u bytes)\n", size_in_bytes);
+	return -1;
+    }
+
+    gettimeofday(&start, NULL);
+	
+    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_PING, size_in_bytes, data);
 
     if (cmd == HCQ_INVALID_CMD) {
 	printf("No Response\n");
@@ -161,11 +176,22 @@ hobbes_ping_enclave(hobbes_id_t enclave_id)
     }
 
     resp = hcq_get_ret_data(hcq, cmd, &resp_size);
-
-    printf("%s: %s\n", hobbes_get_enclave_name(enclave_id), resp);
     
     hcq_cmd_complete(hcq, cmd);
+
+    gettimeofday(&end, NULL);
+
     hobbes_close_enclave_cmdq(hcq);
+
+    printf("%s: pong\n", hobbes_get_enclave_name(enclave_id));
+
+
+    start_us = (start.tv_sec * 1e6) + start.tv_usec;
+    end_us   = (end.tv_sec   * 1e6) + end.tv_usec;
+    printf("Ping Latency  : %f\n",  (end_us   - start_us) / (double)1e6);
+
+    free(resp);
+    free(data);
 
     return 0;
 }

@@ -1,9 +1,11 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include <hobbes_db.h>
 #include <hobbes_file.h>
+#include <hobbes_util.h>
 
 #include <pet_xml.h>
 #include <pet_log.h>
@@ -104,24 +106,84 @@ destroy_enclave_main(int argc, char ** argv)
 }
 
 
+
+static void
+__ping_usage()
+{
+    printf("ping: Ping an enclave via the command queue\n\n"		\
+	   "Test utility to debug command queues and enclaves.\n\n"	\
+	   "Usage: ping [options] <enclave name>\n"			\
+	   "Options: \n"						\
+	   "\t[-s|--size <size in bytes>    : Specify the size of the ping message\n" \
+	   "\t[-w|--walk]                   : Ping size spectrum sweep (1 byte - 1MB in powers of 2)\n"
+	   );
+    exit(-1);
+}
+
 int
 ping_enclave_main(int argc, char ** argv)
 {
-    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+    hobbes_id_t enclave_id    = HOBBES_INVALID_ID;
+    int         size_in_bytes = 0;
+    int         do_walk       = 0;
     
-    if (argc < 1) {
-	printf("Usage: hobbes ping_enclave <enclave name>\n");
+
+    {
+	int  opt_idx = 0;
+	char c       = 0;
+	
+	opterr = 1;
+
+	static struct option long_options[] = {
+	    {"size",    required_argument, 0, 's'},
+	    {"walk",    no_argument,       0, 'w'},
+	    {0, 0, 0, 0}
+	};
+
+
+	while ((c = getopt_long(argc, argv, "s:w", long_options, &opt_idx)) != -1) {
+	    switch (c) {
+		case 's':
+		    size_in_bytes = smart_atoi(0, optarg);
+		    
+		    if (size_in_bytes == 0) {
+			__ping_usage();
+			return -1;
+		    }
+
+		    break;
+		case 'w':
+		    do_walk = 1;
+		    break;
+		default:
+		    __ping_usage();
+		    return -1;
+	    }
+	    
+	}
+    }
+
+    if (optind > argc) {
+	__ping_usage();
 	return -1;
     }
 
-    enclave_id = hobbes_get_enclave_id(argv[1]);
-
+    enclave_id = hobbes_get_enclave_id(argv[optind]);
+       
     if (enclave_id == HOBBES_INVALID_ID) {
 	printf("Invalid Enclave\n");
 	return -1;
     }
 
-    return hobbes_ping_enclave(enclave_id);
+
+    if (do_walk == 0) {
+	hobbes_ping_enclave(enclave_id, size_in_bytes);
+    } else {
+	// walk from 1 byte to 1MB
+
+    }
+
+    return 0;
 }
 
 

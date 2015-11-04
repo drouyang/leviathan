@@ -166,7 +166,15 @@ static int
 __ping(hcq_handle_t hcq,
        uint64_t     cmd)
 {
-    hcq_cmd_return(hcq, cmd, 0, strlen("pong") + 1, "pong");
+    uint8_t * ping_data = NULL;
+    uint32_t  data_size = 0;
+
+    ping_data = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    //    printf("Ping (Size=%u bytes)\n", data_size);
+
+    hcq_cmd_return(hcq, cmd, 0, data_size, ping_data);
+
     return 0;
 }
 

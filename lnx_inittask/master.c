@@ -525,7 +525,7 @@ populate_system_info(hdb_db_t db)
 		    break;
 	    }
 	    
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state);
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state, HOBBES_MASTER_ENCLAVE_ID);
 	    
 	    if (ret == -1) {
 		ERROR("Error registering CPU with database\n");
