@@ -70,6 +70,11 @@ int
 hdb_free_cpu(hdb_db_t db,
 	     uint32_t cpu_id);
 
+
+int 
+hdb_free_enclave_cpus(hdb_db_t    db,
+		      hobbes_id_t enclave_id);
+
 uint32_t *
 hdb_get_cpus(hdb_db_t   db,
 	     uint32_t * num_cpus);

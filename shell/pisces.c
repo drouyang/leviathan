@@ -23,17 +23,6 @@ extern hdb_db_t hobbes_master_db;
 
 
 
-static int
-add_cpus_to_pisces(int pisces_id,
-		   int num_cpus, 
-		   int numa_zone)
-{
-    int ret = -1;
-    
-    ret = pisces_add_cpus(pisces_id, num_cpus, numa_zone);
-
-    return ret;
-}
 
 static int 
 add_cpu_to_pisces(int pisces_id, 
@@ -41,7 +30,7 @@ add_cpu_to_pisces(int pisces_id,
 {
     int ret = -1;
 
-    ret = pisces_add_cpu(pisces_id, cpu_id);
+    ret = pisces_add_offline_cpu(pisces_id, cpu_id);
 
     return ret;
 }
@@ -146,10 +135,18 @@ pisces_enclave_create(pet_xml_t   xml,
 
 
 	/* Allocate anything not specified using default sizes (1 CPU, 1 memory block) */
+
 	if (boot_cpu == -1) {
-	    // Allocate 1 boot cpu
-	    
+	    boot_cpu = hobbes_alloc_cpu(enclave_id, numa_zone);
+	} else {
+	    boot_cpu = hobbes_alloc_specific_cpu(enclave_id, boot_cpu);
 	}
+
+	if (boot_cpu == HOBBES_INVALID_CPU_ID) {
+	    ERROR("Could not allocate Boot CPU for Pisces Enclave\n");
+	    return -1;
+	}
+
 
 	if (base_addr == -1) {
 	    base_addr = hobbes_alloc_mem(enclave_id, numa_zone, mem_size);
@@ -289,15 +286,27 @@ pisces_enclave_create(pet_xml_t   xml,
 		target = smart_atoi(target, pet_xml_tag_str(core_tree));
 		
 		if (target >= 0) {
-		    if (add_cpu_to_pisces(pisces_id, target) != 0) {
-			WARN("Could not add CPU (%d) to enclave (%d), continuing...\n", 
-			     target, pisces_id);
+		    uint32_t cpu_id = hobbes_alloc_specific_cpu(enclave_id, target);
+
+		    if (cpu_id == HOBBES_INVALID_CPU_ID) {
+			WARN("Unable to allocate CPU (%d) for enclave (%d)\n", target, enclave_id);
+			goto next;
 		    }
+		    
+		    if (add_cpu_to_pisces(pisces_id, target) != 0) {
+
+			WARN("Could not add CPU (%d) to enclave (%d), continuing...\n", 
+			     target, enclave_id);
+
+			hobbes_free_cpu(cpu_id);
+		    }
+
 		} else {
 		    WARN("Invalid CPU index (%s) in enclave configuration. Ignoring...\n", 
 			 pet_xml_tag_str(core_tree));
 		}
 
+	    next:
 		core_tree = pet_xml_get_next(core_tree);
 	    } 
 
@@ -305,17 +314,26 @@ pisces_enclave_create(pet_xml_t   xml,
 		int numa_node  = -1;
 		int core_count = -1;
 
+		int i =  0;
+		
 		numa_node  = smart_atoi(numa_node,  pet_xml_get_val(cores_tree, "numa"));
 		core_count = smart_atoi(core_count, pet_xml_tag_str(cores_tree));
 
-		if (core_count > 0) {
-		    if (add_cpus_to_pisces(pisces_id, core_count, numa_node) != 0) {
-			WARN("Could not add CPUs (%d) to enclave (%d), continuing...\n", 
-			     core_count, pisces_id);
+		for (i = 0; i < core_count; i++) {
+		    uint32_t cpu_id = hobbes_alloc_cpu(enclave_id, numa_node);
+		    
+		    if (cpu_id == HOBBES_INVALID_CPU_ID) {
+			WARN("Only able to allocate %d CPUs for enclave (%d)\n", i, enclave_id);
+			break;
 		    }
-		} else {
-		    WARN("Invalid CPU core count (%s) in enclave configuration. Ignoring...\n", 
-			 pet_xml_tag_str(cores_tree));
+
+		    if (add_cpu_to_pisces(pisces_id, cpu_id) != 0) {
+			WARN("Could not add CPU (%d) to enclave (%d), continuing...\n", 
+			     cpu_id, enclave_id);
+
+			hobbes_free_cpu(cpu_id);
+		    }
+
 		}
 
 		cores_tree = pet_xml_get_next(cores_tree);
@@ -350,6 +368,7 @@ pisces_enclave_destroy(hobbes_id_t enclave_id)
     }
 
     hobbes_free_enclave_mem(enclave_id);
+    hobbes_free_enclave_cpus(enclave_id);
 
     if (hdb_delete_enclave(hobbes_master_db, enclave_id) != 0) {
 	ERROR("Could not delete enclave from database\n");

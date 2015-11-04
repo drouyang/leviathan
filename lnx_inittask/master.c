@@ -494,29 +494,30 @@ populate_system_info(hdb_db_t db)
 	}
 	
 	for (i = 0; i < num_cpus; i++) {
-	    cpu_state_t state = CPU_INVALID;
+	    cpu_state_t state      = CPU_INVALID;
+	    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
 
 
 	    switch (cpu_arr[i].state) {
-		case PET_CPU_ONLINE:
-		    /* Comment this out for now, otherwise it will break everything
-		       int cpu_id = cpu_arr[i].cpu_id;
-
-		      pet_offline_cpu(cpu_id);
-
+		case PET_CPU_ONLINE: {
+		    int cpu_id = cpu_arr[i].cpu_id;
+		    
+		    pet_offline_cpu(cpu_id);
+		    
 		    if (pet_cpu_status(cpu_id) != PET_CPU_OFFLINE) {
-			state = CPU_ALLOCATED;
+			state      = CPU_ALLOCATED;
+			enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 			break;
 		    }
 		    
 		    free_cpus++;
 		    state = CPU_FREE;
-
+		    
 		    break;
-		    */
-		    break;
+		}	
 		case PET_CPU_RSVD:
-		    state = CPU_ALLOCATED;
+		    state      = CPU_ALLOCATED;
+		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
 		case PET_CPU_OFFLINE:
 		case PET_CPU_INVALID:
@@ -525,7 +526,7 @@ populate_system_info(hdb_db_t db)
 		    break;
 	    }
 	    
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state, HOBBES_MASTER_ENCLAVE_ID);
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state, enclave_id);
 	    
 	    if (ret == -1) {
 		ERROR("Error registering CPU with database\n");

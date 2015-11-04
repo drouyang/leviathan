@@ -183,6 +183,14 @@ hobbes_free_cpu(uint32_t cpu_id)
 }
 
 
+int 
+hobbes_free_enclave_cpus(hobbes_id_t enclave_id)
+{
+    return hdb_free_enclave_cpus(hobbes_master_db, enclave_id);
+}
+
+
+
 struct hobbes_memory_info * 
 hobbes_get_memory_list(uint64_t * num_mem_blks)
 {

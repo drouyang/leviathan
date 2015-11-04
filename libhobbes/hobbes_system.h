@@ -1,4 +1,4 @@
-/* 
+ /* 
  * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
  * All rights reserved.
  *
@@ -66,6 +66,10 @@ int
 hobbes_free_cpu(uint32_t cpu_id);
 
 
+int 
+hobbes_free_enclave_cpus(hobbes_id_t enclave_id);
+
+
 
 /* Memory Allocation */
 
@@ -103,6 +107,7 @@ hobbes_alloc_mem_addr(hobbes_id_t enclave_id,
 int
 hobbes_free_mem(uintptr_t addr, 
 		uintptr_t size_in_bytes);
+
 
 
 int

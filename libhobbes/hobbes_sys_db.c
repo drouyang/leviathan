@@ -320,6 +320,34 @@ __get_cpu_by_id(hdb_db_t db,
     return cpu;
 }
 
+
+static hdb_cpu_t
+__get_cpu_by_enclave_id(hdb_db_t    db,
+			hobbes_id_t enclave_id)
+{
+    hdb_cpu_t      cpu   = NULL;
+    wg_query     * query = NULL;
+    wg_query_arg   arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_CPU);
+
+    arglist[1].column = HDB_CPU_ENCLAVE_ID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, enclave_id);
+
+    query = wg_make_query(db, NULL, 0, arglist, 2);
+    
+    cpu   = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+
+    return cpu;
+}
+
 static uint32_t
 __get_cpu_id(hdb_db_t  db,
 	     hdb_cpu_t cpu)
@@ -659,6 +687,43 @@ hdb_free_cpu(hdb_db_t db,
 
     ret = __free_cpu(db, cpu_id);
 
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return -1;
+    }
+
+    return ret;
+}
+
+static int
+__free_enclave_cpus(hdb_db_t    db,
+		    hobbes_id_t enclave_id)
+{
+    hdb_cpu_t cpu = NULL;
+
+    while ((cpu = __get_cpu_by_enclave_id(db, enclave_id)) != NULL) {
+	__free_cpu(db, __get_cpu_id(db, cpu));
+    }
+    
+    return 0;
+}
+
+int 
+hdb_free_enclave_cpus(hdb_db_t    db,
+		      hobbes_id_t enclave_id)
+{
+    wg_int lock_id;
+    int    ret = 0;
+
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __free_enclave_cpus(db, enclave_id);
+    
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Catastrophic database locking error\n");
 	return -1;
