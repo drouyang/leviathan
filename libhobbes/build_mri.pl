@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-$filename = shift;
+$filename = shift (@ARGV);
 
 open FILE, ">$filename";
 
