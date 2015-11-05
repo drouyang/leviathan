@@ -193,7 +193,7 @@ launch_lwk_app(char        * name,
 	    
 	    sprintf(start_state[rank].task_name, "%s-%d", name, rank);
 
-	    char *env_str;
+	    char * env_str = NULL;
 	    asprintf(&env_str, "%s PMI_RANK=%d PMI_SIZE=%d\n", envp, rank, num_ranks);
 
 	    status = elf_load((void *)file_addr,

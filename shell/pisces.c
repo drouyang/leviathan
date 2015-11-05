@@ -365,7 +365,7 @@ pisces_enclave_destroy(hobbes_id_t enclave_id)
     char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);
     int    dev_id = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
 
-    if (pisces_teardown(dev_id, 1, 0) != 0) {
+    if (pisces_teardown(dev_id, 0, 0) != 0) {
 	ERROR("Could not teardown pisces enclave (%s)\n", name);
 	return -1;
     }
