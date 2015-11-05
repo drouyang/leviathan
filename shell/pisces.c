@@ -204,14 +204,18 @@ pisces_enclave_create(pet_xml_t   xml,
 	while (memory_tree) {
 	    uintptr_t size       =  0;
 	    int       numa_node  = -1;
-	    int       block_size =  hobbes_get_block_size();
+	    uint64_t  block_size =  hobbes_get_block_size(); /* Block size in bytes */
 	    uintptr_t base_addr  = -1;
-	    
-	    size       = smart_atou64(size,      pet_xml_get_val(memory_tree, "size"))       * (1024 * 1024); /* Convert MB to bytes */
-	    block_size = smart_atoi(block_size,  pet_xml_get_val(memory_tree, "block_size")) * (1024 * 1024); /* Convert MB to bytes */
+	    int       block_size_mb = -1;
+
+	    size       = smart_atou64(size,      pet_xml_get_val(memory_tree, "size")) * (1024 * 1024); /* Convert MB to bytes */
 	    numa_node  = smart_atoi(numa_node,   pet_xml_get_val(memory_tree, "numa"));
 	    base_addr  = smart_atou64(base_addr, pet_xml_get_val(memory_tree, "base_addr"));
-	    
+
+	    if ((block_size_mb = smart_atoi(-1, pet_xml_get_val(memory_tree, "block_size"))) != -1) {
+		block_size = block_size_mb * (1024 * 1024);  /* Convert to bytes */
+	    }
+
 	    if ((size % block_size) != 0) {
 		WARN("Size does not match system block size. Rounding up...\n");
 		size += block_size - (size % block_size);
