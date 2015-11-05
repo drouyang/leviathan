@@ -229,6 +229,20 @@ xemem_attach(struct xemem_addr   addr,
     return new_vaddr;
 } 
 
+void *
+xemem_attach_nocache(struct xemem_addr   addr, 
+		     size_t              size,
+		     void              * vaddr)
+{
+    void * new_vaddr = NULL;
+    
+    new_vaddr = xpmem_attach_nocache(*(struct xpmem_addr *)&addr, size, vaddr);
+
+    /* TODO: Update attachment table */
+
+    return new_vaddr;
+}
+
 int 
 xemem_detach(void * vaddr)
 {

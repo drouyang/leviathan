@@ -78,6 +78,10 @@ void * xemem_attach(struct xemem_addr addr,
 		    size_t            size,
 		    void            * vaddr);
 
+void * xemem_attach_nocache(struct xemem_addr addr, 
+		    size_t            size,
+		    void            * vaddr);
+
 int xemem_detach(void * vaddr);
 
 
