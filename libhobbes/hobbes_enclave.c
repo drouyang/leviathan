@@ -147,8 +147,8 @@ hobbes_ping_enclave(hobbes_id_t enclave_id,
     uint8_t      * data      = NULL;
     uint32_t       resp_size = 0;
 
-    struct timeval start, end, issue;
-    uint64_t start_us, end_us, issue_us;
+    struct timeval start, end;
+    uint64_t start_us, end_us;
 
     printf("%s: ping\n", hobbes_get_my_enclave_name());
 
