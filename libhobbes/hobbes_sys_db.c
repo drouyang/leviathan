@@ -1219,7 +1219,7 @@ __alloc_span(hdb_db_t    db,
 {
     void    * hdr_rec  = NULL;
     hdb_mem_t iter_blk = NULL;
-    uintptr_t ret_addr = NULL;
+    uintptr_t ret_addr = 0;
 
     hdr_rec = __get_sys_hdr(db);
 
