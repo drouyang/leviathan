@@ -474,7 +474,7 @@ __console(hobbes_id_t    enclave_id,
 	
 	if (console.win == NULL) {
 	    fprintf(stderr, "Error initialization curses screen\n");
-	    exit(-1);
+	    return -1;
 	}
 
 	scrollok(console.win, 1);
