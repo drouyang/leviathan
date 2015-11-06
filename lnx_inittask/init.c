@@ -29,7 +29,7 @@
 #include "palacios.h"
 
 
-static uint32_t           handler_max_fd = 0;
+static int                handler_max_fd = 0;
 static fd_set             handler_fdset;
 static struct hashtable * handler_table  = NULL;
 
@@ -80,7 +80,6 @@ main(int argc, char ** argv, char * envp[])
 	return -1;
     }
 
-    printf("Foo\n");
 
     /* Trap SIGINT for cleanup */
     {

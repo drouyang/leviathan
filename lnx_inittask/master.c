@@ -57,7 +57,7 @@ int master_init(int argc, char ** argv) {
 
     int      numa_zone   = -1;
     int      num_cpus    = -1;
-    uint32_t mem_size_MB = -1;
+    uint64_t mem_size_MB = -1;
 
     hdb_db_t  db       = NULL;
     char    * cpu_list = NULL;
@@ -107,9 +107,9 @@ int master_init(int argc, char ** argv) {
 
 		    break;
 		case 'm':
-		    mem_size_MB = smart_atoi(-1, optarg);
+		    mem_size_MB = smart_atou64(-1, optarg);
 
-		    if (mem_size_MB == -1) {
+		    if (mem_size_MB == (uint64_t)-1) {
 			ERROR("Invalid Memory argument (%s)\n", optarg);
 			usage(argv[0]);
 		    }
@@ -161,7 +161,7 @@ int master_init(int argc, char ** argv) {
 
     if (mem_str_is_set) {
 	if (reserve_memory(mem_size_MB, numa_zone) == -1) {
-	    ERROR("Could not reserve %uMB of memory on NUMA zone %d for master enclave\n", mem_size_MB, numa_zone);
+	    ERROR("Could not reserve %luMB of memory on NUMA zone %d for master enclave\n", mem_size_MB, numa_zone);
 	    return -1;
 	}
     } else {
@@ -280,7 +280,6 @@ reserve_cpus(int num_cpus,
 	    (pet_cpu_to_numa_node(0) == numa_zone)) {
 	    cpu0_locked = 1;
 	}
-
     }
 
     if (num_cpus > 0) {
@@ -336,8 +335,8 @@ reserve_memory(int mem_size_MB,
     uint32_t num_blks    = 0;
     int      blk_size_MB = pet_block_size() / (1024 * 1024);
     
-    int ret = 0;
-    int i   = 0;
+    uint32_t i   = 0;
+    int      ret = 0;
 
     /* Rounding up allocation to match underlying block size */
     num_blks = mem_size_MB / blk_size_MB + ((mem_size_MB % blk_size_MB) != 0);
@@ -371,9 +370,6 @@ reserve_memory(int mem_size_MB,
     }
 
     /* reserve any more that we might need */
-
-    
-
     for (i = 0; i < sys_blk_cnt; i++) {
 	
 	if (blk_arr[i].state == PET_BLOCK_ONLINE) {
@@ -468,7 +464,7 @@ populate_system_info(hdb_db_t db)
 	uint64_t blk_size = pet_block_size();
 
 	if ((blk_size == (uint64_t)-1) ||
-	    (numa_cnt == (uint64_t)-1)) {
+	    (numa_cnt == (uint32_t)-1)) {
 	    ERROR("Could not detect base system info (blk_size=%lu) (numa_cnt=%u)\n", blk_size, numa_cnt);
 	    return -1;
 	}
@@ -564,9 +560,6 @@ populate_system_info(hdb_db_t db)
 
 	    switch (blk_arr[i].state) {
 		case PET_BLOCK_ONLINE: {
-		    /* 
-		       Comment this out for now, otherwise it will break everything
-		    */
 		    int blk_index = blk_arr[i].base_addr / pet_block_size();
 		    
 		    if (pet_offline_block(blk_index) != 0) {

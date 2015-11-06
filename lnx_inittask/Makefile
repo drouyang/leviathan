@@ -12,7 +12,8 @@ AR = ar
 execs := lnx_init
 
 CFLAGS :=	-D_GNU_SOURCE              \
-		-Wall -Werror		   \
+		-g -W -Wall -Werror	   \
+		-Wno-unused-parameter -Wno-nonnull \
 		-I$(XPMEM_PATH)/include    \
 		-I$(LIBHOBBES_PATH)	   \
 		-I$(PETLIB_PATH)	   \

@@ -215,7 +215,7 @@ __add_memory(hcq_handle_t hcq,
     zeroed    = smart_atoi  ( 1, pet_xml_get_val(xml, "zeroed"    ));
     
     //if ((base_addr == -1) || (num_pgs == -1)) {
-    if (base_addr == -1) {
+    if (base_addr == (uintptr_t)-1) {
 	err_str = "Invalid command syntax";
 	goto out;
     }

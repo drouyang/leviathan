@@ -135,8 +135,8 @@ main(int argc, char ** argv, char * envp[])
     /* Command Loop */
     printf("Entering Command Loop\n");
     while (1) {
-	int ret  = 0;
-	int i    = 0;
+	int      ret  = 0;
+	uint32_t i    = 0;
 
 	ret = poll(handler_fds, handler_cnt, -1);
 

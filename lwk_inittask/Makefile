@@ -9,13 +9,14 @@ AR = ar
 
 execs := lwk_init
 
-CFLAGS :=	-D_GNU_SOURCE            \
-		-Wall -Werror		 \
-	 	-I$(KITTEN_PATH)/include \
-	  	-I$(PALACIOS_PATH)/user  \
-		-I$(XPMEM_PATH)/include  \
-		-I$(LIBHOBBES_PATH)	 \
-		-I$(PETLIB_PATH)	 \
+CFLAGS :=	-D_GNU_SOURCE            		\
+		-g -W -Wall -Werror	 		\
+		-Wno-nonnull -Wno-unused-parameter	\
+	 	-I$(KITTEN_PATH)/include 		\
+	  	-I$(PALACIOS_PATH)/user  		\
+		-I$(XPMEM_PATH)/include  		\
+		-I$(LIBHOBBES_PATH)	 		\
+		-I$(PETLIB_PATH)	 		\
 		-static
 
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \
