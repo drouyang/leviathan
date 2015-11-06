@@ -1103,7 +1103,7 @@ __free_span(hdb_db_t  db,
 	    uint32_t  block_span)
 {
     hdb_mem_t blk = __get_mem_blk_by_addr(db, base_addr);
-    int i = 0;
+    uint32_t  i   = 0;
 
     if (blk == NULL) {
 	ERROR("Tried to free and invalid block at (%p)\n", (void *)base_addr);
@@ -1214,7 +1214,7 @@ __alloc_block(hdb_db_t    db,
 static uintptr_t 
 __alloc_span(hdb_db_t    db,
 	     hobbes_id_t enclave_id,
-	     int         numa_node, 
+	     uint32_t    numa_node, 
 	     uint32_t    blk_span)
 {
     void    * hdr_rec  = NULL;
@@ -1240,7 +1240,7 @@ __alloc_span(hdb_db_t    db,
     while (iter_blk) {
 	uint32_t blk_numa = __get_mem_blk_numa(db, iter_blk);
 
-	if ((numa_node == blk_numa) || (numa_node == -1)) {
+	if ((numa_node == blk_numa) || (numa_node == HOBBES_ANY_NUMA_ID)) {
 	    break;
 	}
 
@@ -1259,7 +1259,7 @@ __alloc_span(hdb_db_t    db,
 	return __get_mem_blk_addr(db, iter_blk);	
     } else {
 	// allocate a contiguous range
-	int i = 0; 
+	uint32_t i = 0; 
 
 	while (iter_blk) {
 	    hdb_mem_t next_free_blk = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_FREE);
@@ -1272,7 +1272,7 @@ __alloc_span(hdb_db_t    db,
 		    break;
 		}
 		
-		if ((numa_node != -1) &&
+		if ((numa_node != HOBBES_ANY_NUMA_ID) &&
 		    (numa_node != __get_mem_blk_numa(db, next_blk))) {
 		    /* Error because NUMA should not be interleaved */
 		    return -1;
@@ -1315,7 +1315,7 @@ __alloc_span(hdb_db_t    db,
 uintptr_t 
 hdb_alloc_block(hdb_db_t    db,
 		hobbes_id_t enclave_id,
-		int         numa_node, 
+		uint32_t    numa_node, 
 		uint32_t    blk_span)
 {
     wg_int    lock_id;
@@ -1342,20 +1342,20 @@ hdb_alloc_block(hdb_db_t    db,
 static int
 __alloc_blocks(hdb_db_t    db,
 	       hobbes_id_t enclave_id,
-	       int         numa_node, 
+	       uint32_t    numa_node, 
 	       uint32_t    num_blocks,
 	       uint32_t    block_span,
 	       uintptr_t * block_array)
 {
-    int i   = 0;
-    int ret = 0;
+    uint32_t i   = 0;
+    int      ret = 0;
 
     memset(block_array, 0, sizeof(uintptr_t) * num_blocks);
 
     for (i = 0; i < num_blocks; i++) {
 	block_array[i] = __alloc_span(db, enclave_id, numa_node, block_span);
 
-	if (block_array[i] == -1) {
+	if (block_array[i] == (uintptr_t)-1) {
 	    ret = -1;
 	    break;
 	}
@@ -1365,7 +1365,7 @@ __alloc_blocks(hdb_db_t    db,
 
 	for (i = 0; i < num_blocks; i++) {
 	    
-	    if ((block_array[i] != 0) && (block_array[i] != -1)) {
+	    if ((block_array[i] != 0) && (block_array[i] != (uintptr_t)-1)) {
 		__free_span(db, block_array[i], block_span);
 	    }
 	}
@@ -1378,7 +1378,7 @@ __alloc_blocks(hdb_db_t    db,
 int
 hdb_alloc_blocks(hdb_db_t    db,
 		 hobbes_id_t enclave_id,
-		 int         numa_node,
+		 uint32_t    numa_node,
 		 uint32_t    num_blocks, 
 		 uint32_t    block_span, 
 		 uintptr_t * block_array)
@@ -1451,8 +1451,8 @@ __alloc_blocks_addr(hdb_db_t    db,
 		    uint32_t    block_span,
 		    uintptr_t   base_addr)
 {
-    int i = 0;
     uintptr_t tmp_addr = base_addr;
+    uint32_t  i        = 0;
     
     
     for (i = 0; i < block_span; i++) {
@@ -1515,7 +1515,7 @@ __register_memory(hdb_db_t    db,
 	return -1;
     }
 
-    if (blk_size != wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE))) {
+    if (blk_size != (uint64_t)wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_MEM_BLK_SIZE))) {
 	ERROR("Memory is not the correct size (requested block size = %lu)\n", blk_size);
 	return -1;
     }
@@ -1766,7 +1766,7 @@ __get_mem_blocks(hdb_db_t   db,
     cnt       = __get_sys_blk_cnt(db);
     *num_blks = cnt;
 
-    if ((cnt == 0) || (cnt == -1)) {
+    if ((cnt == 0) || (cnt == (uint64_t)-1)) {
 	return NULL;
     }
 

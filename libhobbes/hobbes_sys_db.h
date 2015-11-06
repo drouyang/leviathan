@@ -102,7 +102,7 @@ hdb_register_memory(hdb_db_t    db,
 int
 hdb_alloc_blocks(hdb_db_t    db,
 		 hobbes_id_t enclave_id, 
-		 int         numa_node,
+		 uint32_t    numa_node,
 		 uint32_t    num_blocks, 
 		 uint32_t    block_span,
 		 uintptr_t * block_array);
@@ -111,7 +111,7 @@ hdb_alloc_blocks(hdb_db_t    db,
 uintptr_t 
 hdb_alloc_block(hdb_db_t    db,
 		hobbes_id_t enclave_id, 
-		int         numa_node,
+		uint32_t    numa_node,
 		uint32_t    block_span);
 
 int

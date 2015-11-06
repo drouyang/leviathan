@@ -19,12 +19,12 @@ extern "C" {
 #include "hobbes.h"
 #include "hobbes_cmd_queue.h"
 
-#define HOBBES_INVALID_CPU_ID    (-1)
-#define HOBBES_INVALID_ADDR      (-1)
-#define HOBBES_INVALID_NUMA_ID   (-1)
+#define HOBBES_INVALID_CPU_ID    ((uint32_t)-1)
+#define HOBBES_INVALID_ADDR      ((uint64_t)-1)
+#define HOBBES_INVALID_NUMA_ID   ((uint32_t)-1)
 
-#define HOBBES_ANY_NUMA_ID       (-1)
-#define HOBBES_ANY_CPU_ID        (-1)
+#define HOBBES_ANY_NUMA_ID       ((uint32_t)-1)
+#define HOBBES_ANY_CPU_ID        ((uint32_t)-1)
 
 typedef enum {
     MEMORY_INVALID   = 0,

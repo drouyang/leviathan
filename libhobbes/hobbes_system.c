@@ -42,8 +42,8 @@ hobbes_get_mem_size(void)
     blk_cnt  = hdb_get_sys_blk_cnt  ( hobbes_master_db );
     blk_size = hdb_get_sys_blk_size ( hobbes_master_db );
 
-    if ((blk_cnt ==  0) || (blk_size ==  0) ||
-	(blk_cnt == -1) || (blk_size == -1)) {
+    if ((blk_cnt == (uint64_t) 0) || (blk_size == (uint64_t) 0) ||
+	(blk_cnt == (uint64_t)-1) || (blk_size == (uint64_t)-1)) {
 	return 0;
     }
 
@@ -59,8 +59,8 @@ hobbes_get_free_mem(void)
     blk_cnt  = hdb_get_sys_free_blk_cnt  ( hobbes_master_db );
     blk_size = hdb_get_sys_blk_size      ( hobbes_master_db );
 
-    if ((blk_cnt ==  0) || (blk_size ==  0) ||
-	(blk_cnt == -1) || (blk_size == -1)) {
+    if ((blk_cnt == (uint64_t) 0) || (blk_size == (uint64_t) 0) ||
+	(blk_cnt == (uint64_t)-1) || (blk_size == (uint64_t)-1)) {
 	return 0;
     }
 
