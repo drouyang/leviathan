@@ -156,8 +156,8 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
     reg_iter = pet_xml_get_subtree(xml, "region");
 
     if (!reg_iter) {
-	int i   = 0;
-	int ret = 0;
+	uint32_t i   = 0;
+	int      ret = 0;
 
 	ret = hobbes_alloc_mem_regions(enclave_id, dflt_numa_node, region_cnt, block_size, regions);
 
@@ -191,8 +191,8 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 	    }
 
 	    /* check for explicit mapping */
-	    if (host_addr != -1) {
-		int j = 0;
+	    if (host_addr != (uintptr_t)-1) {
+		uint64_t j = 0;
 			
 		if (hobbes_alloc_mem_addr(enclave_id, host_addr, size) == -1) {
 		    ERROR("Could not allocate explicit memory block (host_addr=%p)\n", (void *)host_addr);
@@ -210,12 +210,12 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 		
 		
 	    } else {
-		int j = 0;
+		uint64_t j = 0;
 
 		for (j = 0; j < (size / block_size); j++) {
 		    uintptr_t reg_addr = hobbes_alloc_mem(enclave_id, numa_node, block_size);
 
-		    if (reg_addr == -1) {
+		    if (reg_addr == (uintptr_t)-1) {
 			ERROR("Could not allocate region memory\n");
 			goto err1;
 		    }
@@ -237,7 +237,7 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 
     /* Set XML configuration */
     {
-	int i = 0;
+	uint32_t i = 0;
 
 	pet_xml_add_val(xml, "preallocated", "1");
 
@@ -264,7 +264,7 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 
     /* Assign memory to host enclave (if necessary) */
     if (hobbes_get_enclave_type(host_enclave_id) == PISCES_ENCLAVE) {
-	int i = 0;
+	uint32_t i = 0;
 	
 	for (i = 0; i < region_cnt; i++) {
 	    if (hobbes_assign_memory(host_enclave_id, regions[i], block_size, true, false) != 0) {
@@ -281,7 +281,7 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 
  err1: 
     {
-	int i = 0;
+	uint32_t i = 0;
 
 	for (i = 0; i < region_cnt; i++) {
 	    if (regions[i] != 0) {

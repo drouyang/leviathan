@@ -39,7 +39,7 @@ list_memory_main(int argc, char ** argv)
     blk_arr   = hobbes_get_memory_list(&num_blks);
 
 
-    if (num_blks == -1) {
+    if (blk_arr == NULL) {
 	ERROR("Could not retrieve memory list\n");
 	return -1;
     }
@@ -89,7 +89,7 @@ list_cpus_main(int argc, char ** argv)
     num_numa  = hobbes_get_numa_cnt();
     cpu_arr   = hobbes_get_cpu_list(&num_cpus);
 
-    if (num_cpus == -1) {
+    if (cpu_arr == NULL) {
 	ERROR("Could not retrieve memory list\n");
 	return -1;
     }

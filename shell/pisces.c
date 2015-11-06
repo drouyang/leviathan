@@ -104,8 +104,8 @@ pisces_enclave_create(pet_xml_t   xml,
     /* Boot the enclave with boot_env (if specified) */
 
     {
-	int boot_cpu   = -1;
-	int numa_zone  = -1;
+	uint32_t boot_cpu   = HOBBES_INVALID_CPU_ID;
+	uint32_t numa_zone  = HOBBES_INVALID_NUMA_ID;
 	
 	uintptr_t mem_size  = hobbes_get_block_size();
 	uintptr_t base_addr = -1;
@@ -136,7 +136,7 @@ pisces_enclave_create(pet_xml_t   xml,
 
 	/* Allocate anything not specified using default sizes (1 CPU, 1 memory block) */
 
-	if (boot_cpu == -1) {
+	if (boot_cpu == HOBBES_INVALID_CPU_ID) {
 	    boot_cpu = hobbes_alloc_cpu(enclave_id, numa_zone);
 	} else {
 	    boot_cpu = hobbes_alloc_specific_cpu(enclave_id, boot_cpu);
@@ -148,7 +148,7 @@ pisces_enclave_create(pet_xml_t   xml,
 	}
 
 
-	if (base_addr == -1) {
+	if (base_addr == (uintptr_t)-1) {
 	    base_addr = hobbes_alloc_mem(enclave_id, numa_zone, mem_size);
 
 	    if (base_addr == 0) {
@@ -222,7 +222,7 @@ pisces_enclave_create(pet_xml_t   xml,
 
 	    if (size > 0) {
 		
-		if (base_addr != -1) {
+		if (base_addr != (uintptr_t)-1) {
 
 		    if (hobbes_alloc_mem_addr(enclave_id, base_addr, size) != 0) {
 			WARN("Could not allocate memory region at (%p) to enclave (%d), continuing...\n", 
@@ -240,7 +240,7 @@ pisces_enclave_create(pet_xml_t   xml,
 		    uint32_t    num_regions = size / block_size;
 		    uintptr_t * regions     = NULL;
 
-		    int i = 0;
+		    uint32_t i = 0;
 
 		    regions = calloc(sizeof(uintptr_t), num_regions);
 		    

@@ -5,7 +5,17 @@ PETLIB_PATH?=../petlib
 WHITEDB_PATH?=../whitedb-0.7.3
 
 
-CFLAGS = -g -Wall -Werror -D_GNU_SOURCE -I$(WHITEDB_PATH)/Db -I$(XPMEM_PATH)/include -I$(PISCES_PATH)/linux_usr -I$(PETLIB_PATH) -I$(PALACIOS_PATH)/user -I../libhobbes -static  
+CFLAGS =	-g -W -Wall -Werror		\
+		-D_GNU_SOURCE  			\
+		-Wno-nonnull 			\
+		-Wno-unused-parameter      	\
+		-I$(WHITEDB_PATH)/Db 		\
+		-I$(XPMEM_PATH)/include 	\
+		-I$(PISCES_PATH)/linux_usr 	\
+		-I$(PETLIB_PATH) 		\
+		-I$(PALACIOS_PATH)/user 	\
+		-I../libhobbes 			\
+		-static  
 
 
 CC = gcc
