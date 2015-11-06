@@ -235,6 +235,16 @@ PMI_KVS_Get_name_length_max(int *length)
 
 
 int
+PMI_Get_id_length_max(int *length)
+{
+    if (length)
+        *length = PMI_MAX_STRING_LEN;
+
+    return PMI_SUCCESS;
+}
+
+
+int
 PMI_KVS_Get_key_length_max(int *length)
 {
     if (length)
@@ -309,4 +319,45 @@ PMI_Spawn_multiple(int count,
                    int errors[])
 {
     return PMI_FAIL;
+}
+
+
+/* TODO: Implement these */
+int
+PMI_Get_kvs_domain_id( char id_str[], int length )
+{
+    if(!id_str)
+        return PMI_ERR_INVALID_ARG;
+
+    id_str="0";
+
+    return PMI_SUCCESS;
+}
+
+
+int
+PMI_Get_clique_size( int *size)
+{
+    *size=PMI_size;
+    return PMI_SUCCESS;
+}
+
+
+int
+PMI_Get_clique_ranks(int ranks[], int length)
+{
+    int i;
+
+    if(!ranks)
+        return PMI_ERR_INVALID_ARG;
+
+    for (i=0; i<PMI_size && i < length; i++)
+    {
+        ranks[i] = i;
+    }
+
+    if(length != PMI_size)
+        return PMI_ERR_INVALID_LENGTH;
+
+    return PMI_SUCCESS;
 }

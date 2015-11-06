@@ -61,6 +61,7 @@ D*/
 #define PMI_ERR_INVALID_KEYVALP     12
 #define PMI_ERR_INVALID_SIZE        13
 
+typedef int PMI_BOOL;
 #define PMI_TRUE  1
 #define PMI_FALSE 0
 
@@ -471,6 +472,10 @@ int PMI_Spawn_multiple(int count,
                        int preput_keyval_size,
                        const PMI_keyval_t preput_keyval_vector[],
                        int errors[]);
+
+int PMI_Get_clique_size(int *size);
+
+int PMI_Get_clique_ranks(int ranks[], int length);
 
 #if defined(__cplusplus)
 }
