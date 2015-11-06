@@ -1,9 +1,19 @@
-/* Hobbes Remote File Access Interface
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
+
+
 
 #ifndef __HOBBES_FILE_H__
 #define __HOBBES_FILE_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stddef.h>
 
@@ -45,4 +55,9 @@ ssize_t hfio_pwrite(hobbes_file_t file, const void * buf, size_t count, off_t of
    ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt,
             off_t offset);
 */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

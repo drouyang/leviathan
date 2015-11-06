@@ -1,11 +1,17 @@
-/* Hobbes Runtime Library
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
-
 
 #ifndef __HOBBES_H__
 #define __HOBBES_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -38,5 +44,9 @@ hobbes_id_t  hobbes_get_my_app_id( void );
 int hobbes_client_init( void );
 int hobbes_client_deinit( void );
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

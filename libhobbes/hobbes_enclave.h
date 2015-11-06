@@ -1,9 +1,18 @@
-/* Hobbes enclave Management interface
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
+
 
 #ifndef __HOBBES_ENCLAVE_H__
 #define __HOBBES_ENCLAVE_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
@@ -68,5 +77,9 @@ enclave_type_to_str(enclave_type_t type);
 const char *
 enclave_state_to_str(enclave_state_t state);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

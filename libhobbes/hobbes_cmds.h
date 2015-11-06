@@ -1,10 +1,18 @@
-/* Hobbes command listing
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
+
 
 #ifndef __HOBBES_CMDS_H__
 #define __HOBBES_CMDS_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* LWK Commands */
 #define HOBBES_CMD_ADD_CPU             1000
@@ -59,6 +67,10 @@
 #define HOBBES_CMD_FILE_STAT           4005
 #define HOBBES_CMD_FILE_FSTAT          4006
 
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

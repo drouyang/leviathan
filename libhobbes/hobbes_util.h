@@ -1,10 +1,17 @@
-
-/* Hobbes utility functions  
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+/* 
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
 
 #ifndef __HOBBES_UTIL_H__
 #define __HOBBES_UTIL_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,5 +37,9 @@ smart_strlen(char * str)
     return strlen(str);
 }
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

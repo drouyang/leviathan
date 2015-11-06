@@ -1,10 +1,17 @@
 /* 
- * Database Command queue 
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
 
 #ifndef __CMD_QUEUE_H__
 #define __CMD_QUEUE_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 #include <stdint.h>
@@ -79,5 +86,8 @@ int hcq_cmd_return(hcq_handle_t hcq,
 
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -11,6 +11,10 @@
 #ifndef __HOBBES_DB_H__
 #define __HOBBES_DB_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #include "hobbes_enclave.h"
@@ -213,5 +217,9 @@ hdb_pmi_barrier_retire(hdb_db_t         db,
                        int              size);
 
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

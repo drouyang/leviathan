@@ -1,7 +1,12 @@
 /* 
- * Command queue 
- * (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * Copyright (c) 2015, Jack Lange <jacklange@cs.pitt.edu>
+ * All rights reserved.
+ *
+ * This is free software.  You are permitted to use,
+ * redistribute, and modify it as specified in the file "PETLAB_LICENSE".
  */
+
+
 
 #include <stdlib.h>
 #include <string.h>

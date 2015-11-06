@@ -9,6 +9,10 @@
 #ifndef __HOBBES_SYSTEM_H__
 #define __HOBBES_SYSTEM_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 
@@ -170,5 +174,10 @@ hobbes_assign_memory(hobbes_id_t  enclave_id,
 		     bool         zeroed);
 
 
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

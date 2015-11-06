@@ -9,6 +9,9 @@
 #ifndef __HOBBES_DB_SCHEMA_H__
 #define __HOBBES_DB_SCHEMA_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 /* 
@@ -122,6 +125,9 @@
 #define HDB_NOTIF_MEM_ALLOC           10
 #define HDB_NOTIF_MEM_FREE            11
 
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

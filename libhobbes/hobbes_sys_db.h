@@ -9,6 +9,10 @@
 #ifndef __HOBBES_SYS_DB_H__
 #define __HOBBES_SYS_DB_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "hobbes.h"
 #include "hobbes_db.h"
 
@@ -152,5 +156,10 @@ hdb_get_mem_blocks(hdb_db_t   db,
 
 void 
 hdb_sys_print_free_blks(hdb_db_t db);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif
