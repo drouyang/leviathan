@@ -32,8 +32,8 @@ static int    populate_system_info(hdb_db_t db);
 
 
 static int    reserve_cpu_list ( char * cpu_list );
-static int    reserve_cpus     ( int num_cpus,     int numa_zone );
-static int    reserve_memory   ( int mem_size_MB,  int numa_zone ); 
+static int    reserve_cpus     ( uint32_t num_cpus,    uint32_t numa_zone );
+static int    reserve_memory   ( uint64_t mem_size_MB, uint32_t numa_zone ); 
 
 static void usage(char * exec_name) {
     printf("Usage: %s [options]\n"	\
@@ -261,14 +261,14 @@ reserve_cpu_list(char * cpu_list)
 
 
 static int 
-reserve_cpus(int num_cpus,
-	     int numa_zone)
+reserve_cpus(uint32_t num_cpus,
+	     uint32_t numa_zone)
 {
     struct pet_cpu * cpu_arr = NULL;
 
-    int ret         = 0;
-    int i           = 0;
-    int cpu0_locked = 0;
+    uint32_t ret         = 0;
+    uint32_t i           = 0;
+    uint32_t cpu0_locked = 0;
 	
 
     /* Linux usually reserves CPU 0 automatically. 
@@ -276,7 +276,7 @@ reserve_cpus(int num_cpus,
      */
     if (pet_cpu_status(0) == PET_CPU_RSVD) {
 
-	if ((numa_zone == -1) || 
+	if ((numa_zone == HOBBES_INVALID_NUMA_ID) || 
 	    (pet_cpu_to_numa_node(0) == numa_zone)) {
 	    cpu0_locked = 1;
 	}
@@ -326,8 +326,8 @@ reserve_cpus(int num_cpus,
 }
 
 static int    
-reserve_memory(int mem_size_MB, 
-	       int numa_zone)
+reserve_memory(uint64_t mem_size_MB, 
+	       uint32_t numa_zone)
 {
     struct mem_block * blk_arr = NULL;
 
