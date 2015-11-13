@@ -229,6 +229,7 @@ xemem_attach(struct xemem_addr   addr,
     return new_vaddr;
 } 
 
+#if 0
 void *
 xemem_attach_nocache(struct xemem_addr   addr, 
 		     size_t              size,
@@ -242,6 +243,7 @@ xemem_attach_nocache(struct xemem_addr   addr,
 
     return new_vaddr;
 }
+#endif
 
 int 
 xemem_detach(void * vaddr)

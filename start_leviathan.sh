@@ -23,8 +23,8 @@ for cfg in `grep -v '^#' < ./build.cfg | grep -e '^$' -v`; do
 done
 IFS=" "
 
-echo "Inserting Petos Module."
-insmod $PETLIB_PATH/petos/petos.ko
+#echo "Inserting Petos Module."
+#insmod $PETLIB_PATH/petos/petos.ko
 
 
 echo "Inserting XPMEM Module."
