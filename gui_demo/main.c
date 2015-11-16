@@ -735,7 +735,7 @@ generate_svg( void )
     ezxml_set_attr_d(svg_root, "width",   "100%");
     ezxml_set_attr_d(svg_root, "height",  "100%");
     ezxml_set_attr_d(svg_root, "xmlns",   "http://www.w3.org/2000/svg");
-    ezxml_set_attr_d(svg_root, "viewBox", "0 0 1000 1000");
+
 	
     canvas = ezxml_add_child(svg_root, "svg", 0);
     ezxml_set_attr_d(canvas, "x",      "1%");
@@ -756,6 +756,13 @@ generate_svg( void )
 	num_cols = (int)nearbyint(sqrt(numa_cnt));
 	num_rows = (numa_cnt / num_cols) + ((numa_cnt % num_cols) != 0);
 
+	
+	/* update Viewbox based on NUMA count */
+	if (num_cols == 1) {
+	    ezxml_set_attr_d(svg_root, "viewBox", "0 0 1000 1000");
+	} else if (num_cols == 2) {
+	    ezxml_set_attr_d(svg_root, "viewBox", "0 0 1000 600");
+	}
 
 	//	printf("Num_cols = %d\n", num_cols);
 	for (i = 0; i < numa_cnt; i++) {
