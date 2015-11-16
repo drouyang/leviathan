@@ -383,8 +383,8 @@ int
 list_enclaves_main(int argc, char ** argv)
 {
     struct enclave_info * enclaves = NULL;
-    int num_enclaves = -1;
-    int i = 0;
+    uint32_t num_enclaves = 0;
+    uint32_t i = 0;
 
     enclaves = hobbes_get_enclave_list(&num_enclaves);
 

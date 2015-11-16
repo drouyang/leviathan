@@ -220,13 +220,13 @@ hobbes_register_enclave_cmdq(hobbes_id_t   enclave_id,
 
 
 struct enclave_info * 
-hobbes_get_enclave_list(int * num_enclaves)
+hobbes_get_enclave_list(uint32_t * num_enclaves)
 {
     struct enclave_info * info_arr = NULL;
     hobbes_id_t         * id_arr   = NULL;
 
-    int id_cnt = 0;
-    int i      = 0;
+    uint32_t id_cnt = 0;
+    uint32_t i      = 0;
 
     id_arr = hdb_get_enclaves(hobbes_master_db, &id_cnt);
     

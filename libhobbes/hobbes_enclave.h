@@ -67,7 +67,7 @@ struct enclave_info {
 };
 
 struct enclave_info * 
-hobbes_get_enclave_list(int * num_enclaves);
+hobbes_get_enclave_list(uint32_t * num_enclaves);
 
 
 

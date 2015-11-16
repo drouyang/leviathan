@@ -30,9 +30,12 @@ bool use_topo_file = true;
 
 struct hobbes_memory_info * sys_mem_blk_info = NULL;
 struct hobbes_cpu_info    * sys_cpu_info     = NULL;
+struct enclave_info       * enclaves         = NULL;
+
 
 uint64_t sys_mem_blk_cnt = 0;
 uint32_t sys_cpu_cnt     = 0;
+uint32_t enclave_cnt     = 0;
 
 
 
@@ -42,6 +45,8 @@ struct color {
     char        * font_color;
     int           use_flag;
 };
+
+
 
 #define BG_DEFAULT "white"
 #define BG_MASTER  "green"
@@ -53,36 +58,38 @@ struct color {
 #define FONT_FREE    "black"
 #define FONT_INVALID "white"
 
+struct color master_color = {HOBBES_MASTER_ENCLAVE_ID, BG_MASTER, FONT_MASTER, 0};
+
 struct color enclave_colors[] = {
-    {HOBBES_INVALID_ID, "mediumslateblue", "black"},
-    {HOBBES_INVALID_ID, "lightskyblue",    "black"},
-    {HOBBES_INVALID_ID, "darkorange",      "black"},
-    {HOBBES_INVALID_ID, "indigo",          "white"},
-    {HOBBES_INVALID_ID, "orangered",       "white"},
-    {HOBBES_INVALID_ID, "royalblue",       "white"},
-    {HOBBES_INVALID_ID, "saddlebrown",     "white"},
-    {HOBBES_INVALID_ID, "indianred",       "white"},
-    {HOBBES_INVALID_ID, "burlywood",       "black"},
-    {HOBBES_INVALID_ID, "turquoise",       "black"},
-    {HOBBES_INVALID_ID, "maroon",          "white"},
-    {HOBBES_INVALID_ID, "olive",           "white"},
-    {HOBBES_INVALID_ID, "teal",            "black"},
-    {HOBBES_INVALID_ID, "gold",            "black"},
-    {HOBBES_INVALID_ID, "yellow",          "black"},
-    {HOBBES_INVALID_ID, "palegreen",       "black"},
-    {HOBBES_INVALID_ID, "darkgreen",       "white"},
-    {HOBBES_INVALID_ID, "lightpink",       "black"}
+    {HOBBES_INVALID_ID, "mediumslateblue", "black", 0},
+    {HOBBES_INVALID_ID, "lightskyblue",    "black", 0},
+    {HOBBES_INVALID_ID, "darkorange",      "black", 0},
+    {HOBBES_INVALID_ID, "indigo",          "white", 0},
+    {HOBBES_INVALID_ID, "orangered",       "white", 0},
+    {HOBBES_INVALID_ID, "royalblue",       "white", 0},
+    {HOBBES_INVALID_ID, "saddlebrown",     "white", 0},
+    {HOBBES_INVALID_ID, "indianred",       "white", 0},
+    {HOBBES_INVALID_ID, "burlywood",       "black", 0},
+    {HOBBES_INVALID_ID, "turquoise",       "black", 0},
+    {HOBBES_INVALID_ID, "maroon",          "white", 0},
+    {HOBBES_INVALID_ID, "olive",           "white", 0},
+    {HOBBES_INVALID_ID, "teal",            "black", 0},
+    {HOBBES_INVALID_ID, "gold",            "black", 0},
+    {HOBBES_INVALID_ID, "yellow",          "black", 0},
+    {HOBBES_INVALID_ID, "palegreen",       "black", 0},
+    {HOBBES_INVALID_ID, "darkgreen",       "white", 0},
+    {HOBBES_INVALID_ID, "lightpink",       "black", 0}
 };
 
 
 
 
 
-static int 
-__get_numa_blk_cnt(int numa_idx)
+static uint32_t
+__get_numa_blk_cnt(uint32_t numa_idx)
 {
-    int blk_cnt = 0;
-    int i       = 0;
+    uint32_t blk_cnt = 0;
+    uint32_t i       = 0;
 
     for (i = 0; i < sys_mem_blk_cnt; i++) {
 	if (sys_mem_blk_info[i].numa_node == numa_idx) {
@@ -94,11 +101,11 @@ __get_numa_blk_cnt(int numa_idx)
 }
 
 
-static int
-__get_numa_cpu_cnt(int numa_idx)
+static uint32_t
+__get_numa_cpu_cnt(uint32_t numa_idx)
 {
-    int cpu_cnt = 0;
-    int i       = 0;
+    uint32_t cpu_cnt = 0;
+    uint32_t i       = 0;
 
     for (i = 0; i < sys_cpu_cnt; i++) {
 	if (sys_cpu_info[i].numa_node == numa_idx) {
@@ -111,10 +118,10 @@ __get_numa_cpu_cnt(int numa_idx)
 
 
 struct hobbes_memory_info *
-__get_mem_blk_entry(int numa_idx, 
-		    int blk_idx)
+__get_mem_blk_entry(uint32_t numa_idx, 
+		    uint32_t blk_idx)
 {
-    int i = 0;
+    uint32_t i = 0;
     
     for (i = 0; i < sys_mem_blk_cnt; i++) {
 	if (sys_mem_blk_info[i].numa_node != numa_idx) continue;
@@ -131,10 +138,10 @@ __get_mem_blk_entry(int numa_idx,
 
 
 struct hobbes_cpu_info * 
-__get_cpu_entry(int numa_idx, 
-		int cpu)
+__get_cpu_entry(uint32_t numa_idx, 
+		uint32_t cpu)
 {
-    int i = 0;
+    uint32_t i = 0;
     
     for (i = 0; i < sys_cpu_cnt; i++) {
 	if (sys_cpu_info[i].numa_node != numa_idx)  continue;
@@ -186,11 +193,15 @@ __get_color(hobbes_id_t enclave_id)
 static int
 __assign_colors()
 {
-    int color_cnt   = sizeof(enclave_colors) / sizeof(struct color);
-    int enclave_cnt = 0;
-    int i = 0;
+    uint32_t color_cnt   = sizeof(enclave_colors) / sizeof(struct color);
+    uint32_t i = 0;
 
-    struct enclave_info * enclaves = NULL;
+
+    if (enclaves) {
+	smart_free(enclaves);
+	enclave_cnt  = 0;
+    }
+
 
     /* Clear all use flags */
     for (i = 0; i < color_cnt; i++) {
@@ -206,7 +217,6 @@ __assign_colors()
 	return -1;
     }
     
-
     /* increment use flags for enclaves in list */
     for (i = 0; i < enclave_cnt; i++) {
 	struct color * clr = __get_color(enclaves[i].id);
@@ -251,13 +261,13 @@ __assign_colors()
 
 
 static const char *
-__get_mem_fill_str(int numa_idx, int blk)
+__get_mem_fill_str(uint32_t numa_idx, uint32_t blk)
 {
     struct hobbes_memory_info * info = __get_mem_blk_entry(numa_idx, blk);
 
 
     if ((info->state == MEMORY_ALLOCATED) && 
-	(info->numa_node == -1)) {
+	(info->numa_node == HOBBES_INVALID_NUMA_ID)) {
 	return BG_INVALID;
     } else if (info->state == MEMORY_FREE) {
 	return BG_FREE;
@@ -278,7 +288,7 @@ __get_mem_fill_str(int numa_idx, int blk)
 }
 
 static const char *
-__get_cpu_fill_str(int numa_idx, int cpu)
+__get_cpu_fill_str(uint32_t numa_idx, uint32_t cpu)
 {
     struct hobbes_cpu_info * info = __get_cpu_entry(numa_idx, cpu);
 
@@ -302,8 +312,8 @@ __get_cpu_fill_str(int numa_idx, int cpu)
 
 
 static int
-generate_mem_svg(ezxml_t numa_canvas,
-		 int     numa_idx)
+generate_mem_svg(ezxml_t  numa_canvas,
+		 uint32_t numa_idx)
 {
     ezxml_t mem_svg    = NULL;
     ezxml_t mem_rect   = NULL;
@@ -311,10 +321,10 @@ generate_mem_svg(ezxml_t numa_canvas,
     ezxml_t mem_label  = NULL;
     ezxml_t label_svg  = NULL;
 
-    char * tmp_str = NULL;
-    int    blk_cnt = __get_numa_blk_cnt(numa_idx);
+    char   * tmp_str = NULL;
+    uint32_t blk_cnt = __get_numa_blk_cnt(numa_idx);
 
-    int i = 0;
+    uint32_t i = 0;
 
     mem_svg = ezxml_add_child(numa_canvas, "svg", 0);
     ezxml_set_attr_d(mem_svg, "x",      "3%");
@@ -383,8 +393,8 @@ generate_mem_svg(ezxml_t numa_canvas,
 }
 
 static int
-generate_cpu_svg(ezxml_t numa_canvas,
-		 int     numa_idx)
+generate_cpu_svg(ezxml_t  numa_canvas,
+		 uint32_t numa_idx)
 {
     ezxml_t cpu_svg       = NULL;
     ezxml_t cpu_rect      = NULL;
@@ -418,11 +428,11 @@ generate_cpu_svg(ezxml_t numa_canvas,
 
 
     {
-	int cpu_cnt  = __get_numa_cpu_cnt(numa_idx);
-	int num_cols = 0;
-	int num_rows = 0;
+	uint32_t cpu_cnt  = __get_numa_cpu_cnt(numa_idx);
+	uint32_t num_cols = 0;
+	uint32_t num_rows = 0;
 
-	int i = 0;
+	uint32_t i = 0;
 	
 	if (cpu_cnt <= 0) {
 	    goto no_cpus;
@@ -434,13 +444,13 @@ generate_cpu_svg(ezxml_t numa_canvas,
 
 
 	for (i = 0; i < cpu_cnt; i++) {
-	    ezxml_t cpu_circle = NULL;
-	    ezxml_t label_svg  = NULL;
-	    ezxml_t label_txt  = NULL;
+	    ezxml_t   cpu_circle  = NULL;
+	    ezxml_t   label_svg   = NULL;
+	    ezxml_t   label_txt   = NULL;
 
-	    char * tmp_str     = NULL;
-	    int    col_idx     = i % num_cols;
-	    int    row_idx     = i / num_cols;
+	    char    * tmp_str     = NULL;
+	    uint32_t  col_idx     = i % num_cols;
+	    uint32_t  row_idx     = i / num_cols;
 
 	    double cx = (((100.0 / num_cols) / 2) * (1 + (2 * col_idx)));
 	    double cy = (((100.0 / num_rows) / 2) * (1 + (2 * row_idx)));;
@@ -522,26 +532,26 @@ generate_cpu_svg(ezxml_t numa_canvas,
 
 
 static int
-generate_numa_svg(ezxml_t canvas,
-		  int     numa_idx,
-		  int     num_cols,
-		  int     num_rows)
+generate_numa_svg(ezxml_t  canvas,
+		  uint32_t numa_idx,
+		  uint32_t num_cols,
+		  uint32_t num_rows)
 {
-    ezxml_t numa_svg  = NULL;
-    ezxml_t numa_rect = NULL;
-    char  * tmp_str   = NULL;
+    ezxml_t  numa_svg  = NULL;
+    ezxml_t  numa_rect = NULL;
+    char   * tmp_str   = NULL;
 
-    double  width     = (100.0 / num_cols);
-    double  height    = (100.0 / num_rows);
+    double   width     = (100.0 / num_cols);
+    double   height    = (100.0 / num_rows);
 
-    int     col_idx   = numa_idx % num_cols;
-    int     row_idx   = numa_idx / num_cols;
+    uint32_t col_idx   = numa_idx % num_cols;
+    uint32_t row_idx   = numa_idx / num_cols;
 
-    double  x         = (width  * col_idx) + 1;
-    double  y         = (height * row_idx) + 1;
+    double   x         = (width  * col_idx) + 1;
+    double   y         = (height * row_idx) + 1;
 
 
-    printf("%d, %d\n", col_idx, row_idx);
+    //    printf("%d, %d\n", col_idx, row_idx);
 
     numa_svg = ezxml_add_child(canvas, "svg", numa_idx);
 
@@ -585,6 +595,107 @@ generate_numa_svg(ezxml_t canvas,
 
 }
 
+static int
+generate_legend_svg( ezxml_t canvas)
+{
+    ezxml_t legend_svg  = NULL;
+    ezxml_t legend_rect = NULL;
+    
+    uint32_t i = 0;
+    
+    legend_svg = ezxml_add_child(canvas, "svg", 0);
+
+    ezxml_set_attr_d(legend_svg, "x",                   "1%");
+    ezxml_set_attr_d(legend_svg, "y",                   "91%");
+    ezxml_set_attr_d(legend_svg, "width",               "98%");
+    ezxml_set_attr_d(legend_svg, "height",              "8%");
+    ezxml_set_attr_d(legend_svg, "viewBox",             "0 0 100 5");
+    ezxml_set_attr_d(legend_svg, "preserveAspectRatio", "none");
+
+    legend_rect = ezxml_add_child(legend_svg, "rect", 0);
+    
+    ezxml_set_attr_d(legend_rect, "x",            "1.5%");
+    ezxml_set_attr_d(legend_rect, "y",            "1.5%");
+    ezxml_set_attr_d(legend_rect, "rx",           "1%");
+    ezxml_set_attr_d(legend_rect, "width",        "97%");
+    ezxml_set_attr_d(legend_rect, "height",       "97%");
+    ezxml_set_attr_d(legend_rect, "stroke",       "black");
+    ezxml_set_attr_d(legend_rect, "fill",         "white");
+    ezxml_set_attr_d(legend_rect, "stroke-width", "0.15");
+
+ 
+    for (i = 0; i < enclave_cnt; i++) {
+	struct color * enclave_color = __get_color(enclaves[i].id);
+
+	ezxml_t  label_rect = NULL;
+	ezxml_t  label_svg  = NULL;
+	ezxml_t  label_text = NULL;
+
+	char   * tmp_str    = NULL;
+
+	uint32_t row = i / 5;
+	uint32_t col = i % 5;
+
+
+	/* We only support 10 enclaves or less in the legend */
+	if (i >= 10) {
+	    break;
+	}
+
+	if (enclaves[i].id == HOBBES_MASTER_ENCLAVE_ID) {
+	    enclave_color = &master_color;
+	} 
+
+	if (enclave_color == NULL) {
+	    ERROR("Could not find color of enclave (%d)\n", enclaves[i].id);
+	    return -1;
+	}
+	
+
+	label_rect = ezxml_add_child(legend_svg, "rect", 1 + (i * 2));
+	label_svg  = ezxml_add_child(legend_svg, "svg",  1 + (i * 2) + 1);
+
+
+	
+	asprintf(&tmp_str, "%.2f%%", 2.5 + (20.0 * col));
+	ezxml_set_attr_d(label_rect, "x", tmp_str);
+	ezxml_set_attr_d(label_svg,  "x", tmp_str);
+	smart_free(tmp_str);
+
+	asprintf(&tmp_str, "%d%%", 5 + (50 * row));
+	ezxml_set_attr_d(label_rect, "y", tmp_str);
+	ezxml_set_attr_d(label_svg,  "y", tmp_str);
+	smart_free(tmp_str);
+	
+	
+
+	ezxml_set_attr_d(label_rect, "height", "40%");
+	ezxml_set_attr_d(label_rect, "width",  "15%");
+	ezxml_set_attr_d(label_rect, "fill",   enclave_color->bg_color);
+
+
+	ezxml_set_attr_d(label_svg,  "height", "40%");
+	ezxml_set_attr_d(label_svg,  "width",  "15%");
+	
+
+	label_text = ezxml_add_child(label_svg, "text", 0);
+
+	ezxml_set_attr_d(label_text, "x",           "50%");
+	ezxml_set_attr_d(label_text, "y",           "0");
+	ezxml_set_attr_d(label_text, "dy",          "0.75em");
+	ezxml_set_attr_d(label_text, "text-anchor", "middle");
+	ezxml_set_attr_d(label_text, "font-weight", "bold");
+	ezxml_set_attr_d(label_text, "font-size",   "2");
+	ezxml_set_attr_d(label_text, "fill",        enclave_color->font_color);
+	ezxml_set_txt_d(label_text, enclaves[i].name);
+
+    }
+
+
+    return 0;
+
+}
+
 static ezxml_t 
 generate_svg( void )
 {
@@ -609,24 +720,27 @@ generate_svg( void )
 
     /* Get Numa Info */
     {
-	int numa_cnt = hobbes_get_numa_cnt();
-	int num_cols = 0;
-	int num_rows = 0;
+	uint32_t numa_cnt = hobbes_get_numa_cnt();
+	uint32_t num_cols = 0;
+	uint32_t num_rows = 0;
 
-	int i = 0;
+	uint32_t i = 0;
 	
 	fesetround(FE_UPWARD);
 	num_cols = (int)nearbyint(sqrt(numa_cnt));
 	num_rows = (numa_cnt / num_cols) + ((numa_cnt % num_cols) != 0);
 
 
-	printf("Num_cols = %d\n", num_cols);
+	//	printf("Num_cols = %d\n", num_cols);
 	for (i = 0; i < numa_cnt; i++) {
 
 	    generate_numa_svg(canvas, i, num_cols, num_rows);
 	}
 	
     }
+
+    generate_legend_svg(svg_root);
+
 
     return svg_root;
 }

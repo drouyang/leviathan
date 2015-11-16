@@ -7,7 +7,9 @@ WHITEDB_PATH?=../whitedb-0.7.3
 
 CFLAGS = 	-g			\
 		-D_GNU_SOURCE		\
+		-W \
 	 	-Wall -Werror          	\
+		-Wno-unused-parameter\
 		-I$(WHITEDB_PATH)/Db   	\
 		-I$(PETLIB_PATH) 	\
 		-I../libhobbes		\

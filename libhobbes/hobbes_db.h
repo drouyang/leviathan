@@ -68,7 +68,7 @@ int             hdb_delete_enclave(hdb_db_t    db,
 
 
 hobbes_id_t *   hdb_get_enclaves(hdb_db_t   db, 
-				 int      * num_enclaves);
+				 uint32_t * num_enclaves);
 
 /*
  * Enclave field Accessors 

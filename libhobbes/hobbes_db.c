@@ -789,13 +789,13 @@ hdb_get_enclave_id(hdb_db_t   db,
 
 static hobbes_id_t *
 __get_enclaves(hdb_db_t   db,
-	      int       * num_enclaves)
+	      uint32_t  * num_enclaves)
 {
     hobbes_id_t * id_arr  = NULL;
     void        * db_rec  = NULL;
     void        * hdr_rec = NULL;
-    int           cnt     = 0;
-    int           i       = 0;
+    uint32_t      cnt     = 0;
+    uint32_t      i       = 0;
     
     hdr_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_ENCLAVE_HDR, NULL);    
 
@@ -829,7 +829,7 @@ __get_enclaves(hdb_db_t   db,
 
 hobbes_id_t * 
 hdb_get_enclaves(hdb_db_t   db,
-		 int      * num_enclaves)
+		 uint32_t * num_enclaves)
 {
     hobbes_id_t * id_arr = NULL;
     wg_int        lock_id;
