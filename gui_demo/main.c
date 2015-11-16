@@ -61,7 +61,7 @@ struct color {
 struct color master_color = {HOBBES_MASTER_ENCLAVE_ID, BG_MASTER, FONT_MASTER, 0};
 
 struct color enclave_colors[] = {
-    {HOBBES_INVALID_ID, "mediumslateblue", "black", 0},
+    {HOBBES_INVALID_ID, "mediumslateblue", "white", 0},
     {HOBBES_INVALID_ID, "lightskyblue",    "black", 0},
     {HOBBES_INVALID_ID, "darkorange",      "black", 0},
     {HOBBES_INVALID_ID, "indigo",          "white", 0},
@@ -310,6 +310,32 @@ __get_cpu_fill_str(uint32_t numa_idx, uint32_t cpu)
     return BG_INVALID;
 }
 
+static const char *
+__get_cpu_text_str(uint32_t numa_idx, uint32_t cpu)
+{
+    struct hobbes_cpu_info * info = __get_cpu_entry(numa_idx, cpu);
+
+    if (info->state == CPU_FREE) {
+	return FONT_FREE;
+    } else if(info->state == CPU_ALLOCATED) {
+	if ((info->enclave_id == HOBBES_MASTER_ENCLAVE_ID) ||
+	    (info->enclave_id == HOBBES_INVALID_ID)) {
+	    return FONT_MASTER;
+	} else {
+	    struct color * clr = __get_color(info->enclave_id);
+
+	    if (!clr) return FONT_INVALID;
+
+	    return clr->font_color;
+	} 
+    }
+	
+    return FONT_INVALID;
+}
+
+
+
+
 
 static int
 generate_mem_svg(ezxml_t  numa_canvas,
@@ -496,7 +522,7 @@ generate_cpu_svg(ezxml_t  numa_canvas,
 	    ezxml_set_attr_d(label_txt, "y",           "0");
 	    ezxml_set_attr_d(label_txt, "dy",          "60%");
 	    ezxml_set_attr_d(label_txt, "text-anchor", "middle");
-	    ezxml_set_attr_d(label_txt, "fill",       "white");
+	    ezxml_set_attr_d(label_txt, "fill",        __get_cpu_text_str(numa_idx, i));
 
 	    
 	    asprintf(&tmp_str, "%d", i);
