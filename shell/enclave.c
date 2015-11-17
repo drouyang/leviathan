@@ -6,6 +6,7 @@
 #include <hobbes_db.h>
 #include <hobbes_file.h>
 #include <hobbes_util.h>
+#include <hobbes_notifier.h>
 
 #include <pet_xml.h>
 #include <pet_log.h>
@@ -40,7 +41,17 @@ hobbes_create_enclave(char * cfg_file_name,
     }
 
     DEBUG("Creating Pisces Enclave\n");
-    return pisces_enclave_create(xml, name);
+    if (pisces_enclave_create(xml, name) != 0 ) {
+	ERROR("Could not create Pisces Enclave\n");
+	return -1;
+    }
+
+    {
+	hnotif_signal(HNOTIF_EVT_ENCLAVE);
+    }
+
+    return 0;
+
 }
 
 
@@ -62,7 +73,17 @@ hobbes_destroy_enclave(hobbes_id_t enclave_id)
 	return -1;
     }
 
-    return pisces_enclave_destroy(enclave_id);
+    if (pisces_enclave_destroy(enclave_id) != 0) {
+	ERROR("Could not destroy pisces enclave\n");
+	return -1;
+    }
+
+    {
+	hnotif_signal(HNOTIF_EVT_ENCLAVE);
+    }
+
+    return 0;
+
 }
 
 

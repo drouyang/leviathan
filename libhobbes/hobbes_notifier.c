@@ -72,7 +72,7 @@ hnotif_create(uint64_t evt_mask)
 
 
 void
-hnotif_free(hnotif_t * notifier)
+hnotif_free(hnotif_t  * notifier)
 {
 
     hdb_delete_notifier(hobbes_master_db, notifier->segid);
@@ -87,4 +87,28 @@ int
 hnotif_get_fd(hnotif_t * notifier)
 {
     return notifier->fd;
+}
+
+
+int 
+hnotif_signal(uint64_t evt_mask)
+{
+    xemem_segid_t * segids   = NULL;
+    uint32_t        subs_cnt = 0;
+    uint32_t        i        = 0;
+
+    segids = hdb_get_event_subscribers(hobbes_master_db, evt_mask, &subs_cnt);
+
+    if (segids == NULL) {
+	ERROR("Could not retrieve subscriber list\n");
+	return -1;
+    }
+
+    
+    for (i = 0; i < subs_cnt; i++) {
+	xemem_signal_segid(segids[i]);
+    }
+    
+    return 0;
+
 }

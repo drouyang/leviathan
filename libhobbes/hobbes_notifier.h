@@ -39,6 +39,9 @@ void       hnotif_free   (hnotif_t * notifier);
 int hnotif_get_fd(hnotif_t * notifier);
 
 
+int hnotif_signal(uint64_t evt_mask);
+
+
 
 
 

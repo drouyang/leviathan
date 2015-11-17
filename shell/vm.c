@@ -12,7 +12,7 @@
 #include <hobbes_util.h>
 #include <hobbes_system.h>
 #include <hobbes_db.h>
-
+#include <hobbes_notifier.h>
 
 #include "vm.h"
 
@@ -97,7 +97,9 @@ create_vm_main(int argc, char ** argv)
 	}
     }
 
+  
     return hobbes_create_vm(cfg_file, name, host_enclave_id);
+
 }
 
 
@@ -507,6 +509,13 @@ __create_vm(pet_xml_t   xml,
     }
 
 
+
+    {
+	hnotif_signal(HNOTIF_EVT_ENCLAVE);
+    }
+
+
+
     return ret;
 
 
@@ -597,6 +606,13 @@ hobbes_destroy_vm(hobbes_id_t enclave_id)
     } else {	
 	hdb_set_enclave_state(hobbes_master_db, enclave_id, ENCLAVE_ERROR);
     }
+
+
+    {
+	hnotif_signal(HNOTIF_EVT_ENCLAVE);
+    }
+
+
 	
     return ret;
 }
