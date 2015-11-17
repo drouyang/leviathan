@@ -788,8 +788,8 @@ hdb_get_enclave_id(hdb_db_t   db,
 }
 
 static hobbes_id_t *
-__get_enclaves(hdb_db_t   db,
-	      uint32_t  * num_enclaves)
+__get_enclaves(hdb_db_t    db,
+	       uint32_t  * num_enclaves)
 {
     hobbes_id_t * id_arr  = NULL;
     void        * db_rec  = NULL;
@@ -1380,8 +1380,7 @@ __get_app_by_name(hdb_db_t   db,
     arglist[1].value  = wg_encode_query_param_str(db, name, NULL);
 
     query = wg_make_query(db, NULL, 0, arglist, 2);
-
-    app = wg_fetch(db, query);
+    app   = wg_fetch(db, query);
 
     wg_free_query(db, query);
     wg_free_query_param(db, arglist[0].value);
@@ -1467,7 +1466,7 @@ hdb_create_app(hdb_db_t    db,
 
 static int
 __delete_app(hdb_db_t    db,
-		 hobbes_id_t app_id)
+	     hobbes_id_t app_id)
 {
     uint32_t      app_cnt = 0;
     void        * hdr_rec = NULL;
@@ -1960,8 +1959,6 @@ hdb_get_pmi_keyval(hdb_db_t      db,
     return ret;
 }
 
-/******* Start of new stuff */
-
 static hdb_pmi_barrier_t
 __get_pmi_barrier(hdb_db_t  db,
                   int       appid)
@@ -2077,5 +2074,206 @@ hdb_pmi_barrier_retire(hdb_db_t         db,
 	return NULL;
     }
 
+    return segids;
+}
+
+
+
+
+
+
+
+/*
+ * Hobbes Notification 
+ */
+
+
+static hdb_notif_t 
+__get_notifier_by_segid(hdb_db_t      db,
+			xemem_segid_t segid)
+{
+    hdb_notif_t   notifier = NULL;
+    wg_query    * query    = NULL;
+    wg_query_arg  arglist[2];
+
+    arglist[0].column = HDB_TYPE_FIELD;
+    arglist[0].cond   = WG_COND_EQUAL;
+    arglist[0].value  = wg_encode_query_param_int(db, HDB_REC_NOTIFIER);
+
+    arglist[1].column = HDB_NOTIF_SEGID;
+    arglist[1].cond   = WG_COND_EQUAL;
+    arglist[1].value  = wg_encode_query_param_int(db, segid);
+
+    query    = wg_make_query(db, NULL, 0, arglist, 2);
+    notifier = wg_fetch(db, query);
+
+    wg_free_query(db, query);
+    wg_free_query_param(db, arglist[0].value);
+    wg_free_query_param(db, arglist[1].value);
+		      
+    return notifier;
+}
+
+
+
+static int
+__create_notifier(hdb_db_t      db,
+		  xemem_segid_t segid,
+		  uint64_t      evt_mask)
+{
+    hdb_notif_t notifier  = NULL;
+
+    if (__get_notifier_by_segid(db, segid)) {
+	ERROR("Notifier already exists for this segid (%lu)\n", segid);
+	return -1;
+    }
+
+    notifier = wg_create_record(db, 3);
+    wg_set_field(db, notifier, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_NOTIFIER ));
+    wg_set_field(db, notifier, HDB_NOTIF_SEGID,     wg_encode_int(db, segid            ));
+    wg_set_field(db, notifier, HDB_NOTIF_EVT_MASK,  wg_encode_int(db, evt_mask         ));
+
+    return 0;
+}
+
+
+int
+hdb_create_notifier(hdb_db_t      db,
+		    xemem_segid_t segid,
+		    uint64_t      events)
+{
+    wg_int lock_id;
+    int    ret = 0;
+	
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __create_notifier(db, segid, events);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
+
+static int
+__delete_notifier(hdb_db_t      db,
+		  xemem_segid_t segid)
+{
+    hdb_notif_t notifier = NULL;
+    
+    notifier = __get_notifier_by_segid(db, segid);
+
+    if (!notifier) {
+	ERROR("Could not find notifier (segid=%lu)\n", segid);
+	return -1;
+    }
+    
+    if (wg_delete_record(db, notifier) != 0) {
+	ERROR("Could not delete notifier record from database\n");
+	return -1;
+    }
+
+    return 0;
+}
+
+
+
+int
+hdb_delete_notifier(hdb_db_t      db,
+		    xemem_segid_t segid)
+{
+    wg_int lock_id;
+    int    ret = 0;
+	
+    lock_id = wg_start_write(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return -1;
+    }
+
+    ret = __delete_notifier(db, segid);
+
+    if (!wg_end_write(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return -1;
+    }
+    
+    return ret;
+}
+
+
+static xemem_segid_t *
+__get_event_subscribers(hdb_db_t   db,
+			uint64_t   evt_mask,
+			uint32_t * subs_cnt)
+{
+    void         * db_rec  = NULL;
+
+    xemem_segid_t * segids = NULL;
+
+    uint32_t rec_idx = 0;
+    uint32_t max_cnt = 16;
+
+    segids  = calloc(sizeof(xemem_segid_t), max_cnt);
+
+    if (segids == NULL) {
+	ERROR("Could not allocate segid array\n");
+	return NULL;
+    }
+    
+    while ((db_rec = wg_find_record_int(db, HDB_TYPE_FIELD, WG_COND_EQUAL, HDB_REC_NOTIFIER, db_rec)) != 0) {
+	uint64_t rec_evt_mask = 0;
+
+	if (rec_idx >= max_cnt) {
+	    max_cnt *= 2;
+	    segids = realloc(segids, sizeof(xemem_segid_t) * max_cnt);
+	}
+
+	rec_evt_mask = wg_decode_int(db, wg_get_field(db, db_rec, HDB_NOTIF_EVT_MASK));
+
+	if ((rec_evt_mask & evt_mask) != 0) {
+	    segids[rec_idx] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_NOTIF_SEGID));
+	    rec_idx++;
+	}
+    }
+
+    
+    *subs_cnt = rec_idx;
+    return segids;
+}
+
+
+
+xemem_segid_t * 
+hdb_get_event_subscribers(hdb_db_t   db,
+			  uint64_t   evt_mask,
+			  uint32_t * subs_cnt)
+{
+    wg_int lock_id;
+    xemem_segid_t * segids = NULL;
+	
+    lock_id = wg_start_read(db);
+    
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    segids = __get_event_subscribers(db, evt_mask, subs_cnt);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return NULL;
+    }
+    
     return segids;
 }

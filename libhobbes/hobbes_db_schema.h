@@ -113,17 +113,8 @@ extern "C" {
 #define HDB_CPU_ENCLAVE_ID            4
 
 /* Columns notification events */
-#define HDB_NOTIF_ID                  1
-#define HDB_NOTIF_SEGID               2
-#define HDB_NOTIF_EXT_INFO            3
-#define HDB_NOTIF_ENCLAVE_CREATE      4
-#define HDB_NOTIF_ENCLAVE_DESTROY     5
-#define HDB_NOTIF_APP_LAUNCH          6
-#define HDB_NOTIF_APP_END             7
-#define HDB_NOTIF_CPU_ALLOC           8
-#define HDB_NOTIF_CPU_FREE            9
-#define HDB_NOTIF_MEM_ALLOC           10
-#define HDB_NOTIF_MEM_FREE            11
+#define HDB_NOTIF_SEGID               1
+#define HDB_NOTIF_EVT_MASK            2
 
 #ifdef __cplusplus
 }

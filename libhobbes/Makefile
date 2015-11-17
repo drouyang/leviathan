@@ -38,6 +38,7 @@ libhobbes_objs := 	xemem.o            \
 			hobbes_file.o      \
 			hobbes_system.o    \
 			hobbes_util.o      \
+			hobbes_notifier.o  \
 			pmi.o
 
 

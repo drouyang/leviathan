@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <fenv.h>
+#include <errno.h>
 
 
 
@@ -24,6 +25,8 @@
 #include <hobbes_util.h>
 #include <hobbes_system.h>
 #include <hobbes_enclave.h>
+#include <hobbes_notifier.h>
+#include <xemem.h>
 
 
 bool use_topo_file = true;
@@ -779,9 +782,43 @@ generate_svg( void )
 }
 
 
+int
+serialize_svg(char * svg_data,
+	      char * touch_filename,
+	      char * svg_filename)
+{
+    FILE * svg_file  = fopen(svg_filename, "r+");
+    char * touch_cmd = NULL;
+
+    if (!svg_file) {
+	ERROR("Could not open SVG file (%s)\n", svg_filename);
+	return -1;
+    }
+
+    fprintf(svg_file, svg_data);
+
+    fclose(svg_file);
+
+    
+    if (asprintf(&touch_cmd, "/usr/bin/touch %s", touch_filename) == -1) {
+	ERROR("Coult not touch file (%s)\n", touch_filename);
+	return -1;
+    }
+
+    system(touch_cmd);
+
+    smart_free(touch_cmd);
+
+    return 0;
+
+}
+
 int main(int argc, char ** argv) {
     ezxml_t svg_xml = NULL;
     char  * xml_str = NULL;
+
+    char * touch_file = argv[1];
+    char * svg_file   = argv[2];
 
     if (hobbes_client_init() != 0) {
         ERROR("Could not initialize hobbes client\n");
@@ -798,15 +835,43 @@ int main(int argc, char ** argv) {
 
 
     svg_xml = generate_svg();
-
     xml_str = ezxml_toxml(svg_xml);
-
-
-    printf("%s\n", xml_str);
-
+    serialize_svg(xml_str, touch_file, svg_file);
     free(xml_str);
     ezxml_free(svg_xml);
 
+    //    printf("%s\n", xml_str);
+
+    {
+	hnotif_t * notifier = hnotif_create( HNOTIF_EVT_ENCLAVE | HNOTIF_EVT_RESOURCE );
+	fd_set notif_set;
+	
+	FD_ZERO(&notif_set);
+	FD_SET(hnotif_get_fd(notifier), &notif_set);
+
+	while (1) {
+	    fd_set read_set = notif_set;
+	    int ret = 0;
+
+	    ret = select(hnotif_get_fd(notifier) + 1, &read_set, NULL, NULL, NULL);
+	    
+	    if (ret == -1) {
+		if (errno == EAGAIN) {
+		    continue;
+		} else {
+		    break;
+		}
+	    }
+
+	    svg_xml = generate_svg();
+	    xml_str = ezxml_toxml(svg_xml);
+	    serialize_svg(xml_str, touch_file, svg_file);
+	    free(xml_str);
+	    ezxml_free(svg_xml);
+	}
+
+
+    }
 
     hobbes_client_deinit();
 
