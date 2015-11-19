@@ -14,6 +14,8 @@
 #include <math.h>
 #include <fenv.h>
 #include <errno.h>
+#include <unistd.h>
+#include <signal.h>
 
 
 
@@ -738,7 +740,6 @@ generate_svg( void )
     ezxml_set_attr_d(svg_root, "width",   "100%");
     ezxml_set_attr_d(svg_root, "height",  "100%");
     ezxml_set_attr_d(svg_root, "xmlns",   "http://www.w3.org/2000/svg");
-
 	
     canvas = ezxml_add_child(svg_root, "svg", 0);
     ezxml_set_attr_d(canvas, "x",      "1%");
@@ -787,7 +788,7 @@ serialize_svg(char * svg_data,
 	      char * touch_filename,
 	      char * svg_filename)
 {
-    FILE * svg_file  = fopen(svg_filename, "r+");
+    FILE * svg_file  = fopen(svg_filename, "w+");
     char * touch_cmd = NULL;
 
     if (!svg_file) {
@@ -813,6 +814,7 @@ serialize_svg(char * svg_data,
 
 }
 
+
 int main(int argc, char ** argv) {
     ezxml_t svg_xml = NULL;
     char  * xml_str = NULL;
@@ -820,12 +822,11 @@ int main(int argc, char ** argv) {
     char * touch_file = argv[1];
     char * svg_file   = argv[2];
 
+
     if (hobbes_client_init() != 0) {
-        ERROR("Could not initialize hobbes client\n");
+    	ERROR("Could not initialize hobbes client\n");
         return -1;
     }
-
-
     
     if (__assign_colors() != 0) {
 	printf("Error: Could not assign enclave colors\n");
@@ -834,17 +835,22 @@ int main(int argc, char ** argv) {
     }
 
 
+
     svg_xml = generate_svg();
     xml_str = ezxml_toxml(svg_xml);
     serialize_svg(xml_str, touch_file, svg_file);
     free(xml_str);
     ezxml_free(svg_xml);
 
+
     //    printf("%s\n", xml_str);
 
     {
 	hnotif_t * notifier = hnotif_create( HNOTIF_EVT_ENCLAVE | HNOTIF_EVT_RESOURCE );
 	fd_set notif_set;
+
+	hobbes_client_deinit();
+
 	
 	FD_ZERO(&notif_set);
 	FD_SET(hnotif_get_fd(notifier), &notif_set);
@@ -863,17 +869,27 @@ int main(int argc, char ** argv) {
 		}
 	    }
 
+	    if (hobbes_client_init() != 0) {
+ 	    	ERROR("Could not initialize hobbes client\n");
+	        return -1;
+	    }
+
+
+	    __assign_colors();
+	
 	    svg_xml = generate_svg();
 	    xml_str = ezxml_toxml(svg_xml);
 	    serialize_svg(xml_str, touch_file, svg_file);
 	    free(xml_str);
 	    ezxml_free(svg_xml);
+
+	    hobbes_client_deinit();
+
 	}
 
 
     }
 
-    hobbes_client_deinit();
 
     return 0;
 }

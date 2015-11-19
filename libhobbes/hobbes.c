@@ -81,7 +81,7 @@ __attribute__((destructor))
 hobbes_app_auto_deinit()
 {
 
-    DEBUG("Hobbes: Deinitializing\n");
+    //    DEBUG("Hobbes: Deinitializing\n");
 
     if (!hobbes_enabled) {
 	return;
@@ -122,7 +122,7 @@ hobbes_client_init()
         }
     }
 
-    printf("Attaching to local database (db_addr=%p)\n", db_addr);
+    //    printf("Attaching to local database (db_addr=%p)\n", db_addr);
 
     hobbes_master_db  = hdb_attach(db_addr);
 
