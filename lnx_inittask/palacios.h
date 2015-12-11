@@ -14,5 +14,7 @@ int  palacios_init(void);
 
 bool palacios_is_available(void);
 
+int ensure_valid_host_memory(void);
+
 
 #endif

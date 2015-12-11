@@ -81,6 +81,9 @@ main(int argc, char ** argv, char * envp[])
     }
 
 
+    /* Initialize refcounts to host memory */
+    ensure_valid_host_memory();
+
     /* Trap SIGINT for cleanup */
     {
 	struct sigaction action;

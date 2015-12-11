@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <unistd.h>
-
+#include <errno.h>
+#include <stdlib.h>
 
 
 #include <hobbes.h>
@@ -14,6 +15,7 @@
 #include <pet_ioctl.h>
 #include <pet_log.h>
 #include <pet_xml.h>
+#include <pet_mem.h>
 
 #include "palacios.h"
 #include "hobbes_ctrl.h"
@@ -241,3 +243,58 @@ palacios_is_available(void)
 }
 
 
+
+int
+ensure_valid_host_memory(void)
+{
+    unsigned long start_page, end_page, page;
+    char  * host_file = "/proc/xpmem/host_page_range\0";
+    char  * line      = NULL;
+    char  * page_line = NULL;
+    char  * orig      = NULL;
+    FILE  * fp	      = NULL;
+
+    size_t  size   = 0;
+    int     status = 0;
+
+    fp = fopen(host_file, "r");
+    if (fp == NULL) {
+	if (errno == ENOENT)
+	    return 0;
+
+	printf("Cannot open %s: %s\n", host_file, strerror(errno));
+	return -errno;
+    }
+
+    status = getline(&line, &size, fp);
+    if (status == -1) {
+	printf("Cannot read %s: %s\n", host_file, strerror(errno));
+	return -errno;
+    }
+
+    orig = line;
+
+    page_line = strsep(&line, "-");
+    if (page_line == NULL || line == NULL) {
+	printf("Failed to strsep %s\n", line);
+	free(line);
+	return -1;
+    }
+
+    start_page = strtoul(page_line, NULL, 16);
+    end_page   = strtoul(line, NULL, 16);
+
+    free(orig);
+    fclose(fp);
+
+    printf("Probing XEMEM host memory region ([0x%lx:0x%lx))\n",
+	start_page, end_page);
+
+    for (page = start_page; page < end_page; page += pet_block_size()) {
+	uint32_t block = pet_addr_to_block_id((uintptr_t)page);
+	pet_online_block(block);
+	pet_offline_block(block);
+    }
+
+    return 0;
+}
