@@ -99,3 +99,61 @@ smart_atoi64(int64_t dflt, char * str)
     
     return tmp;
 }
+
+uint32_t
+smart_atou32(uint32_t dflt, char * str) 
+{
+    char     * end  = NULL;
+    uint32_t   tmp  = 0;
+    int        base = 10;
+    
+    if ((str == NULL) || (*str == '\0')) {
+        /*  String was either NULL or empty */
+        return dflt;
+    }
+
+   if (strlen(str) > 2) {
+        if ((*(str + 1) == 'x') ||
+            (*(str + 1) == 'X')) {
+            base = 16;
+        }
+    }
+
+    tmp = strtoul(str, &end, base);
+
+    if (*end) {
+        /* String contained non-numerics */
+        return dflt;
+    }
+    
+    return tmp;
+}
+
+int32_t
+smart_atoi32(int32_t dflt, char * str) 
+{
+    char    * end  = NULL;
+    int32_t   tmp  = 0;
+    int       base = 10;
+    
+    if ((str == NULL) || (*str == '\0')) {
+        /*  String was either NULL or empty */
+        return dflt;
+    }
+
+   if (strlen(str) > 2) {
+        if ((*(str + 1) == 'x') ||
+            (*(str + 1) == 'X')) {
+            base = 16;
+        }
+    }
+
+    tmp = strtol(str, &end, base);
+
+    if (*end) {
+        /* String contained non-numerics */
+        return dflt;
+    }
+    
+    return tmp;
+}
