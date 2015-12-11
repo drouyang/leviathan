@@ -118,10 +118,10 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 
     uint32_t    region_cnt     = 0;
     uintptr_t * regions        = NULL;
-    int       * numa_arr       = NULL;
+    uint32_t  * numa_arr       = NULL;
 
     char      * dflt_numa_str  = pet_xml_get_val(xml, "node");
-    int         dflt_numa_node = smart_atoi(-1, dflt_numa_str);
+    uint32_t    dflt_numa_node = smart_atou32(HOBBES_INVALID_NUMA_ID, dflt_numa_str);
 
 
     mem_size = smart_atou64(0, mem_size_str) * (1024 * 1024);
@@ -183,9 +183,9 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 	    char * size_str      = pet_xml_get_val(reg_iter, "size");
 	    
 	    uintptr_t size      = smart_atou64( 0, size_str);
-	    uintptr_t host_addr = smart_atou64(-1, host_addr_str);
+	    uintptr_t host_addr = smart_atou64(HOBBES_INVALID_ADDR, host_addr_str);
 
-	    int       numa_node = smart_atoi(dflt_numa_node, numa_node_str);
+	    uint32_t  numa_node = smart_atou32(dflt_numa_node, numa_node_str);
 
 	    if (size % block_size) {
 		ERROR("Invalid Memory configuration (region size is not a multiple of the block size)\n");
@@ -193,7 +193,7 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 	    }
 
 	    /* check for explicit mapping */
-	    if (host_addr != (uintptr_t)-1) {
+	    if (host_addr != HOBBES_INVALID_ADDR) {
 		uint64_t j = 0;
 			
 		if (hobbes_alloc_mem_addr(enclave_id, host_addr, size) == -1) {
@@ -217,7 +217,7 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 		for (j = 0; j < (size / block_size); j++) {
 		    uintptr_t reg_addr = hobbes_alloc_mem(enclave_id, numa_node, block_size);
 
-		    if (reg_addr == (uintptr_t)-1) {
+		    if (reg_addr == HOBBES_INVALID_ADDR) {
 			ERROR("Could not allocate region memory\n");
 			goto err1;
 		    }
@@ -251,16 +251,19 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 	    pet_xml_t reg_tree = pet_xml_add_subtree_tail(xml, "region");
 	    
 	    asprintf(&addr_str, "%p",  (void *)regions[i]);
-	    asprintf(&numa_str, "%d",  numa_arr[i]);
 	    asprintf(&size_str, "%lu", block_size); 
+	    asprintf(&numa_str, "%d",  numa_arr[i]);
 	    
 	    pet_xml_add_val(reg_tree, "host_addr", addr_str);
-	    pet_xml_add_val(reg_tree, "node",      numa_str);
 	    pet_xml_add_val(reg_tree, "size",      size_str);
-	    
+
+	    if (numa_arr[i] != HOBBES_INVALID_NUMA_ID) {
+		pet_xml_add_val(reg_tree, "node", numa_str);
+	    }
+
 	    free(addr_str);
-	    free(numa_str);
 	    free(size_str);
+	    free(numa_str);
 	}	
     }
 
