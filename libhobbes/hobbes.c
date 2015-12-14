@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <string.h>
+#include <assert.h>
 
 #include <pet_log.h>
 
@@ -100,6 +101,8 @@ hobbes_client_init()
 {
     void       * db_addr    = NULL;
 
+    assert(!hobbes_is_master_inittask());
+
     hobbes_db_apid = xemem_get(HDB_MASTER_DB_SEGID, XEMEM_RDWR);
 
     if (hobbes_db_apid <= 0) {
@@ -140,6 +143,8 @@ int
 hobbes_client_deinit()
 {
     void * db_addr = NULL;
+
+    assert(!hobbes_is_master_inittask());
 
     db_addr = hdb_get_db_addr(hobbes_master_db);
     

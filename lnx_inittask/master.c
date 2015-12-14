@@ -229,6 +229,194 @@ int master_init(int argc, char ** argv) {
 }
 
 
+static void
+release_memory(void)
+{
+    struct hobbes_memory_info * mem_list = NULL;
+    uint64_t i = 0, num_blocks = 0;  
+
+    mem_list = hobbes_get_memory_list(&num_blocks);
+    if (mem_list == NULL) {
+	ERROR("Could not get memory list: cannot online memory\n");
+	return;
+    }
+
+    for (i = 0; i < num_blocks; i++) {
+	struct hobbes_memory_info * blk = &(mem_list[i]);
+	int blk_index, status;
+
+	/* Skip invalid and reserved blocks */
+	if ((blk->state == MEMORY_INVALID) || (blk->state == MEMORY_RSVD))
+	    continue;
+	
+	/* Ensure block is free */
+	if (blk->state != MEMORY_FREE) {
+	    ERROR("Trying to online a block in state %s\n", mem_state_to_str(blk->state));
+	    continue;
+	}
+
+	/* Ensure no enclave or app is on it */
+	if (blk->enclave_id != HOBBES_INVALID_ID) {
+	    ERROR("Trying to online a block assigned to enclave %d\n", blk->enclave_id);
+	    continue;
+	}
+
+	if (blk->app_id != HOBBES_INVALID_ID) {
+	    ERROR("Trying to online a block assigned to app %d\n", blk->app_id);
+	    continue;
+	}
+
+	/* Online it */
+	blk_index = pet_addr_to_block_id(blk->base_addr);
+	status    = pet_online_block(blk_index);
+	if (status != 0) {
+	    ERROR("Could not online block %d (base_addr = %p)\n", blk_index, (void *)blk->base_addr);
+	    continue;
+	}
+
+	/* TODO: remove from DB. There does not appear to be an interface for this */
+    }
+
+    free(mem_list);
+}
+
+static void
+release_cpus(void)
+{
+    struct hobbes_cpu_info * cpu_list = NULL;
+    uint32_t i = 0, num_cpus = 0;
+
+    cpu_list = hobbes_get_cpu_list(&num_cpus);
+    if (cpu_list == NULL) {
+	ERROR("Could not get cpu list: cannot online cpus\n");
+	return;
+    }
+
+    for (i = 0; i < num_cpus; i++) {
+	struct hobbes_cpu_info * cpu = &(cpu_list[i]);
+	int status;
+
+	/* Skip invalid and reserved cpus */
+	if ((cpu->state == CPU_INVALID) || (cpu->state == CPU_RSVD))
+	    continue;
+
+	/* Ensure cpu is free */
+	if (cpu->state != CPU_FREE) {
+	    ERROR("Trying to online a cpu in state %s\n", cpu_state_to_str(cpu->state));
+	    continue;
+	}
+
+	/* Ensure no enclave is on it */
+	if (cpu->enclave_id != HOBBES_INVALID_ID) {
+	    ERROR("Trying to online a cpu assigned to enclave %d\n", cpu->enclave_id);
+	    continue;
+	}
+
+	/* Online it */
+	status = pet_online_cpu(cpu->cpu_id);
+	if (status != 0) {
+	    ERROR("Could not online cpu %d\n", cpu->cpu_id);
+	    continue;
+	}
+
+	/* TODO: remove from DB. There does not appear to be an interface for this */
+    }
+
+    free(cpu_list);
+}
+
+static void
+unreserve_memory(void)
+{
+    struct mem_block * blk_arr = NULL;
+    uint32_t sys_blk_cnt = 0, i = 0;
+    int ret = 0;
+
+    /* Probe memory */
+    ret = pet_probe_mem(&sys_blk_cnt, &blk_arr);
+    if (ret < 0) {
+	ERROR("Could not probe memory\n");
+	return;
+    }
+
+    /* Unlock everything */
+    for (i = 0; i < sys_blk_cnt; i++) {
+	pet_unlock_block(i);
+    }
+
+    free(blk_arr);
+}
+
+static void
+unreserve_cpus(void)
+{
+    struct pet_cpu * cpu_arr = NULL;
+    uint32_t sys_cpu_cnt = 0, i = 0;
+    int ret = 0;
+
+    /* Probe cpus */
+    ret = pet_probe_cpus(&sys_cpu_cnt, &cpu_arr);
+    if (ret < 0) {
+	ERROR("Could not probe cpus\n");
+	return;
+    }
+
+    /* Unlock everything */
+    for (i = 0; i < sys_cpu_cnt; i++) {
+	pet_unlock_cpu(i);
+    }
+
+    free(cpu_arr);
+}
+
+
+int
+master_exit(void)
+{
+    /* Determine if any enclaves are running - if so, we cannot exit */
+    struct enclave_info * enclaves = NULL;
+    uint32_t num_enclaves;
+
+    enclaves = hobbes_get_enclave_list(&num_enclaves);
+    if (enclaves == NULL) {
+	ERROR("Could not retrieve enclave list\n");
+	return -1;
+    }
+
+    switch (num_enclaves) {
+	case 0:
+	    ERROR("0 active enclaves: the master DB has been corrupted\n");
+	    return -1;
+
+	case 1:
+	    break;
+	
+	default:
+	    ERROR("Cannot stop Leviathan: there are %d active enclaves that must be destroyed first\n",
+		num_enclaves - 1);
+	    return -1;
+    }
+
+    /* Ensure that the enclave is just the master */
+    if (enclaves[0].type != MASTER_ENCLAVE) {
+	ERROR("Only 1 enclave running, but it is not the master. Cannot stop Leviathan\n");
+	free(enclaves);
+	return -1;
+    }
+
+    free(enclaves);
+
+    /* Re-online all resources */
+    release_memory();
+    release_cpus();
+
+    /* TODO: unreserve master resources (unlock things that we locked) */
+    unreserve_memory();
+    unreserve_cpus();
+
+    return 0;
+}
+
 static int
 reserve_cpu_list(char * cpu_list)
 {
@@ -512,7 +700,7 @@ populate_system_info(hdb_db_t db)
 		    break;
 		}	
 		case PET_CPU_RSVD:
-		    state      = CPU_ALLOCATED;
+		    state      = CPU_RSVD;
 		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
 		case PET_CPU_OFFLINE:
@@ -575,7 +763,7 @@ populate_system_info(hdb_db_t db)
 		}
 
 		case PET_BLOCK_RSVD: 
-		    state      = MEMORY_ALLOCATED;
+		    state      = MEMORY_RSVD;
 		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
 		case PET_BLOCK_OFFLINE:

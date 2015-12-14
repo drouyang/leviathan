@@ -165,7 +165,7 @@ __hcq_init( void )
 }
 
 
-static void 
+void 
 hobbes_exit( void ) 
 {
     printf("Shutting down hobbes\n");
@@ -175,7 +175,8 @@ hobbes_exit( void )
     }
 
     if (hobbes_enabled) {
-	hobbes_client_deinit();
+	if (!hobbes_is_master_inittask())
+	    hobbes_client_deinit();
     }
 }
 
@@ -185,13 +186,15 @@ hobbes_init(void)
 {
     int hcq_fd = -1;
 
-    if (hobbes_client_init() != 0) {
-	ERROR("Could not initialize hobbes client interface\n");
-	return -1;
+    if (!hobbes_is_master_inittask()) {
+	if (hobbes_client_init() != 0) {
+	    ERROR("Could not initialize hobbes client interface\n");
+	    return -1;
+	}
     }
 
     hobbes_enabled = true;
-    atexit(hobbes_exit);
+    //atexit(hobbes_exit);
     
     
     printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());    

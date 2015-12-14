@@ -6,5 +6,6 @@
 #define __MASTER_H__
 
 int master_init(int argc, char ** argv);
+int master_exit(void);
 
 #endif

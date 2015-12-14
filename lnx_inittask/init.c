@@ -8,9 +8,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
-
+#include <errno.h>
 #include <signal.h>
-
 #include <stdint.h>
 #include <assert.h>
 
@@ -55,13 +54,31 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
 
 
 
+static int exit_leviathan = 0;
+
+static int
+client_exit(void)
+{
+    /* Anything to do?? */
+    return 0;
+}
+
 static void
 sig_term_handler(int sig)
 {
-    printf("Caught sigterm\n");	
-    exit(-1);
-}
+    int status;
 
+    if (hobbes_is_master_inittask()) {
+	status = master_exit();
+    } else {
+	status = client_exit();
+    }
+
+    if (status == 0) {
+	hobbes_exit();
+	exit_leviathan = 1;
+    }
+}
 
 
 int
@@ -119,7 +136,7 @@ main(int argc, char ** argv, char * envp[])
     /* Command Loop */
     printf("Entering Command Loop\n");
 
-    while (1) {
+    while (exit_leviathan == 0) {
 	int    i    = 0;
 	int    ret  = 0;	
 	fd_set rset = handler_fdset;
@@ -127,6 +144,9 @@ main(int argc, char ** argv, char * envp[])
 	ret = select(handler_max_fd + 1, &rset, NULL, NULL, NULL);
 
 	if (ret == -1) {
+	    if (errno == EINTR)
+		continue;
+
 	    ERROR("Select() error\n");
 	    break;
 	}
