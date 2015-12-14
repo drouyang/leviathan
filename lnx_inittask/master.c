@@ -394,6 +394,7 @@ master_exit(void)
 	default:
 	    ERROR("Cannot stop Leviathan: there are %d active enclaves that must be destroyed first\n",
 		num_enclaves - 1);
+	    free(enclaves);
 	    return -1;
     }
 
