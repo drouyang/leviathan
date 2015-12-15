@@ -230,6 +230,44 @@ int master_init(int argc, char ** argv) {
 
 
 static void
+__release_client_block(struct hobbes_memory_info * blk)
+{
+    uint32_t blk_index = 0;
+    int      status    = 0;
+
+    if (blk->enclave_id != HOBBES_INVALID_ID)
+	ERROR("Onlining a block assigned to enclave %d. This is a bug\n", blk->enclave_id);
+
+    if (blk->app_id != HOBBES_INVALID_ID)
+	ERROR("Onlining a block assigned to app %d. This is a bug\n", blk->app_id);
+
+    if (blk->state != MEMORY_FREE)
+	ERROR("Onlining a block that is in state %s. Block should be FREE. This is a bug\n",
+		mem_state_to_str(blk->state));
+
+    blk_index = pet_addr_to_block_id(blk->base_addr);
+    status    = pet_online_block(blk_index);
+    if (status != 0)
+	ERROR("Could not online block %d (base_addr = %p)\n", blk_index, (void *)blk->base_addr);
+}
+
+static void
+__release_master_block(struct hobbes_memory_info * blk)
+{
+    uint32_t blk_index = 0;
+    int      status    = 0;
+
+    if (blk->state != MEMORY_ALLOCATED)
+	ERROR("Unlockingg a master block that is in state %s. Block should be ALLOCATED. This is a bug\n",
+		mem_state_to_str(blk->state));
+
+    blk_index = pet_addr_to_block_id(blk->base_addr);
+    status    = pet_unlock_block(blk_index);
+    if (status != 0)
+	ERROR("Could not unlock block %d (base_addr = %p)\n", blk_index, (void *)blk->base_addr);
+}
+
+static void
 release_memory(void)
 {
     struct hobbes_memory_info * mem_list = NULL;
@@ -237,47 +275,58 @@ release_memory(void)
 
     mem_list = hobbes_get_memory_list(&num_blocks);
     if (mem_list == NULL) {
-	ERROR("Could not get memory list: cannot online memory\n");
+	ERROR("Could not get memory list: cannot release memory\n");
 	return;
     }
 
     for (i = 0; i < num_blocks; i++) {
 	struct hobbes_memory_info * blk = &(mem_list[i]);
-	int blk_index, status;
 
 	/* Skip invalid and reserved blocks */
 	if ((blk->state == MEMORY_INVALID) || (blk->state == MEMORY_RSVD))
 	    continue;
 	
-	/* Ensure block is free */
-	if (blk->state != MEMORY_FREE) {
-	    ERROR("Trying to online a block in state %s\n", mem_state_to_str(blk->state));
-	    continue;
-	}
-
-	/* Ensure no enclave or app is on it */
-	if (blk->enclave_id != HOBBES_INVALID_ID) {
-	    ERROR("Trying to online a block assigned to enclave %d\n", blk->enclave_id);
-	    continue;
-	}
-
-	if (blk->app_id != HOBBES_INVALID_ID) {
-	    ERROR("Trying to online a block assigned to app %d\n", blk->app_id);
-	    continue;
-	}
-
-	/* Online it */
-	blk_index = pet_addr_to_block_id(blk->base_addr);
-	status    = pet_online_block(blk_index);
-	if (status != 0) {
-	    ERROR("Could not online block %d (base_addr = %p)\n", blk_index, (void *)blk->base_addr);
-	    continue;
-	}
+	if (blk->enclave_id == HOBBES_MASTER_ENCLAVE_ID)
+	    __release_master_block(blk);
+	else
+	    __release_client_block(blk);
 
 	/* TODO: remove from DB. There does not appear to be an interface for this */
     }
 
     free(mem_list);
+}
+
+static void
+__release_client_cpu(struct hobbes_cpu_info * cpu)
+{
+    int status = 0;
+
+    if (cpu->enclave_id != HOBBES_INVALID_ID)
+	ERROR("Onlining a cpu assigned to enclave %d. This is a bug\n", cpu->enclave_id);
+
+    if (cpu->state != CPU_FREE)
+	ERROR("Onlining a cpu that is in state %s. cpu should be FREE. This is a bug\n",
+		cpu_state_to_str(cpu->state));
+
+    status = pet_online_cpu(cpu->cpu_id);
+    if (status != 0)
+	ERROR("Could not online cpu %d\n", cpu->cpu_id);
+}
+
+static void
+__release_master_cpu(struct hobbes_cpu_info * cpu)
+{
+    int status = 0;
+
+    if (cpu->state != CPU_ALLOCATED)
+	ERROR("Unlocking a cpu that is in state %s. cpu should be ALLOCATED. This is a bug\n",
+		cpu_state_to_str(cpu->state));
+
+    status = pet_unlock_cpu(cpu->cpu_id);
+    if (status != 0)
+	ERROR("Could not unlock cpu %d\n", cpu->cpu_id);
+
 }
 
 static void
@@ -288,36 +337,21 @@ release_cpus(void)
 
     cpu_list = hobbes_get_cpu_list(&num_cpus);
     if (cpu_list == NULL) {
-	ERROR("Could not get cpu list: cannot online cpus\n");
+	ERROR("Could not get cpu list: cannot release cpus\n");
 	return;
     }
 
     for (i = 0; i < num_cpus; i++) {
 	struct hobbes_cpu_info * cpu = &(cpu_list[i]);
-	int status;
 
 	/* Skip invalid and reserved cpus */
 	if ((cpu->state == CPU_INVALID) || (cpu->state == CPU_RSVD))
 	    continue;
 
-	/* Ensure cpu is free */
-	if (cpu->state != CPU_FREE) {
-	    ERROR("Trying to online a cpu in state %s\n", cpu_state_to_str(cpu->state));
-	    continue;
-	}
-
-	/* Ensure no enclave is on it */
-	if (cpu->enclave_id != HOBBES_INVALID_ID) {
-	    ERROR("Trying to online a cpu assigned to enclave %d\n", cpu->enclave_id);
-	    continue;
-	}
-
-	/* Online it */
-	status = pet_online_cpu(cpu->cpu_id);
-	if (status != 0) {
-	    ERROR("Could not online cpu %d\n", cpu->cpu_id);
-	    continue;
-	}
+	if (cpu->enclave_id == HOBBES_MASTER_ENCLAVE_ID)
+	    __release_master_cpu(cpu);
+	else
+	    __release_client_cpu(cpu);
 
 	/* TODO: remove from DB. There does not appear to be an interface for this */
     }
@@ -339,9 +373,13 @@ unreserve_memory(void)
 	return;
     }
 
-    /* Unlock everything */
+    /* Make sure everything is unlocked */
     for (i = 0; i < sys_blk_cnt; i++) {
-	pet_unlock_block(i);
+	if (pet_is_block_locked(i)) {
+	    ERROR("Block %d (base_addr = %p) is locked. Force unlocking but this is a bug...\n", 
+		i, (void *)pet_block_id_to_addr(i));
+	    pet_unlock_block(i);
+	}
     }
 
     free(blk_arr);
@@ -363,7 +401,10 @@ unreserve_cpus(void)
 
     /* Unlock everything */
     for (i = 0; i < sys_cpu_cnt; i++) {
-	pet_unlock_cpu(i);
+	if (pet_is_cpu_locked(i)) {
+	    ERROR("CPU %d is locked. Force unlocking but this is a bug...\n", i);
+	    pet_unlock_cpu(i);
+	}
     }
 
     free(cpu_arr);
@@ -411,7 +452,7 @@ master_exit(void)
     release_memory();
     release_cpus();
 
-    /* TODO: unreserve master resources (unlock things that we locked) */
+    /* Ensure all resources are unlocked */
     unreserve_memory();
     unreserve_cpus();
 
