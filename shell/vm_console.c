@@ -37,7 +37,6 @@
 
 
 extern int errno;
-extern hdb_db_t hobbes_master_db;
 
 
 static int use_curses = 0;
@@ -706,7 +705,7 @@ vm_lnx_enclave_console(hobbes_id_t enclave_id,
     int    cons_ret = -1;
     int    cons_fd  = -1;
     int    vm_fd    = -1;
-    int    dev_id   = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
+    int    dev_id   = hobbes_get_enclave_dev_id(enclave_id);
     char * dev_path = get_vm_dev_path(dev_id);
 
     vm_fd = open(dev_path, O_RDONLY);
@@ -1025,7 +1024,7 @@ vm_enclave_console(hobbes_id_t enclave_id)
     char * enclave_name      = NULL;
     char * host_enclave_name = NULL;
 
-    enclave_name    = hdb_get_enclave_name(hobbes_master_db, enclave_id);
+    enclave_name    = hobbes_get_enclave_name(enclave_id);
     host_enclave_id = hobbes_get_enclave_parent(enclave_id);
     if (host_enclave_id == HOBBES_INVALID_ID) {
 	ERROR("Could not find parent enclave for enclave %d (%s)\n",
@@ -1033,7 +1032,7 @@ vm_enclave_console(hobbes_id_t enclave_id)
 	return -1;
     }
 
-    host_enclave_name = hdb_get_enclave_name(hobbes_master_db, host_enclave_id);
+    host_enclave_name = hobbes_get_enclave_name(host_enclave_id);
     host_enclave_type = hobbes_get_enclave_type(host_enclave_id);
     if (host_enclave_type == INVALID_ENCLAVE) {
 	ERROR("Could not find enclave %d (%s)\n", 
