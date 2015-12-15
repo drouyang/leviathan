@@ -10,7 +10,9 @@
 #define __SYSTEM_H__
 
 
-int list_memory_main(int argc, char ** argv);
-int list_cpus_main(int argc, char ** argv);
+int   list_memory_main(int argc, char ** argv);
+int     list_cpus_main(int argc, char ** argv);
+int assign_memory_main(int argc, char ** argv);
+int   assign_cpus_main(int argc, char ** argv);
 
 #endif

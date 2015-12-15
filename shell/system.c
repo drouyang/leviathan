@@ -9,12 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <getopt.h>
 
 #include <pet_log.h>
 
 #include <hobbes.h>
 #include <hobbes_system.h>
 #include <hobbes_sys_db.h>
+#include <hobbes_util.h>
 
 int 
 list_memory_main(int argc, char ** argv)
@@ -117,5 +119,228 @@ list_cpus_main(int argc, char ** argv)
     
     free(cpu_arr);
 
+    return 0;
+}
+
+
+static void
+mem_usage(char * exec_name)
+{
+    printf("Usage: %s [options] <enclave name> <size (MB)>\n"
+	"[-n, --numa=<numa zone>]\n"
+	"[-c, --contiguous]\n",
+	exec_name
+    );
+}
+
+
+static int
+__assign_memory_allow_discontiguous(hobbes_id_t enclave_id,
+	 			    char      * enclave_name,
+	 			    uint64_t    mem_size_bytes,
+				    uint32_t    numa_node,
+				    uint64_t  * bytes_assigned)
+{
+    uint64_t    block_size     = 0;
+    uint32_t    num_regions    = 0;
+    uint32_t    region_off     = 0;
+    uintptr_t * regions        = NULL;
+    int         status         = 0;
+
+    *bytes_assigned = 0;
+
+    block_size  = hobbes_get_block_size();
+    num_regions = mem_size_bytes / block_size;
+
+    regions = malloc(sizeof(uintptr_t) * num_regions);
+    if (regions == NULL) {
+	ERROR("Could not allocate region array\n");
+	return -1;
+    }
+
+    /* Allocate the memory */
+    status = hobbes_alloc_mem_regions(enclave_id, numa_node, num_regions, block_size, regions);
+    if (status) {
+	ERROR("Could not allocate %lu bytes of memory for enclave %s\n", mem_size_bytes, enclave_name);
+	return -1;
+    }
+
+    /* Assign each region */
+    for (region_off = 0; region_off < num_regions; region_off++) {
+	status = hobbes_assign_memory(enclave_id, regions[region_off], block_size, false, true);
+	if (status) {
+	    ERROR("Could not assign memory to enclave %s\n", enclave_name);
+	    hobbes_free_mem(regions[region_off], block_size);
+	} else {
+	    *bytes_assigned += block_size;
+	}
+    }
+
+    free(regions);
+
+    return 0;
+}
+
+static int
+__assign_memory_contiguous(hobbes_id_t enclave_id,
+			   char      * enclave_name,
+			   uint64_t    mem_size_bytes,
+			   uint32_t    numa_node,
+			   uint64_t  * bytes_assigned)
+{
+    uintptr_t mem_addr = HOBBES_INVALID_ADDR;
+    int       status   = 0;
+
+    *bytes_assigned = 0;
+
+    /* Allocate the memory */
+    mem_addr = hobbes_alloc_mem(enclave_id, numa_node, mem_size_bytes);
+    if (mem_addr == HOBBES_INVALID_ADDR) {
+	ERROR("Could not allocate %lu bytes of memory for enclave %d\n", mem_size_bytes, enclave_id);
+	return -1;
+    }
+
+    /* Assign the memory */
+    status = hobbes_assign_memory(enclave_id, mem_addr, mem_size_bytes, false, true);
+    if (status) {
+	ERROR("Could not assign memory to enclave %s\n", enclave_name);
+	hobbes_free_mem(mem_addr, mem_size_bytes);
+	return -1;
+    }
+
+    *bytes_assigned = mem_size_bytes;
+
+    return 0;
+}
+
+static int
+__assign_memory(char   * enclave_name,
+		uint64_t mem_size_MB,
+		uint32_t numa_node,
+		int      allow_discontiguous)
+{  
+    hobbes_id_t    enclave_id     = HOBBES_INVALID_ID;
+    enclave_type_t enclave_type   = INVALID_ENCLAVE;
+    uint64_t       mem_size_bytes = 0;
+    uint64_t       bytes_assigned = 0;
+    uint64_t       block_size     = 0;
+    int            status         = 0;
+
+    enclave_id = hobbes_get_enclave_id(enclave_name);
+    if (enclave_id == HOBBES_INVALID_ID) {
+	ERROR("Cannot assign memory to enclave %s: cannot find enclave id\n", enclave_name);
+	return -1;
+    }
+
+    enclave_type = hobbes_get_enclave_type(enclave_id);
+    if ((enclave_type == INVALID_ENCLAVE) || 
+	(enclave_type == VM_ENCLAVE)) {
+	ERROR("Cannot assign memory to enclave %s: type %s not currently supported\n", 
+		enclave_name, enclave_type_to_str(enclave_type));
+	return -1;
+    }
+
+    /* Round memory up to nearest block size */
+    block_size      = hobbes_get_block_size();
+    mem_size_bytes  = mem_size_MB * (1024 * 1024);
+
+    if (mem_size_bytes % block_size) {
+	printf("Rounding up to nearest 'hobbes_block_size' bytes (hobbes_block_size == %lu bytes (%lu MB)\n",
+		block_size, (block_size / (1024 * 1024)));
+
+	mem_size_bytes += block_size - (mem_size_bytes % block_size);
+	mem_size_MB     = mem_size_bytes / (1024 * 1024);
+    }
+
+    if (allow_discontiguous)
+	status = __assign_memory_allow_discontiguous(enclave_id, enclave_name, mem_size_bytes, numa_node,
+			&bytes_assigned);
+    else
+	status = __assign_memory_contiguous(enclave_id, enclave_name, mem_size_bytes, numa_node,
+			&bytes_assigned);
+
+    if (status != 0) {
+	ERROR("Failed to assign memory to enclave %s\n", enclave_name);
+	return -1;
+    }
+
+    printf("Assigned %lu (%lu MB) of (%s) memory to enclave %s\n",
+	mem_size_bytes,
+	mem_size_MB,
+	(allow_discontiguous) ? "possibly discontiguous" : "contiguous",
+	enclave_name);
+
+    return 0;
+}
+
+int
+assign_memory_main(int argc, char ** argv)
+{
+    int      allow_discontiguous = 1;
+    uint32_t numa_node		 = HOBBES_ANY_NUMA_ID;
+    uint64_t mem_size_MB	 = HOBBES_INVALID_ADDR;
+    char   * enclave_name        = NULL;
+
+    /* Get command line options */
+    {
+	char c = 0;
+	int  opt_index = 0;
+
+	struct option long_options[] =
+	{
+	    {"numa",		required_argument, 0, 'n'},
+	    {"contiguous",	no_argument,	   0, 'c'},
+	    {0, 0, 0, 0}
+	};
+
+	while ((c = getopt_long_only(argc, argv, "n:c", long_options, &opt_index)) != -1) {
+	    switch (c) {
+		case 'n':
+		    numa_node = smart_atou32(numa_node, optarg);
+		    if (numa_node == (uint32_t)HOBBES_INVALID_NUMA_ID) {
+			ERROR("Invalid NUMA argument (%s)\n", optarg);
+			mem_usage(argv[0]);
+			return -1;
+		    }
+
+		    if (numa_node >= hobbes_get_numa_cnt()) {
+			ERROR("Invalid NUMA zone. %d specified, but only %d zones present\n",
+				numa_node, hobbes_get_numa_cnt());
+			mem_usage(argv[0]);
+		    }
+
+		    break;
+
+		case 'c':
+		    allow_discontiguous = 0;
+		    break;
+
+		case '?':
+		    ERROR("Invalid option specified\n");
+		    mem_usage(argv[0]);
+		    return -1;
+	    }
+	}
+
+	if (optind != (argc - 2)) {
+	    mem_usage(argv[0]);
+	    return -1;
+	}
+
+	enclave_name = argv[optind];
+
+	mem_size_MB = smart_atou64(mem_size_MB, argv[optind + 1]);	
+	if (mem_size_MB == HOBBES_INVALID_ADDR) {
+	    ERROR("Invalid mem_size_MB: %s\n", argv[optind + 1]);
+	    mem_usage(argv[0]);
+	}
+    }
+
+    return __assign_memory(enclave_name, mem_size_MB, numa_node, allow_discontiguous);
+}
+
+int
+assign_cpus_main(int argc, char ** argv)
+{
     return 0;
 }

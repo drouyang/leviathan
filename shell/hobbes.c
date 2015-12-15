@@ -115,6 +115,8 @@ extern int        cat_file_main(int argc, char ** argv);
 extern int   cat_into_file_main(int argc, char ** argv);
 extern int     list_memory_main(int argc, char ** argv);
 extern int       list_cpus_main(int argc, char ** argv);
+extern int   assign_memory_main(int argc, char ** argv);
+extern int     assign_cpus_main(int argc, char ** argv);
 extern int	   console_main(int argc, char ** argv);
 
 
@@ -125,7 +127,7 @@ static struct hobbes_cmd cmds[] = {
     {"destroy_vm"      , destroy_vm_main       , "Destroy VM Enclave"                          },
     {"ping_enclave"    , ping_enclave_main     , "Ping an enclave"                             },
     {"list_enclaves"   , list_enclaves_main    , "List all running enclaves"                   },
-    {"list_segments"   , list_segments_handler , "List all exported xpmem segments"            },
+    {"list_segments"   , list_segments_handler , "List all exported xemem segments"            },
     {"launch_app"      , launch_app_main       , "Launch an application in an enclave"         },
     {"list_apps"       , list_apps_main        , "List all applications"                       },
     {"dump_cmd_queue"  , dump_cmd_queue_main   , "Dump the command queue state for an enclave" },
@@ -133,6 +135,8 @@ static struct hobbes_cmd cmds[] = {
     {"cat_into_file"   , cat_into_file_main    , "'cat' to a file on an arbitrary enclave"     },
     {"list_memory"     , list_memory_main      , "List the status of system memory"            },
     {"list_cpus"       , list_cpus_main        , "List the stuats of local CPUs"               },
+    {"assign_memory"   , assign_memory_main    , "Assign memory to an Enclave"		       },
+    {"assign_cpus"     , assign_cpus_main      , "Assign cpus to an Enclave"		       },
     {"console"	       , console_main	       , "Attach to an Enclave Console"		       },
     {0, 0, 0}
 };
