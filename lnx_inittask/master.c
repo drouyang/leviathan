@@ -701,7 +701,7 @@ populate_system_info(hdb_db_t db)
 		    break;
 		}	
 		case PET_CPU_RSVD:
-		    state      = CPU_RSVD;
+		    state      = CPU_ALLOCATED;
 		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
 		case PET_CPU_OFFLINE:
@@ -764,7 +764,7 @@ populate_system_info(hdb_db_t db)
 		}
 
 		case PET_BLOCK_RSVD: 
-		    state      = MEMORY_RSVD;
+		    state      = MEMORY_ALLOCATED;
 		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
 		    break;
 		case PET_BLOCK_OFFLINE:
