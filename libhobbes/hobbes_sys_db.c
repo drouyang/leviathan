@@ -1264,10 +1264,9 @@ __alloc_span(hdb_db_t    db,
 	while (iter_blk) {
 	    hdb_mem_t next_free_blk = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_FREE);
 	    hdb_mem_t next_blk      = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_BLK);
-	    
+
 	    for (i = 0; i < blk_span - 1; i++) {
-		
-		if (next_blk != next_free_blk) {
+		if ((!next_blk) || (next_blk != next_free_blk)) {
 		    iter_blk = next_blk;
 		    break;
 		}
@@ -1277,7 +1276,6 @@ __alloc_span(hdb_db_t    db,
 		    /* Error because NUMA should not be interleaved */
 		    return -1;
 		}
-		    
 
 		next_free_blk = __wg_get_record(db, next_blk, HDB_MEM_NEXT_FREE);
 		next_blk      = __wg_get_record(db, next_blk, HDB_MEM_NEXT_BLK);
