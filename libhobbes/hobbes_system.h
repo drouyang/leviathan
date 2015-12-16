@@ -74,7 +74,6 @@ int
 hobbes_free_enclave_cpus(hobbes_id_t enclave_id);
 
 
-
 /* Memory Allocation */
 
 
@@ -145,6 +144,7 @@ struct hobbes_memory_info {
 
 struct hobbes_cpu_info {
     uint32_t    cpu_id;
+    uint32_t    apic_id;
     uint32_t    numa_node;
     cpu_state_t state;
     hobbes_id_t enclave_id;
@@ -157,6 +157,9 @@ hobbes_get_memory_list(uint64_t * num_mem_blks);
 
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(uint32_t * num_cpus);
+
+uint32_t
+hobbes_get_cpu_apic_id(uint32_t cpu_id);
 
 const char * mem_state_to_str(mem_state_t state);
 const char * cpu_state_to_str(cpu_state_t state);

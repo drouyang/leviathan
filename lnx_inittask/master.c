@@ -752,7 +752,7 @@ populate_system_info(hdb_db_t db)
 		    break;
 	    }
 	    
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].numa_node, state, enclave_id);
+	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].apic_id, cpu_arr[i].numa_node, state, enclave_id);
 	    
 	    if (ret == -1) {
 		ERROR("Error registering CPU with database\n");

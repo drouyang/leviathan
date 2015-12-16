@@ -358,6 +358,7 @@ __get_cpu_id(hdb_db_t  db,
 static int
 __register_cpu(hdb_db_t    db,
 	       uint32_t    cpu_id,
+	       uint32_t    apic_id,
 	       uint32_t    numa_node,
 	       cpu_state_t state,
 	       hobbes_id_t enclave_id)
@@ -379,9 +380,10 @@ __register_cpu(hdb_db_t    db,
     cpu_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_SYS_HDR_CPU_CNT));
 
 
-    cpu = wg_create_record(db, 5);
+    cpu = wg_create_record(db, 6);
     wg_set_field(db, cpu, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_CPU));
     wg_set_field(db, cpu, HDB_CPU_ID,          wg_encode_int(db, cpu_id));
+    wg_set_field(db, cpu, HDB_CPU_APIC_ID,     wg_encode_int(db, apic_id));
     wg_set_field(db, cpu, HDB_CPU_NUMA_NODE,   wg_encode_int(db, numa_node));
     wg_set_field(db, cpu, HDB_CPU_STATE,       wg_encode_int(db, state));
     wg_set_field(db, cpu, HDB_CPU_ENCLAVE_ID,  wg_encode_int(db, enclave_id));
@@ -395,6 +397,7 @@ __register_cpu(hdb_db_t    db,
 int 
 hdb_register_cpu(hdb_db_t    db,
 		 uint32_t    cpu_id,
+		 uint32_t    apic_id,
 		 uint32_t    numa_node,
 		 cpu_state_t state,
 		 hobbes_id_t enclave_id)
@@ -409,7 +412,7 @@ hdb_register_cpu(hdb_db_t    db,
 	return -1;
     }
 
-    ret = __register_cpu(db, cpu_id, numa_node, state, enclave_id);
+    ret = __register_cpu(db, cpu_id, apic_id, numa_node, state, enclave_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -418,6 +421,47 @@ hdb_register_cpu(hdb_db_t    db,
     
     return ret;
 
+}
+
+static uint32_t
+__get_cpu_apic_id(hdb_db_t db,
+		  uint32_t cpu_id)
+{
+    hdb_cpu_t cpu        = __get_cpu_by_id(db, cpu_id);
+    uint32_t  apic_id    = HOBBES_INVALID_CPU_ID;
+
+    if (!cpu) {
+	ERROR("Could not find CPU (%u)\n", cpu_id);
+	return HOBBES_INVALID_NUMA_ID;
+    }
+
+    apic_id = wg_decode_int(db, wg_get_field(db, cpu, HDB_CPU_APIC_ID));
+
+    return apic_id;
+}
+
+uint32_t 
+hdb_get_cpu_apic_id(hdb_db_t db,
+		    uint32_t cpu_id)
+{
+    uint32_t apic_id = 0;
+    wg_int   lock_id;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_CPU_ID;
+    }
+
+    apic_id = __get_cpu_apic_id(db, cpu_id);
+
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Catastrophic database locking error\n");
+	return HOBBES_INVALID_CPU_ID;
+    }
+
+    return apic_id;
 }
 
 

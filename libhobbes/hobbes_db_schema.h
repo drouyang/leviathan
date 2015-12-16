@@ -108,9 +108,10 @@ extern "C" {
 
 /* Columns for CPU resource records */
 #define HDB_CPU_ID                    1
-#define HDB_CPU_NUMA_NODE             2
-#define HDB_CPU_STATE                 3
-#define HDB_CPU_ENCLAVE_ID            4
+#define HDB_CPU_APIC_ID               2
+#define HDB_CPU_NUMA_NODE             3
+#define HDB_CPU_STATE                 4
+#define HDB_CPU_ENCLAVE_ID            5
 
 /* Columns notification events */
 #define HDB_NOTIF_SEGID               1

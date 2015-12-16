@@ -46,9 +46,15 @@ hdb_get_sys_blk_size(hdb_db_t db);
 int 
 hdb_register_cpu(hdb_db_t    db,
 		 uint32_t    cpu_id,
+		 uint32_t    apic_id,
 		 uint32_t    numa_node,
 		 cpu_state_t state,
 		 hobbes_id_t enclave_id);
+
+
+uint32_t
+hdb_get_cpu_apic_id(hdb_db_t db,
+		    uint32_t cpu_id);
 
 uint32_t 
 hdb_get_cpu_numa_node(hdb_db_t db,
@@ -61,7 +67,6 @@ hdb_get_cpu_state(hdb_db_t db,
 hobbes_id_t 
 hdb_get_cpu_enclave_id(hdb_db_t db,
 		       uint32_t cpu_id);
-
 
 uint32_t 
 hdb_alloc_cpu(hdb_db_t    db,

@@ -261,6 +261,13 @@ hobbes_get_cpu_list(uint32_t * num_cpus)
     return cpu_arr;
 }
 
+uint32_t
+hobbes_get_cpu_apic_id(uint32_t cpu_id)
+{
+    return hdb_get_cpu_apic_id(hobbes_master_db, cpu_id);
+}
+
+
 const char * 
 mem_state_to_str(mem_state_t state) 
 {
