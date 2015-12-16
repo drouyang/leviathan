@@ -18,6 +18,8 @@
 #include <hobbes_sys_db.h>
 #include <hobbes_util.h>
 
+#include <pisces_ctrl.h>
+
 int 
 list_memory_main(int argc, char ** argv)
 {
@@ -124,7 +126,7 @@ list_cpus_main(int argc, char ** argv)
 
 
 static void
-mem_usage(char * exec_name)
+assign_memory_usage(char * exec_name)
 {
     printf("Usage: %s [options] <enclave name> <size (MB)>\n"
 	"[-n, --numa=<numa zone>]\n"
@@ -196,7 +198,7 @@ __assign_memory_contiguous(hobbes_id_t enclave_id,
     /* Allocate the memory */
     mem_addr = hobbes_alloc_mem(enclave_id, numa_node, mem_size_bytes);
     if (mem_addr == HOBBES_INVALID_ADDR) {
-	ERROR("Could not allocate %lu bytes of memory for enclave %d\n", mem_size_bytes, enclave_id);
+	ERROR("Could not allocate %lu bytes of memory for enclave %s\n", mem_size_bytes, enclave_name);
 	return -1;
     }
 
@@ -214,10 +216,10 @@ __assign_memory_contiguous(hobbes_id_t enclave_id,
 }
 
 static int
-__assign_memory(char   * enclave_name,
-		uint64_t mem_size_MB,
-		uint32_t numa_node,
-		int      allow_discontiguous)
+assign_memory(char   * enclave_name,
+	      uint64_t mem_size_MB,
+	      uint32_t numa_node,
+	      int      allow_discontiguous)
 {  
     hobbes_id_t    enclave_id     = HOBBES_INVALID_ID;
     enclave_type_t enclave_type   = INVALID_ENCLAVE;
@@ -299,14 +301,15 @@ assign_memory_main(int argc, char ** argv)
 		    numa_node = smart_atou32(numa_node, optarg);
 		    if (numa_node == (uint32_t)HOBBES_INVALID_NUMA_ID) {
 			ERROR("Invalid NUMA argument (%s)\n", optarg);
-			mem_usage(argv[0]);
+			assign_memory_usage(argv[0]);
 			return -1;
 		    }
 
 		    if (numa_node >= hobbes_get_numa_cnt()) {
 			ERROR("Invalid NUMA zone. %d specified, but only %d zones present\n",
 				numa_node, hobbes_get_numa_cnt());
-			mem_usage(argv[0]);
+			assign_memory_usage(argv[0]);
+			return -1;
 		    }
 
 		    break;
@@ -317,30 +320,210 @@ assign_memory_main(int argc, char ** argv)
 
 		case '?':
 		    ERROR("Invalid option specified\n");
-		    mem_usage(argv[0]);
+		    assign_memory_usage(argv[0]);
 		    return -1;
 	    }
 	}
 
 	if (optind != (argc - 2)) {
-	    mem_usage(argv[0]);
+	    assign_memory_usage(argv[0]);
 	    return -1;
 	}
 
 	enclave_name = argv[optind];
-
-	mem_size_MB = smart_atou64(mem_size_MB, argv[optind + 1]);	
+	mem_size_MB  = smart_atou64(mem_size_MB, argv[optind + 1]);	
 	if (mem_size_MB == HOBBES_INVALID_ADDR) {
 	    ERROR("Invalid mem_size_MB: %s\n", argv[optind + 1]);
-	    mem_usage(argv[0]);
+	    assign_memory_usage(argv[0]);
+	    return -1;
 	}
     }
 
-    return __assign_memory(enclave_name, mem_size_MB, numa_node, allow_discontiguous);
+    return assign_memory(enclave_name, mem_size_MB, numa_node, allow_discontiguous);
+}
+
+static void
+assign_cpus_usage(char * exec_name)
+{
+    printf("Usage: %s [options] <enclave name> <num cpus>\n"
+	"[-n, --numa=<numa zone>]\n",
+	exec_name
+    );
+}
+
+
+/* FIXME: currently, we don't use hobbes_assign_cpu for Pisces because assigning
+ * cpus must go through the legacy Pisces control channel. Hopefully we can
+ * pull the control channel at some point and just use Pisces ioctls to
+ * set/reset the secondary trampooline target while the notification operations
+ * go through the Hobbes command queues
+ */
+static int
+__assign_cpu_pisces(hobbes_id_t enclave_id,
+		    uint32_t    cpu_id,
+		    uint32_t    apic_id)
+{
+    int dev_id = hobbes_get_enclave_dev_id(enclave_id);
+    return pisces_add_offline_cpu(dev_id, cpu_id);
+}
+
+static int
+__assign_cpu_master(hobbes_id_t enclave_id,
+		    uint32_t    cpu_id,
+		    uint32_t    apic_id)
+{
+    return hobbes_assign_cpu(enclave_id, cpu_id, apic_id);
+}
+
+static int
+assign_cpus(char   * enclave_name,
+	    uint32_t num_cpus,
+	    uint32_t numa_node)
+{
+    hobbes_id_t    enclave_id     = HOBBES_INVALID_ID;
+    enclave_type_t enclave_type   = INVALID_ENCLAVE;
+    uint32_t       cpu_off        = 0;
+    uint32_t       cpu_id         = HOBBES_INVALID_CPU_ID;
+    uint32_t       apic_id        = HOBBES_INVALID_CPU_ID;
+    uint32_t       cpus_assigned  = 0;
+    uint32_t     * cpu_ids        = NULL;
+    int            status         = 0;
+
+    enclave_id = hobbes_get_enclave_id(enclave_name);
+    if (enclave_id == HOBBES_INVALID_ID) {
+	ERROR("Cannot assign cpus to enclave %s: cannot find enclave id\n", enclave_name);
+	return -1;
+    }
+
+    enclave_type = hobbes_get_enclave_type(enclave_id);
+    if ((enclave_type == INVALID_ENCLAVE) || 
+	(enclave_type == VM_ENCLAVE)) {
+	ERROR("Cannot assign cpus to enclave %s: type %s not currently supported\n", 
+		enclave_name, enclave_type_to_str(enclave_type));
+	return -1;
+    }
+
+    cpu_ids = malloc(sizeof(uint32_t) * num_cpus);
+    if (cpu_ids == NULL) {
+	ERROR("Could not allocate array for cpus\n");
+	return -1;
+    }
+
+    for (cpu_off = 0; cpu_off < num_cpus; cpu_off++) {
+	cpu_id = hobbes_alloc_cpu(enclave_id, numa_node);
+	if (cpu_id == HOBBES_INVALID_CPU_ID) {
+	    ERROR("Cannot allocate cpu for enclave %s\n", enclave_name);
+	    goto cpu_free;
+	}
+
+	cpu_ids[cpu_off] = cpu_id;
+    }
+
+    for (cpu_off = 0; cpu_off < num_cpus; cpu_off++) {
+	cpu_id  = cpu_ids[cpu_off];
+	apic_id = hobbes_get_cpu_apic_id(cpu_id);
+	if (apic_id == (uint32_t)-1) {
+	    ERROR("Cannot get apic id for cpu %d: cannot assign cpu to enclave %s\n",
+		cpu_id, enclave_name);
+	    hobbes_free_cpu(cpu_id);
+	    continue;
+	}
+
+	/* Assign each cpu */
+	if (enclave_type == PISCES_ENCLAVE)
+	    status = __assign_cpu_pisces(enclave_id, cpu_id, apic_id);
+	else
+	    status = __assign_cpu_master(enclave_id, cpu_id, apic_id);
+
+	if (status != 0) {
+	    ERROR("Could not assign cpu to enclave %s\n", enclave_name);
+	    hobbes_free_cpu(cpu_id);
+	    continue;
+	}
+
+	cpus_assigned++;
+    }
+
+    free(cpu_ids);
+
+    printf("Assigned %u cpus to enclave %s\n",
+        cpus_assigned,
+	enclave_name);
+
+    return 0;
+
+cpu_free:
+    {
+	uint32_t i = 0;
+
+	for (i = 0; i < cpu_off; i++) {
+	    cpu_id = cpu_ids[i];
+	    hobbes_free_cpu(cpu_id);
+	}
+    }
+
+    free(cpu_ids);
+
+    return -1;
 }
 
 int
 assign_cpus_main(int argc, char ** argv)
 {
-    return 0;
+    uint32_t numa_node	  = HOBBES_ANY_NUMA_ID;
+    uint32_t num_cpus	  =  0;
+    char   * enclave_name = NULL;
+
+    /* Get command line options */
+    {
+	char c = 0;
+	int  opt_index = 0;
+
+	struct option long_options[] =
+	{
+	    {"numa",	required_argument, 0, 'n'},
+	    {0, 0, 0, 0}
+	};
+
+	while ((c = getopt_long_only(argc, argv, "n:", long_options, &opt_index)) != -1) {
+	    switch (c) {
+		case 'n':
+		    numa_node = smart_atou32(numa_node, optarg);
+		    if (numa_node == (uint32_t)HOBBES_INVALID_NUMA_ID) {
+			ERROR("Invalid NUMA argument (%s)\n", optarg);
+			assign_cpus_usage(argv[0]);
+			return -1;
+		    }
+
+		    if (numa_node >= hobbes_get_numa_cnt()) {
+			ERROR("Invalid NUMA zone. %d specified, but only %d zones present\n",
+				numa_node, hobbes_get_numa_cnt());
+			assign_cpus_usage(argv[0]);
+			return -1;
+		    }
+
+		    break;
+
+		case '?':
+		    ERROR("Invalid option specified\n");
+		    assign_cpus_usage(argv[0]);
+		    return -1;
+	    }
+	}
+
+	if (optind != (argc - 2)) {
+	    assign_cpus_usage(argv[0]);
+	    return -1;
+	}
+
+	enclave_name = argv[optind];
+	num_cpus     = smart_atou32(num_cpus, argv[optind + 1]);
+	if (num_cpus == 0) {
+	    ERROR("Invalid number of cpus: %s\n", argv[optind + 1]);
+	    assign_cpus_usage(argv[0]);
+	    return -1;
+	}
+    }
+
+    return assign_cpus(enclave_name, num_cpus, numa_node);
 }

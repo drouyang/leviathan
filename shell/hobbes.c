@@ -136,7 +136,7 @@ static struct hobbes_cmd cmds[] = {
     {"list_memory"     , list_memory_main      , "List the status of system memory"            },
     {"list_cpus"       , list_cpus_main        , "List the stuats of local CPUs"               },
     {"assign_memory"   , assign_memory_main    , "Assign memory to an Enclave"		       },
-    {"assign_cpus"     , assign_cpus_main      , "Assign cpus to an Enclave"		       },
+    {"assign_cpus"     , assign_cpus_main      , "Assign CPUs to an Enclave"		       },
     {"console"	       , console_main	       , "Attach to an Enclave Console"		       },
     {0, 0, 0}
 };

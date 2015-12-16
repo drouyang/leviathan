@@ -21,6 +21,7 @@
 #include "hobbes_ctrl.h"
 #include "app_launch.h"
 #include "file_io.h"
+#include "palacios.h"
 
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
@@ -178,6 +179,81 @@ __ping(hcq_handle_t hcq,
     return 0;
 }
 
+
+static int
+__add_cpu(hcq_handle_t hcq,
+	  uint64_t     cmd)
+{
+    char * err_str = "ERROR: Adding Kitten CPUs through Hobbes not (yet) supported. Use the Pisces ctrl channel";
+    ERROR("%s\n", err_str);
+    hcq_cmd_return(hcq, cmd, -1, smart_strlen(err_str) + 1, err_str);
+    return 0; 
+#if 0
+    uint32_t    data_size = 0;
+    char      * xml_str   = NULL;
+    pet_xml_t   xml       = NULL;
+    char      * err_str   = NULL;
+
+    uint32_t  cpu_id      = -1;
+    uint32_t  apic_id     = -1;
+
+    int       logical_id  = 0;
+    int       ret         = -1;
+
+    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    
+    if (xml_str == NULL) {
+	err_str = "Could not read memory spec";
+	goto out;
+    }
+
+    xml = pet_xml_parse_str(xml_str);
+
+    if (xml == PET_INVALID_XML) {
+	err_str = "Invalid XML syntax";
+	goto out;
+    }
+
+    cpu_id  = smart_atou32(-1, pet_xml_get_val(xml, "phys_cpu_id" ));
+    apic_id = smart_atou32(-1, pet_xml_get_val(xml, "apic_id" ));
+    
+    //if ((base_addr == -1) || (num_pgs == -1)) {
+    if (cpu_id == (uint32_t)-1) {
+	err_str = "Invalid command syntax: invalid cpu_id";
+	goto out;
+    }
+
+    if (apic_id == (uint32_t)-1) {
+	err_str = "Invalid command syntax: invalid apic_id";
+	goto out;
+    }
+
+    /* Add it */
+    logical_id = phys_cpu_add(cpu_id, apic_id);
+    if (logical_id == -1) {
+	err_str = "Error adding cpu to Kitten via phys_cpu_add";
+	goto out;
+    }
+
+    if (palacios_enabled) {
+	/* Notify Palacios of new cpu */
+	ret = v3_add_cpu(logical_id);
+	if (ret == -1) {
+	    err_str = "Error adding cpu to Palacios";
+	    phys_cpu_remove(cpu_id, apic_id);
+	    goto out;
+	}
+
+	ret = 0;
+    }
+
+ out:
+    if (err_str) ERROR("%s\n", err_str);
+
+    hcq_cmd_return(hcq, cmd, ret, smart_strlen(err_str) + 1, err_str);
+    return 0; 
+#endif
+}
 
 static int
 __add_memory(hcq_handle_t hcq,
@@ -341,6 +417,7 @@ hobbes_init(void)
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
+    hobbes_register_cmd(HOBBES_CMD_ADD_CPU,    __add_cpu);
     hobbes_register_cmd(HOBBES_CMD_ADD_MEM,    __add_memory);
     hobbes_register_cmd(HOBBES_CMD_FILE_OPEN,  file_open_handler);
     hobbes_register_cmd(HOBBES_CMD_FILE_CLOSE, file_close_handler);
