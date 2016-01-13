@@ -4,7 +4,7 @@ XPMEM_PATH     ?= ../xpmem
 PALACIOS_PATH  ?= ../palacios
 PETLIB_PATH    ?= ../petlib
 
-CC = g++
+CC = gcc
 AR = ar
 
 execs := lwk_init
