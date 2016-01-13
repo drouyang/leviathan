@@ -208,7 +208,7 @@ static int
 __launch_job(int      pisces_fd, 
 	     uint64_t cmd)
 {
-    struct cmd_launch_job  * job_cmd  = calloc(1, sizeof(struct cmd_launch_job));
+    struct cmd_launch_job  * job_cmd  = (struct cmd_launch_job *)calloc(1, sizeof(struct cmd_launch_job));
     struct pisces_job_spec * job_spec = NULL;
     int ret = 0;
 
@@ -229,7 +229,7 @@ __launch_job(int      pisces_fd,
 			 job_spec->exe_path, 
 			 job_spec->argv, 
 			 job_spec->envp, 
-			 (job_flags_t)job_spec->flags, 
+			 (job_flags_t)(job_spec->flags), 
 			 job_spec->num_ranks, 
 			 job_spec->cpu_mask, 
 			 job_spec->heap_size, 
@@ -249,7 +249,7 @@ static int
 __load_file(int      pisces_fd, 
 	    uint64_t cmd)
 {
-    struct cmd_load_file * load_cmd = calloc(1, sizeof(struct cmd_load_file));
+    struct cmd_load_file * load_cmd = (struct cmd_load_file *)calloc(1, sizeof(struct cmd_load_file));
     int ret = 0;
 
     ret = read(pisces_fd, load_cmd, sizeof(struct cmd_load_file));

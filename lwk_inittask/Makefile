@@ -4,7 +4,7 @@ XPMEM_PATH     ?= ../xpmem
 PALACIOS_PATH  ?= ../palacios
 PETLIB_PATH    ?= ../petlib
 
-CC = gcc
+CC = g++
 AR = ar
 
 execs := lwk_init
@@ -17,6 +17,7 @@ CFLAGS :=	-D_GNU_SOURCE            		\
 		-I$(XPMEM_PATH)/include  		\
 		-I$(LIBHOBBES_PATH)	 		\
 		-I$(PETLIB_PATH)	 		\
+		-Wno-write-strings			\
 		-static
 
 libs  :=	$(KITTEN_PATH)/user/install/lib/liblwk.a \

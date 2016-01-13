@@ -99,7 +99,7 @@ __launch_app(hcq_handle_t hcq,
 
     int ret = -1;
     
-    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if (xml_str == NULL) {
 	ERROR("Could not read App spec\n");
@@ -131,7 +131,7 @@ __load_file(hcq_handle_t hcq,
 
     int ret = -1;
 
-    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if (xml_str == NULL) {
 	err_str = "Could not read File spec";
@@ -170,7 +170,7 @@ __ping(hcq_handle_t hcq,
     uint8_t * ping_data = NULL;
     uint32_t  data_size = 0;
 
-    ping_data = hcq_get_cmd_data(hcq, cmd, &data_size);
+    ping_data = (uint8_t *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     //    printf("Ping (Size=%u bytes)\n", data_size);
 
@@ -271,7 +271,7 @@ __add_memory(hcq_handle_t hcq,
 
     int       ret;
 
-    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &data_size);
     
     if (xml_str == NULL) {
 	err_str = "Could not read memory spec";

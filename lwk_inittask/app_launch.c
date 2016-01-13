@@ -164,7 +164,7 @@ launch_lwk_app(char        * name,
 	int rank = 0; 
 
 	/* Allocate start state for each rank */
-	start_state = malloc(num_ranks * sizeof(start_state_t));
+	start_state = (start_state_t *)malloc(num_ranks * sizeof(start_state_t));
 	if (!start_state) {
 	    printf("malloc of start_state[] failed\n");
 	    return -1;

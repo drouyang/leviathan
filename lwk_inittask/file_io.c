@@ -50,7 +50,7 @@ file_stat_handler(hcq_handle_t hcq,
 
     memset(&stat_buf, 0, sizeof(struct stat));
 
-    path = hcq_get_cmd_data(hcq, cmd, &path_len);
+    path = (char *)hcq_get_cmd_data(hcq, cmd, &path_len);
 
     if (path == NULL) {
 	ERROR("Could not read stat command string\n");
@@ -87,7 +87,7 @@ file_fstat_handler(hcq_handle_t hcq,
 
     memset(&stat_buf, 0, sizeof(struct stat));
 
-    cmd_data = hcq_get_cmd_data(hcq, cmd, &cmd_size);
+    cmd_data = (uint64_t *)hcq_get_cmd_data(hcq, cmd, &cmd_size);
 
     if ( (cmd_data == NULL) || (cmd_size != sizeof(uint64_t)) ) {
 	ERROR("Could not read stat command\n");
@@ -126,7 +126,7 @@ file_open_handler(hcq_handle_t hcq,
     int    flags = 0;
     int    mode  = 0;
 
-    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if (xml_str == NULL) {
 	ERROR("Could not read Open command string\n");
@@ -199,7 +199,7 @@ file_read_handler(hcq_handle_t hcq,
     int fd  =  0;
     int ret = -1;
 
-    req = hcq_get_cmd_data(hcq, cmd, &req_size);
+    req = (struct hfio_rd_req *)hcq_get_cmd_data(hcq, cmd, &req_size);
 
     if (req_size != sizeof(struct hfio_rd_req)) {
 	ERROR("Invalid read request format\n");
@@ -212,7 +212,7 @@ file_read_handler(hcq_handle_t hcq,
 
     fd = req->file_handle;
 
-    dst_buf = calloc(req->data_size, 1);
+    dst_buf = (uint8_t *)calloc(req->data_size, 1);
 
     {
 	ssize_t left_to_read = req->data_size;
@@ -249,7 +249,7 @@ file_write_handler(hcq_handle_t hcq,
     int fd  =  0;
     int ret =  0;
 
-    req = hcq_get_cmd_data(hcq, cmd, &req_size);
+    req = (struct hfio_wr_req *)hcq_get_cmd_data(hcq, cmd, &req_size);
 
     if ( (req == NULL) || (req_size < sizeof(struct hfio_wr_req)) ) {
 	ERROR("Invalid Write request format\n");
@@ -299,7 +299,7 @@ file_seek_handler(hcq_handle_t hcq,
     off_t ret_val = 0;
 
 
-    req = hcq_get_cmd_data(hcq, cmd, &req_size);
+    req = (struct hfio_seek_req *)hcq_get_cmd_data(hcq, cmd, &req_size);
 
     if ( (req == NULL) || (req_size < sizeof(struct hfio_seek_req)) ) {
 	ERROR("Invalid seek request format\n");

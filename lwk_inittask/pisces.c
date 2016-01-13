@@ -68,7 +68,7 @@ pisces_file_stat(char * filename)
     int    path_len  = strlen(filename) + 1;
     size_t file_size = 0;
     
-    file_info = calloc(1, sizeof(struct pisces_user_file_info) + path_len);
+    file_info = (struct pisces_user_file_info *)calloc(1, sizeof(struct pisces_user_file_info) + path_len);
 
     file_info->path_len = path_len;
     strncpy(file_info->path, filename, path_len - 1);
@@ -94,7 +94,7 @@ pisces_file_load(char * filename,
     int path_len = strlen(filename) + 1;
     int ret      = 0;
     
-    file_info = calloc(1, sizeof(struct pisces_user_file_info) + path_len);
+    file_info = (struct pisces_user_file_info *)calloc(1, sizeof(struct pisces_user_file_info) + path_len);
 
     file_info->user_addr = (uintptr_t)addr;
     file_info->path_len  = path_len;

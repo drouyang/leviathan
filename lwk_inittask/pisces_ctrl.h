@@ -9,7 +9,7 @@
 
 
 #include "pisces.h"
-
+#include "app_launch.h"
 
 
 #define PISCES_CMD_ADD_CPU            100
@@ -88,15 +88,7 @@ struct pisces_job_spec {
     char argv[256];
     char envp[256];
 
-    union {
-	uint64_t flags;
-	struct {
-	    uint64_t   use_large_pages : 1;
-	    uint64_t   use_smartmap    : 1;
-	    uint64_t   rsvd            : 62;
-	} __attribute__((packed));
-    } __attribute__((packed));
-
+    job_flags_t flags;
     uint8_t   num_ranks;
     uint64_t  cpu_mask;
     uint64_t  heap_size;

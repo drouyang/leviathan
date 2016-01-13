@@ -91,7 +91,7 @@ __hobbes_launch_vm(hcq_handle_t hcq,
     char      * err_str        = NULL;
 
 
-    xml_str = hcq_get_cmd_data(hcq, cmd, &data_size);
+    xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if ((xml_str == NULL) || (xml_str[data_size - 1] != '\0')) {
 	err_str = "Received invalid command string";
@@ -197,7 +197,7 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
     char         * err_str    =  NULL;
 
 
-    enclave_id = hcq_get_cmd_data(hcq, cmd, &data_size);
+    enclave_id = (hobbes_id_t *)hcq_get_cmd_data(hcq, cmd, &data_size);
 
     if (data_size != sizeof(hobbes_id_t)) {
 	err_str = "Enclave ID is corrupt";
@@ -421,7 +421,7 @@ static int
 __hobbes_cons_event(int    fd,
                     void * private_data)
 {
-    struct hobbes_vm_cons_state * state = private_data;
+    struct hobbes_vm_cons_state * state = (struct hobbes_vm_cons_state *)private_data;
 
     assert(state->cons_fd == fd);
 
@@ -448,13 +448,13 @@ __hobbes_vm_cons_connect(hcq_handle_t hcq,
     struct hobbes_vm_cons_state        * state        = NULL; 
     struct v3_hobbes_console_info        cons_info;
 
-    state = malloc(sizeof(struct hobbes_vm_cons_state));
+    state = (struct hobbes_vm_cons_state *)malloc(sizeof(struct hobbes_vm_cons_state));
     if (state == NULL) {
 	err_str = "Out of memory";
 	goto out;
     }
 
-    connect_info = hcq_get_cmd_data(hcq, cmd, &data_size);
+    connect_info = (struct hobbes_vm_cons_connect_info *)hcq_get_cmd_data(hcq, cmd, &data_size);
     if (data_size != sizeof(struct hobbes_vm_cons_connect_info)) {
 	err_str = "Ccrrupt connection info";
 	goto out_cmd;
@@ -650,7 +650,7 @@ __hobbes_vm_cons_disconnect(hcq_handle_t hcq,
 
     struct hobbes_vm_cons_state * state = NULL;
 
-    enclave_id = hcq_get_cmd_data(hcq, cmd, &data_size);
+    enclave_id = (hobbes_id_t *)hcq_get_cmd_data(hcq, cmd, &data_size);
     if (data_size != sizeof(hobbes_id_t)) {
 	err_str = "Corrupt disconnection info";
 	goto out;
@@ -690,7 +690,7 @@ __hobbes_vm_cons_keycode(hcq_handle_t hcq,
     struct hobbes_vm_cons_state   * state    =  NULL;
     struct hobbes_vm_cons_keycode * key_code = NULL;
 
-    key_code = hcq_get_cmd_data(hcq, cmd, &data_size);
+    key_code = (struct hobbes_vm_cons_keycode *)hcq_get_cmd_data(hcq, cmd, &data_size);
     if (data_size != sizeof(struct hobbes_vm_cons_keycode)) {
 	err_str = "Corrupt keycode info";
 	goto out;

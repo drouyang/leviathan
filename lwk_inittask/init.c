@@ -198,7 +198,7 @@ update_poll_fds(void)
 	return 0;
     }
 
-    handler_fds = calloc(sizeof(struct pollfd), num_fds);
+    handler_fds = (struct pollfd *)calloc(sizeof(struct pollfd), num_fds);
 
     if (handler_fds == NULL) {
 	ERROR("Could not allocate pollfd array\n");
@@ -248,7 +248,7 @@ add_fd_handler(int             fd,
 	return -1;
     }
 
-    new_handler = calloc(sizeof(struct fd_handler), 1);
+    new_handler = (struct fd_handler *)calloc(sizeof(struct fd_handler), 1);
     
     if (new_handler == NULL) {
 	ERROR("Could not allocate FD handler state\n");
