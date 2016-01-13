@@ -22,12 +22,13 @@ extern "C" {
 
 #define smart_free(ptr) {free(ptr); ptr = NULL;}
 
-int      smart_atoi  (int      dflt, char * str);
 uint32_t smart_atou32(uint32_t dflt, char * str);
 int32_t  smart_atoi32(int32_t  dflt, char * str);
 uint64_t smart_atou64(uint64_t dflt, char * str);
 int64_t  smart_atoi64(int64_t  dflt, char * str);
 
+
+#define smart_atoi smart_atoi32
 
 static inline int
 smart_strlen(char * str) 
