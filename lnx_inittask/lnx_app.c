@@ -361,6 +361,28 @@ launch_hobbes_lnx_app(char * spec_str)
     return ret;
 }
 
+int 
+kill_hobbes_lnx_app(hobbes_id_t hpid)
+{
+    struct app_state * app = NULL;
+
+    app = (struct app_state *)pet_htable_remove(app_htable, (uintptr_t)hpid, 0);
+    if (app == NULL) {
+	ERROR("Failed to kill application: cannot find hpid (%d)\n", hpid);
+	return -1;
+    }
+
+    /* Send kill signal */
+    kill(-app->pid, SIGTERM);
+    sleep(1);
+    kill(-app->pid, SIGKILL);
+
+    remove_fd_handler(app->stdout_fd);
+    hobbes_set_app_state(hpid, APP_STOPPED);
+    free(app);
+
+    return 0;
+}
 
 
 int

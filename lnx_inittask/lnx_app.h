@@ -8,6 +8,8 @@
 #include <unistd.h>
 
 int launch_hobbes_lnx_app(char * spec_str);
+int kill_hobbes_lnx_app(hobbes_id_t app_id);
+
 int init_lnx_app(void);
 int deinit_lnx_app(void);
 

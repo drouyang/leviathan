@@ -133,6 +133,12 @@ main(int argc, char ** argv, char * envp[])
 	palacios_init();
     }
 
+    /* Init app framework */
+    if (init_lnx_app() == -1) {
+	ERROR("Could not initialize lnx_app framework\n");
+	exit(-1);
+    }
+
     /* Command Loop */
     printf("Entering Command Loop\n");
 
@@ -177,6 +183,8 @@ main(int argc, char ** argv, char * envp[])
 	}
     }
     
+    /* Teardown */
+    deinit_lnx_app();
     
     return 0;
 }

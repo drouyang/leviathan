@@ -53,6 +53,7 @@ hobbes_id_t hobbes_create_app(char * name, hobbes_id_t enclave_id, hobbes_id_t h
 int hobbes_free_app(hobbes_id_t app_id);
 
 int hobbes_launch_app(hobbes_id_t enclave_id, hobbes_app_spec_t app_spec);
+int hobbes_kill_app(hobbes_id_t enclave_id, hobbes_id_t app_id);
 
 
 int hobbes_set_app_state(hobbes_id_t app_id,

@@ -49,11 +49,12 @@ extern "C" {
 
 
 #define HOBBES_CMD_APP_LAUNCH          2000
-#define HOBBES_CMD_VM_LAUNCH           2001
+#define HOBBES_CMD_APP_KILL            2001
+
+#define HOBBES_CMD_VM_LAUNCH           2050
 #define HOBBES_CMD_VM_DESTROY          2051
 
 #define HOBBES_CMD_SHUTDOWN            2100
-
 
 
 /* General Commands */
@@ -66,6 +67,7 @@ extern "C" {
 #define HOBBES_CMD_FILE_SEEK           4004
 #define HOBBES_CMD_FILE_STAT           4005
 #define HOBBES_CMD_FILE_FSTAT          4006
+
 
 
 #ifdef __cplusplus
