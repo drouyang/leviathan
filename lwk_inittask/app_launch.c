@@ -27,7 +27,7 @@
 #include <hobbes_app.h>
 #include <hobbes_db.h>
 #include <hobbes_util.h>
-#include <hobbes_cmd_queue.h>
+#include <hobbes_notifier.h>
 
 extern hdb_db_t hobbes_master_db;
 
