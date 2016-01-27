@@ -13,7 +13,7 @@ CFLAGS = -g -W -Wall -Werror 			\
 	-I$(PISCES_PATH)/linux_usr  		\
 	-I$(PETLIB_PATH)             		\
 	-I$(PALACIOS_PATH)/user      		\
-	-static
+	-static -fPIC
 
 
 CC = gcc
