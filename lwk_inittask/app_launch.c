@@ -262,10 +262,10 @@ launch_lwk_app(char        * name,
 int 
 launch_hobbes_lwk_app(char * spec_str)
 {
-    pet_xml_t spec = NULL;
-    int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
+    pet_xml_t   spec  = NULL;
+    hobbes_id_t hpid  = HOBBES_INVALID_ID;
+    int         ret   = -1;    /* This is only set to 0 if the function completes successfully */
 
-    hobbes_id_t hobbes_app_id = HOBBES_INVALID_ID;
 
 
     spec = pet_xml_parse_str(spec_str);
@@ -274,9 +274,6 @@ launch_hobbes_lwk_app(char * spec_str)
 	ERROR("Invalid App spec\n");
 	return -1;
     }
-
-
-
 
     {
 	char        * name       = NULL; 
@@ -391,54 +388,67 @@ launch_hobbes_lwk_app(char * spec_str)
 	    stack_size = smart_atoi(DEFAULT_STACK_SIZE, val_str);
 	}
 
+	/* App id */
+	val_str = pet_xml_get_val(spec, "app_id");
+	hpid    = smart_atoi(HOBBES_INVALID_ID, val_str);
+	if (hpid == HOBBES_INVALID_ID) {
+	    ERROR("Missing required app_id in Hobbes APP specification\n");
+	    goto out;
+	}
 
 	/* Register as a hobbes application */
 	{
 	    	    
-	    int ret = 0;
+	    int chars_written = 0;
 
-	    hobbes_app_id = hdb_create_app(hobbes_master_db, name, hobbes_get_my_enclave_id());
-
-	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hobbes_app_id, hobbes_get_my_enclave_id() );
+	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hpid, hobbes_get_my_enclave_id() );
 	    printf("Application Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
-	    ret = asprintf(&hobbes_env, 
+	    chars_written = asprintf(&hobbes_env, 
 			   "%s=%u %s=%u %s", 
 			   HOBBES_ENV_APP_ID,
-			   hobbes_app_id, 
+			   hpid, 
 			   HOBBES_ENV_ENCLAVE_ID,
 			   hobbes_get_my_enclave_id(), 
 			   envp);
 
-	    if (ret == -1) {
+	    if (chars_written == -1) {
 		ERROR("Failed to allocate envp string for application (%s)\n", name);
 		goto out;
 	    }
 	    
-	}
-	
-	/* Launch App */
-	ret = launch_lwk_app(name, 
-			     exe_path, 
-			     argv,
-			     hobbes_env,
-			     flags,
-			     num_ranks,
-			     cpu_mask,
-			     heap_size,
-			     stack_size);
+	    /* Launch App */
+	    ret = launch_lwk_app(name, 
+				 exe_path, 
+				 argv,
+				 hobbes_env,
+				 flags,
+				 num_ranks,
+				 cpu_mask,
+				 heap_size,
+				 stack_size);
 
-	free(hobbes_env);
+	    free(hobbes_env);
 
-	if (ret == -1) {
-	    ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);
-	    goto out;
+	    if (ret == -1) {
+		ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);
+		goto out;
+	    }
+
+	    hobbes_set_app_state(hpid, APP_ERROR);
+	    hnotif_signal(HNOTIF_EVT_APPLICATION);
 	}
     }
 
+    ret = 0;
 
  out:
+    if ((ret != 0) && (hpid != HOBBES_INVALID_ID)) {
+	hobbes_set_app_state(hpid, APP_ERROR);
+	hnotif_signal(HNOTIF_EVT_APPLICATION);
+    }
+
     pet_xml_free(spec);
     return ret;
 }

@@ -26,16 +26,17 @@ extern hdb_db_t hobbes_master_db;
 
 
 hobbes_app_spec_t
-hobbes_build_app_spec(char      * name, 
-		      char      * exe_path,
-		      char      * exe_argv,
-		      char      * envp,
-		      char      * cpu_list,
-		      uint8_t     use_large_pages,
-		      uint8_t     use_smartmap,
-		      uint8_t     num_ranks,
-		      uint64_t    heap_size,
-		      uint64_t    stack_size)
+hobbes_build_app_spec(char        * name, 
+		      char        * exe_path,
+		      char        * exe_argv,
+		      char        * envp,
+		      char        * cpu_list,
+		      uint8_t       use_large_pages,
+		      uint8_t       use_smartmap,
+		      uint8_t       num_ranks,
+		      uint64_t      heap_size,
+		      uint64_t      stack_size,
+		      hobbes_id_t   app_id)
 {
     pet_xml_t   root_xml = NULL;
     char      * tmp_str  = NULL;
@@ -43,7 +44,7 @@ hobbes_build_app_spec(char      * name,
     root_xml = pet_xml_new_tree("app");
 
     if ( exe_path == NULL ) {
-	ERROR("Must specify an executable at minimum\n");
+	ERROR("Must specify an executable to build app spec\n");
 	return NULL;
     }
 
@@ -100,6 +101,16 @@ hobbes_build_app_spec(char      * name,
 
 	pet_xml_add_val(root_xml, "stack_size", tmp_str);
     }
+
+    /* Set Hobbes app id */
+    if (app_id == HOBBES_INVALID_ID) {
+	ERROR("Must specify a Hobbes app_id to build app spec\n");
+	free(tmp_str);
+	return NULL;
+    }
+
+    asprintf(&tmp_str, "%u", app_id);
+    pet_xml_add_val(root_xml, "app_id", tmp_str);
 
     free(tmp_str);
     return (hobbes_app_spec_t)root_xml;
@@ -179,6 +190,26 @@ hobbes_free_app_spec(hobbes_app_spec_t app_spec)
     pet_xml_free(app_spec);
 }
 
+hobbes_id_t
+hobbes_create_app(char      * name,
+		  hobbes_id_t enclave_id,
+		  hobbes_id_t hio_app_id)
+{
+    return hdb_create_app(hobbes_master_db, name, enclave_id, hio_app_id);
+}
+
+int
+hobbes_free_app(hobbes_id_t app_id)
+{
+    /* Do not delete running apps */
+    app_state_t state = hdb_get_app_state(hobbes_master_db, app_id);
+    if (state == APP_RUNNING) {
+	ERROR("Cannot free a running app\n");
+	return -1;
+    }
+
+    return hdb_delete_app(hobbes_master_db, app_id);
+}
 
 int 
 hobbes_launch_app(hobbes_id_t       enclave_id,

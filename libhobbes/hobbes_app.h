@@ -30,15 +30,17 @@ typedef enum {
 
 
 hobbes_app_spec_t
-hobbes_build_app_spec(char      * name, 
-		      char      * exe_path,
-		      char      * exe_argv,
-		      char      * envp,
-		      char      * cpu_list, uint8_t     use_large_pages,
-		      uint8_t     use_smartmap,
-		      uint8_t     num_ranks,
-		      uint64_t    heap_size,
-		      uint64_t    stack_size);
+hobbes_build_app_spec(char        * name, 
+		      char        * exe_path,
+		      char        * exe_argv,
+		      char        * envp,
+		      char        * cpu_list, 
+		      uint8_t       use_large_pages,
+		      uint8_t       use_smartmap,
+		      uint8_t       num_ranks,
+		      uint64_t      heap_size,
+		      uint64_t      stack_size,
+		      hobbes_id_t   app_id);
 
 void hobbes_free_app_spec(hobbes_app_spec_t spec);
 
@@ -46,6 +48,9 @@ hobbes_app_spec_t hobbes_parse_app_spec(char * xml_str);
 hobbes_app_spec_t hobbes_load_app_spec(char * filename);
 int hobbes_save_app_spec(hobbes_app_spec_t spec, char * filename);
 
+
+hobbes_id_t hobbes_create_app(char * name, hobbes_id_t enclave_id, hobbes_id_t hio_app_id);
+int hobbes_free_app(hobbes_id_t app_id);
 
 int hobbes_launch_app(hobbes_id_t enclave_id, hobbes_app_spec_t app_spec);
 

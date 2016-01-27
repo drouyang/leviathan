@@ -15,15 +15,15 @@
 
 #include <stdint.h>
 
-
 #include <pet_log.h>
 #include <pet_xml.h>
+#include <pet_hashtable.h>
 
 #include <hobbes.h>
 #include <hobbes_app.h>
 #include <hobbes_db.h>
 #include <hobbes_util.h>
-#include <hobbes_cmd_queue.h>
+#include <hobbes_notifier.h>
 
 extern hdb_db_t hobbes_master_db;
 
@@ -35,8 +35,36 @@ extern hdb_db_t hobbes_master_db;
 #define DEFAULT_ARGV            ""
 
 
+struct app_state {
+    /* app id */
+    hobbes_id_t      hpid;
 
-LIST_HEAD(app_list);
+    /* local process id */
+    pid_t            pid;
+
+    /* stdin/out fds */
+    int              stdin_fd;
+    int              stdout_fd;
+};
+
+/* Hashtable of apps hosted by this enclave. Indexed by app id (hpid) */
+static uint32_t
+app_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
+}
+
+static int
+app_eq_fn(uintptr_t key1,
+	  uintptr_t key2)
+{
+    return (key1 == key2);
+}
+
+static struct hashtable * app_htable = NULL;
+
+
+
 
 static int
 __handle_stdout(int    fd, 
@@ -57,9 +85,13 @@ __handle_stdout(int    fd,
 		break;
 	    }
 		
-	    printf("Process has exitted\n");
+	    printf("Process has exited\n");
 	    remove_fd_handler(fd);
-	    list_del(&(app->node));
+	    pet_htable_remove(app_htable, (uintptr_t)app->hpid, 0);
+
+	    hobbes_set_app_state(app->hpid, APP_STOPPED);
+	    hnotif_signal(HNOTIF_EVT_APPLICATION);
+
 	    free(app);
 	    break;
 	}
@@ -98,6 +130,9 @@ __popen(char  * cmd_line,
 
     /* child process */
     if (child_pid == 0) {
+
+	/* This is needed to ensure SIGKILL to /bin/sh kills us */
+	setpgid(0, 0);
 
 	dup2(stdin_fds[0],  STDIN_FILENO);
 	dup2(stdout_fds[1], STDOUT_FILENO); // Redirect stdout to pipe
@@ -145,11 +180,12 @@ kill_lnx_app(struct app_state * app)
     return -1;
 }
 
-struct app_state * 
-launch_lnx_app(char * name, 
-	       char * exe_path, 
-	       char * argv, 
-	       char * envp)
+int
+launch_lnx_app(char	   * name, 
+	       char	   * exe_path, 
+	       char	   * argv, 
+	       char	   * envp,
+	       hobbes_id_t   hpid)
 {
     struct app_state * app = NULL;
 
@@ -168,7 +204,7 @@ launch_lnx_app(char * name,
   
     if (ret != 0) {
 	ERROR("Could not launch linux process\n");
-	return NULL;
+	return -1;
     }
 
     {
@@ -177,39 +213,41 @@ launch_lnx_app(char * name,
 	
 	if (app == NULL) {
 	    ERROR("Could not allocate app state\n");
-	    return NULL;
+	    return -1;
 	}
 
-	app->hpid      = HOBBES_INVALID_ID;   /* the HPID will be set in launch_hobbes_lnx_app if needed */
-	app->pid       = app_pid;
-	app->stdin_fd  = stdin_fd;
-	app->stdout_fd = stdout_fd;
+	app->hpid         = hpid;
+	app->pid          = app_pid;
+	app->stdin_fd     = stdin_fd;
+	app->stdout_fd    = stdout_fd;
 
 	ret = add_fd_handler(app->stdout_fd, __handle_stdout, app);
 
 	if (ret == -1) {
 	    ERROR("Cannot add handler for process output\n");
 	    free(app);
-	    return NULL;
+	    return -1;
 	}
 
-	list_add(&(app->node), &app_list);
+	ret = pet_htable_insert(app_htable, (uintptr_t)app->hpid, (uintptr_t)app);
+	if (ret == 0) {
+	    ERROR("Cannot add app to hashtable\n");
+	    remove_fd_handler(app->stdout_fd);
+	    free(app);
+	    return -1;
+	}
     }
 
-
-    return app;
+    return 0;
 }
-
 
 
 int 
 launch_hobbes_lnx_app(char * spec_str)
 {
-    pet_xml_t spec = NULL;
-    int       ret  = -1;    /* This is only set to 0 if the function completes successfully */
-
-    struct app_state * app  = NULL;
-    hobbes_id_t        hpid = HOBBES_INVALID_ID;
+    pet_xml_t   spec = NULL;
+    hobbes_id_t hpid = HOBBES_INVALID_ID;
+    int         ret  = -1;    /* This is only set to 0 if the function completes successfully */
 
 
     spec = pet_xml_parse_str(spec_str);
@@ -220,12 +258,12 @@ launch_hobbes_lnx_app(char * spec_str)
     }
 
     {
-	char        * name       = NULL; 
-	char        * exe_path   = NULL; 
-	char        * argv       = DEFAULT_ARGV;
-	char        * envp       = DEFAULT_ENVP; 
-	char        * hobbes_env = NULL;	
-	char        * val_str    = NULL;
+	char        * name        = NULL; 
+	char        * exe_path    = NULL; 
+	char        * argv        = DEFAULT_ARGV;
+	char        * envp        = DEFAULT_ENVP; 
+	char        * hobbes_env  = NULL;	
+	char        * val_str     = NULL;
 
 	printf("App spec str = (%s)\n", spec_str);
 
@@ -246,7 +284,7 @@ launch_hobbes_lnx_app(char * spec_str)
 	    name = val_str;
 	} else {
 	    name = exe_path;
-	}
+	} 
 
 	/* ARGV */
 	val_str = pet_xml_get_val(spec, "argv");
@@ -262,14 +300,20 @@ launch_hobbes_lnx_app(char * spec_str)
 	    envp = val_str;
 	}
 
+	/* App id */
+	val_str = pet_xml_get_val(spec, "app_id");
+	hpid    = smart_atoi(HOBBES_INVALID_ID, val_str);
+	if (hpid == HOBBES_INVALID_ID) {
+	    ERROR("Missing required app_id in Hobbes APP specification\n");
+	    goto out;
+	}
+
 	/* Register as a hobbes application */
 	{
 	    int chars_written = 0;
 
-	    hpid = hdb_create_app(hobbes_master_db, name, hobbes_get_my_enclave_id());
-
 	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hpid,  hobbes_get_my_enclave_id() );
-	    printf("application Name=%s\n", name);
+	    printf("Application Name=%s\n", name);
 
 	    /* Hobbes enabled ENVP */
 	    chars_written = asprintf(&hobbes_env, 
@@ -284,32 +328,56 @@ launch_hobbes_lnx_app(char * spec_str)
 		ERROR("Failed to allocate envp string for application (%s)\n", name);
 		goto out;
 	    }
-	    
+
 	    /* Launch App */
-	    app = launch_lnx_app(name, 
+	    ret = launch_lnx_app(name, 
 				 exe_path, 
 				 argv,
-				 hobbes_env);
+				 hobbes_env,
+				 hpid);
 
 	    free(hobbes_env);
 
-	    if (app == NULL) {
+	    if (ret != 0) {
 		ERROR("Failed to Launch application (spec_str=[%s])\n", spec_str);
 		goto out;
 	    }
 
-
-	    /* Record Hobbes Application ID */
-	    app->hpid = hpid;
+	    hobbes_set_app_state(hpid, APP_RUNNING);
+	    hnotif_signal(HNOTIF_EVT_APPLICATION);
 	}
-
-
     }
 
 
     ret = 0;
 
  out:
+    if ((ret != 0) && (hpid != HOBBES_INVALID_ID)) {
+	hobbes_set_app_state(hpid, APP_ERROR);
+	hnotif_signal(HNOTIF_EVT_APPLICATION);
+    }
+
     pet_xml_free(spec);
     return ret;
+}
+
+
+
+int
+init_lnx_app(void)
+{
+    app_htable = pet_create_htable(0, app_hash_fn, app_eq_fn);
+    if (!app_htable) {
+	ERROR("Could not create application hashtable\n");
+	return -1;
+    }
+
+    return 0;
+}
+
+int
+deinit_lnx_app(void)
+{
+    pet_free_htable(app_htable, 1, 0);
+    return 0;
 }
