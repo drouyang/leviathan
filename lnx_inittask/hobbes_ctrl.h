@@ -12,10 +12,7 @@
 
 extern bool hobbes_enabled;
 
-typedef int (*hobbes_cmd_fn)(hcq_handle_t  hcq,
-                             hcq_cmd_t     cmd);
-
-
+typedef hcq_cmd_fn hobbes_cmd_fn;
 
 int  hobbes_init( void );
 void hobbes_exit( void );

@@ -13,12 +13,14 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <poll.h>
+#include <stdint.h>
 
 #include <dbapi.h>
 #include <dballoc.h>
 
 #include <pet_log.h>
-#include <stdint.h>
+#include <pet_hashtable.h>
+
 
 #include "hobbes_cmd_queue.h"
 #include "xpmem.h"
@@ -71,6 +73,8 @@ struct cmd_queue {
     xemem_segid_t segid;
     xemem_apid_t  apid;
 
+    struct hashtable * cmd_handlers;
+
 };
 
 
@@ -118,12 +122,25 @@ hcq_get_fd(hcq_handle_t hcq)
 }
 
 
+static uint32_t
+handler_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
+}
+
+static int
+handler_eq_fn(uintptr_t key1,
+	      uintptr_t key2)
+{
+    return (key1 == key2);
+}
 
 
 hcq_handle_t
 hcq_create_queue(char * name) 
 {
     struct cmd_queue * cq    = NULL;
+    struct hashtable * ht    = NULL;
     xemem_segid_t      segid = 0;
 
     void * db_addr = NULL;
@@ -141,27 +158,52 @@ hcq_create_queue(char * name)
 
     db_addr = get_db_addr(db);
 
+    /* Create the signallable segid */
     segid = xemem_make_signalled(db_addr, CMD_QUEUE_SIZE,
 				 name, &fd);
 
     if (segid <= 0) {
         ERROR("Could not register XEMEM segment for command queue\n");
-	wg_delete_local_database(db);
-	return HCQ_INVALID_HANDLE;
+	goto segid_out;
     }
+
+    /* Create the htable of handlers */
+    ht = pet_create_htable(0, handler_hash_fn, handler_eq_fn);
+
+    if (ht == NULL) {
+	ERROR("Could not create hcq command hashtable\n");
+	goto ht_out;
+    }
+
     
     cq = calloc(sizeof(struct cmd_queue), 1);
+    if (!cq) {
+	ERROR("Could not calloc command queue\n");
+	goto cq_out;
+    }
 
-    cq->type      = HCQ_SERVER;
-    cq->fd        = fd;
-    cq->db_addr   = db_addr;
-    cq->db        = db;
-    cq->segid     = segid;
-    cq->apid      = 0;
+    cq->type         = HCQ_SERVER;
+    cq->fd           = fd;
+    cq->db_addr      = db_addr;
+    cq->db           = db;
+    cq->segid        = segid;
+    cq->apid	     = 0;
+    cq->cmd_handlers = ht;
 
     init_cmd_queue(cq);
 
     return cq;
+
+cq_out:
+    pet_free_htable(ht, 0, 0);
+
+ht_out:
+    xemem_remove(segid);
+
+segid_out:
+    wg_delete_local_database(db);
+
+    return HCQ_INVALID_HANDLE;
 }
 
 
@@ -170,15 +212,60 @@ hcq_free_queue(hcq_handle_t hcq)
 {
     struct cmd_queue * cq = hcq;
 
+    if (cq->type != HCQ_SERVER) {
+	ERROR("Only server can free HCQs\n");
+	return;
+    }
+
     wg_delete_local_database(cq->db);
 
     xemem_remove(cq->segid);
+
+    pet_free_htable(cq->cmd_handlers, 0, 0);
 
     free(cq);
 
     return;
 }
 
+int
+hcq_register_cmd(hcq_handle_t hcq,
+		 uint64_t     cmd_code,
+		 hcq_cmd_fn   handler_fn)
+{
+    struct cmd_queue * cq = hcq;
+
+    if (cq->type != HCQ_SERVER) {
+	ERROR("Only the server can register an HCQ command\n");
+	return -1;
+    }
+
+    if (pet_htable_search(cq->cmd_handlers, cmd_code) != 0) {
+	ERROR("Attempted to register duplicate command handler (cmd=%lu)\n", cmd_code);
+	return -1;
+    }
+
+    if (pet_htable_insert(cq->cmd_handlers, cmd_code, (uintptr_t)handler_fn) == 0) {
+	ERROR("Could not register hcq command (cmd=%lu)\n", cmd_code);
+	return -1;
+    }
+
+    return 0;
+}
+
+hcq_cmd_fn
+hcq_get_cmd_handler(hcq_handle_t hcq,
+		    hcq_cmd_t    cmd)
+{
+    struct cmd_queue * cq = hcq;
+
+    if (cq->type != HCQ_SERVER) {
+	ERROR("Only the server can access command handlers\n");
+	return NULL;
+    }
+
+    return (hcq_cmd_fn)pet_htable_search(cq->cmd_handlers, (uintptr_t)hcq_get_cmd_code(hcq, cmd));
+}
 
 hcq_handle_t
 hcq_connect(xemem_segid_t segid)
@@ -243,6 +330,7 @@ hcq_connect(xemem_segid_t segid)
     cq->db           = db;
     cq->segid        = segid;
     cq->apid         = apid;
+    cq->cmd_handlers = NULL;
 
     return cq;
 }

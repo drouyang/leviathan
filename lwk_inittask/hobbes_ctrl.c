@@ -8,7 +8,6 @@
 #include <sys/types.h>
 
 
-#include <pet_hashtable.h>
 #include <pet_log.h>
 #include <pet_xml.h>
 
@@ -26,24 +25,9 @@
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
-static struct hashtable * hobbes_cmd_handlers = NULL;
-
-
 static void hcq_exit( void ) {
     printf("Freeing Hobbes Command Queue\n");
     hcq_free_queue(hcq);
-}
-
-static uint32_t 
-handler_hash_fn(uintptr_t key)
-{
-    return pet_hash_ptr(key);
-}
-
-static int
-handler_equal_fn(uintptr_t key1, uintptr_t key2)
-{
-    return (key1 == key2);
 }
 
 
@@ -52,16 +36,18 @@ __handle_cmd(int    fd,
 	     void * priv_data)
 {
     hcq_handle_t  hcq      = (hcq_handle_t)priv_data;
-    hobbes_cmd_fn handler  = NULL;
+    hcq_cmd_fn    handler  = NULL;
     hcq_cmd_t     cmd      = hcq_get_next_cmd(hcq);
-    uint64_t      cmd_code = hcq_get_cmd_code(hcq, cmd);    
 
-    printf("Hobbes cmd code=%lu\n", cmd_code);
-    
-    handler = (hobbes_cmd_fn)pet_htable_search(hobbes_cmd_handlers, (uintptr_t)cmd_code);
+    if (cmd == HCQ_INVALID_CMD) {
+	ERROR("Received invalid command\n");
+	return -1;
+    }
+
+    handler  = hcq_get_cmd_handler(hcq, cmd);
     
     if (handler == NULL) {
-	ERROR("Received invalid Hobbes command (%lu)\n", cmd_code);
+	ERROR("Received invalid Hobbes command (%lu)\n", hcq_get_cmd_code(hcq, cmd));
 	hcq_cmd_return(hcq, cmd, -1, 0, NULL);
 	return -1;;
     }
@@ -70,23 +56,11 @@ __handle_cmd(int    fd,
 }
 
 
-
 int 
 hobbes_register_cmd(uint64_t        cmd, 
 		    hobbes_cmd_fn   handler_fn)
 {
-    if (pet_htable_search(hobbes_cmd_handlers, cmd) != 0) {
-	ERROR("Attempted to register duplicate command handler (cmd=%lu)\n", cmd);
-	return -1;
-    }
-  
-    if (pet_htable_insert(hobbes_cmd_handlers, cmd, (uintptr_t)handler_fn) == 0) {
-	ERROR("Could not register hobbes command (cmd=%lu)\n", cmd);
-	return -1;
-    }
-
-    return 0;
-
+    return hcq_register_cmd(hcq, cmd, handler_fn);
 }
 
 
@@ -375,7 +349,7 @@ __hcq_init( void )
 }
 
 
-static void 
+void 
 hobbes_exit( void ) 
 {
     printf("Shutting down hobbes\n");
@@ -400,20 +374,22 @@ hobbes_init(void)
 	return -1;
     }
     
-    atexit(hobbes_exit);
+//    atexit(hobbes_exit);
 
 
     printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());
     
+    printf("\tInitializing Hobbes Command Queue\n");
+    
+    hcq = __hcq_init();
 
-    
-    hobbes_cmd_handlers = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
-   
-    if (hobbes_cmd_handlers == NULL) {
-	ERROR("Could not create hobbes command hashtable\n");
+    if (hcq == HCQ_INVALID_HANDLE) {
+	ERROR("Could not initialize hobbes command queue\n");
 	return -1;
-    }
-    
+    } 
+	
+    printf("\t...done\n");
+
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
@@ -426,17 +402,6 @@ hobbes_init(void)
     hobbes_register_cmd(HOBBES_CMD_FILE_STAT,  file_stat_handler);
     hobbes_register_cmd(HOBBES_CMD_FILE_FSTAT, file_fstat_handler);
 
-    printf("\tInitializing Hobbes Command Queue\n");
-    
-    hcq = __hcq_init();
-
-    if (hcq == HCQ_INVALID_HANDLE) {
-	ERROR("Could not initialize hobbes command queue\n");
-	pet_free_htable(hobbes_cmd_handlers, 0, 0);
-	return -1;
-    } 
-	
-    printf("\t...done\n");
     
     /* Get File descriptor */    
     hcq_fd = hcq_get_fd(hcq);

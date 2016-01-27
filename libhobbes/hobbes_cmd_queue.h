@@ -30,8 +30,20 @@ typedef enum {
 typedef void *   hcq_handle_t;
 typedef uint64_t hcq_cmd_t;
 
+typedef int (*hcq_cmd_fn)(hcq_handle_t hcq,
+			  hcq_cmd_t    cmd);
+
 hcq_handle_t hcq_create_queue(char * name);
 void hcq_free_queue(hcq_handle_t hcq);
+
+int
+hcq_register_cmd(hcq_handle_t hcq,
+		 uint64_t     cmd_code,
+		 hcq_cmd_fn   handler_fn);
+
+hcq_cmd_fn 
+hcq_get_cmd_handler(hcq_handle_t hcq,
+		    hcq_cmd_t    cmd);
 
 xemem_segid_t hcq_get_segid(hcq_handle_t hcq);
 int hcq_get_fd(hcq_handle_t hcq);
@@ -82,7 +94,6 @@ int hcq_cmd_return(hcq_handle_t hcq,
 		   int64_t      ret_code, 
 		   uint32_t     data_size,
 		   void       * data);
-
 
 
 
