@@ -16,30 +16,22 @@ extern "C" {
     
 
 
-#define HNOTIF_EVT_ENCLAVE    (0x0000000000000001ULL)
-#define HNOTIF_EVT_RESOURCE   (0x0000000000000002ULL)
+#define HNOTIF_EVT_ENCLAVE	(0x0000000000000001ULL)
+#define HNOTIF_EVT_RESOURCE	(0x0000000000000002ULL)
+#define HNOTIF_EVT_APPLICATION	(0x0000000000000004ULL)
 
-#define HNOTIF_UNUSED_FLAGS   (0xfffffffffffffffcULL)
+#define HNOTIF_UNUSED_FLAGS	(0xfffffffffffffff8ULL)
 
-typedef struct {
-    int fd;
-    
-    xemem_segid_t segid;
-    uint64_t      evt_mask;
+typedef void * hnotif_t;
 
-} hnotif_t;
-    
+hnotif_t hnotif_create (uint64_t evt_mask);
+void     hnotif_free   (hnotif_t notifier);
 
 
-hnotif_t * hnotif_create (uint64_t evt_mask);
-void       hnotif_free   (hnotif_t * notifier);
-
-
-
-int hnotif_get_fd(hnotif_t * notifier);
-
+int hnotif_get_fd(hnotif_t notifier);
 
 int hnotif_signal(uint64_t evt_mask);
+int hnotif_ack(int fd);
 
 
 

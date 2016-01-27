@@ -25,16 +25,25 @@
 extern hdb_db_t hobbes_master_db;
 
 
+struct hobbes_notifier {
+    int fd;
 
-hnotif_t *
+    xemem_segid_t segid;
+    uint64_t      evt_mask;
+}; 
+    
+
+
+
+hnotif_t
 hnotif_create(uint64_t evt_mask)
 {
-    hnotif_t    * notifier = NULL;
-    xemem_segid_t segid;
+    struct hobbes_notifier * notif = NULL;
+    xemem_segid_t            segid = XEMEM_INVALID_SEGID;
 
     int fd = 0;
 
-    if (evt_mask & HNOTIF_UNUSED_FLAGS) {
+    if (!evt_mask || (evt_mask & HNOTIF_UNUSED_FLAGS)) {
 	ERROR("Could not create notifier with invalid mask\n");
 	return NULL;
     }
@@ -54,41 +63,48 @@ hnotif_create(uint64_t evt_mask)
     }
 
 
-    notifier = calloc(sizeof(hnotif_t), 1);
+    notif = calloc(sizeof(struct hobbes_notifier), 1);
     
-    if (notifier == NULL) {
+    if (notif == NULL) {
 	ERROR("Could not allocate notifier\n");
 	hdb_delete_notifier(hobbes_master_db, segid);
 	xemem_remove(segid);
 	return NULL;
     }
 
-    notifier->fd       = fd;
-    notifier->segid    = segid;
-    notifier->evt_mask = evt_mask;
+    notif->fd       = fd;
+    notif->segid    = segid;
+    notif->evt_mask = evt_mask;
     
-    return notifier;
+    return (hnotif_t)notif;
 }
 
 
 void
-hnotif_free(hnotif_t  * notifier)
+hnotif_free(hnotif_t notifier)
 {
+    struct hobbes_notifier * notif = notifier;
 
-    hdb_delete_notifier(hobbes_master_db, notifier->segid);
-    xemem_remove(notifier->segid);
-    free(notifier);
+    hdb_delete_notifier(hobbes_master_db, notif->segid);
+    xemem_remove(notif->segid);
+    free(notif);
 
     return;
 }
 
 
 int
-hnotif_get_fd(hnotif_t * notifier)
+hnotif_get_fd(hnotif_t notifier)
 {
-    return notifier->fd;
+    struct hobbes_notifier * notif = notifier;
+    return notif->fd;
 }
 
+int
+hnotif_ack(int fd)
+{
+    return xemem_ack(fd);
+}
 
 int 
 hnotif_signal(uint64_t evt_mask)
@@ -104,13 +120,11 @@ hnotif_signal(uint64_t evt_mask)
 	return -1;
     }
 
-	printf("notifying %d subscribers\n", subs_cnt);
-
+    printf("notifying %d subscribers\n", subs_cnt);
     
     for (i = 0; i < subs_cnt; i++) {
 	xemem_signal_segid(segids[i]);
     }
     
     return 0;
-
 }

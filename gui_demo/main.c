@@ -846,7 +846,7 @@ int main(int argc, char ** argv) {
     //    printf("%s\n", xml_str);
 
     {
-	hnotif_t * notifier = hnotif_create( HNOTIF_EVT_ENCLAVE | HNOTIF_EVT_RESOURCE );
+	hnotif_t notifier = hnotif_create( HNOTIF_EVT_ENCLAVE | HNOTIF_EVT_RESOURCE );
 	fd_set notif_set;
 
 	hobbes_client_deinit();
