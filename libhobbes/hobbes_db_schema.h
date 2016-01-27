@@ -72,6 +72,7 @@ extern "C" {
 #define HDB_APP_NAME                  2
 #define HDB_APP_STATE                 3
 #define HDB_APP_ENCLAVE               4
+#define HDB_APP_HIO_APP_ID	      5
 
 /* Columns for PMI key value store records */
 #define HDB_PMI_KVS_ENTRY_APPID       1

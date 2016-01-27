@@ -152,7 +152,8 @@ xemem_segid_t * hdb_get_segments(hdb_db_t   db,
 
 hobbes_id_t     hdb_create_app(hdb_db_t     db, 
 			       char       * name,
-			       hobbes_id_t  enclave_id);
+			       hobbes_id_t  enclave_id,
+			       hobbes_id_t  hio_app_id);
 				   
 
 
@@ -164,21 +165,25 @@ hobbes_id_t *   hdb_get_apps(hdb_db_t   db,
 
 
 /* Application field accessors */
-hobbes_id_t     hdb_get_app_enclave(hdb_db_t      db,
-				    hobbes_id_t   app_id);
-
-app_state_t     hdb_get_app_state(hdb_db_t        db,
-				  hobbes_id_t     app_id);
-
 int             hdb_set_app_state(hdb_db_t        db,
 				  hobbes_id_t     app_id,
 				  app_state_t state);
 
+hobbes_id_t     hdb_get_app_id(hdb_db_t db,
+			       char *   app_name);
+
+hobbes_id_t     hdb_get_app_hio_id(hdb_db_t    db,
+				   hobbes_id_t app_id);
+
+hobbes_id_t     hdb_get_app_enclave(hdb_db_t      db,
+				    hobbes_id_t   app_id);
+
 char *          hdb_get_app_name(hdb_db_t    db,
 				 hobbes_id_t app_id);
 
-hobbes_id_t     hdb_get_app_id(hdb_db_t db,
-			       char *   app_name);
+app_state_t     hdb_get_app_state(hdb_db_t        db,
+				  hobbes_id_t     app_id);
+
 
 
 /*

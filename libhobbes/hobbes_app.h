@@ -59,25 +59,25 @@ int hobbes_kill_app(hobbes_id_t enclave_id, hobbes_id_t app_id);
 int hobbes_set_app_state(hobbes_id_t app_id,
 			 app_state_t state);
 
-app_state_t hobbes_get_app_state(hobbes_id_t app_id);
 
-hobbes_id_t hobbes_get_app_enclave(hobbes_id_t app_id);
-
-char * hobbes_get_app_name(hobbes_id_t app_id);
-
+hobbes_id_t   hobbes_get_app_id(char * name);
+hobbes_id_t   hobbes_get_app_enclave(hobbes_id_t app_id);
+char      *   hobbes_get_app_name(hobbes_id_t app_id);
+app_state_t   hobbes_get_app_state(hobbes_id_t app_id);
+hobbes_id_t   hobbes_get_app_hio_id(hobbes_id_t app_id);
 
 struct app_info {
     hobbes_id_t id;
+    hobbes_id_t hio_id;
     
     char name[32];
     
-    app_state_t state;
-    hobbes_id_t enclave_id;
+    app_state_t   state;
+    hobbes_id_t   enclave_id;
 };
 
 struct app_info *
 hobbes_get_app_list(int * num_apps);
-
 
 
 const char *

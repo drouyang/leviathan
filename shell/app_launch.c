@@ -7,14 +7,19 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <ctype.h>
-
+#include <assert.h>
 #include <stdint.h>
 
 #include <hobbes_enclave.h>
 #include <hobbes_app.h>
 #include <hobbes_db.h>
+#include <hobbes_util.h>
+#include <hobbes_notifier.h>
 
 #include <pet_log.h>
+
+#include "hio.h"
+
 
 #define DEFAULT_NUM_RANKS       1
 #define DEFAULT_CPU_LIST        NULL
@@ -23,17 +28,26 @@
 #define DEFAULT_HEAP_SIZE       (16 * 1024 * 1024)
 #define DEFAULT_STACK_SIZE      (256 * 1024)
 #define DEFAULT_ENVP            ""
+#define DEFAULT_HIO_ARGV	NULL
+#define DEFAULT_HIO_ENVP	NULL
+#define DEFAULT_HIO_ENCLAVE	"master"
+#define DEFAULT_HIO_NUMA_NODE   0
 
-static unsigned int         num_ranks       = DEFAULT_NUM_RANKS;
-static char               * cpu_list        = DEFAULT_CPU_LIST;
-static unsigned char        use_large_pages = DEFAULT_USE_LARGE_PAGES;
-static unsigned char        use_smartmap    = DEFAULT_USE_SMARTMAP;
-static unsigned long long   heap_size       = DEFAULT_HEAP_SIZE;
-static unsigned long long   stack_size      = DEFAULT_STACK_SIZE;
-static char               * name            = NULL;
-static char               * envp            = DEFAULT_ENVP;
-static char               * exe_path        = NULL;
-static char               * exe_argv        = NULL;
+static unsigned int         num_ranks        = DEFAULT_NUM_RANKS;
+static char               * cpu_list         = DEFAULT_CPU_LIST;
+static unsigned char        use_large_pages  = DEFAULT_USE_LARGE_PAGES;
+static unsigned char        use_smartmap     = DEFAULT_USE_SMARTMAP;
+static unsigned long long   heap_size        = DEFAULT_HEAP_SIZE;
+static unsigned long long   stack_size       = DEFAULT_STACK_SIZE;
+static char               * name             = NULL;
+static char               * envp             = DEFAULT_ENVP;
+static char               * exe_path         = NULL;
+static char               * exe_argv         = NULL;
+static char		  * hio_exe_path     = NULL;
+static char		  * hio_exe_argv     = DEFAULT_HIO_ARGV;
+static char		  * hio_envp         = DEFAULT_HIO_ENVP;
+static char		  * hio_enclave	     = DEFAULT_HIO_ENCLAVE;
+static unsigned int	    hio_numa	     = DEFAULT_HIO_NUMA_NODE;
 
 static int cmd_line_np          = 0;
 static int cmd_line_cpu_list    = 0;
@@ -44,31 +58,42 @@ static int cmd_line_stack_size  = 0;
 static int cmd_line_name        = 0;
 static int cmd_line_envp        = 0;
 static int cmd_line_exe         = 1;
-
+static int cmd_line_hio		= 0;
+static int cmd_line_hio_args	= 0;
+static int cmd_line_hio_envp	= 0;
+static int cmd_line_hio_enclave	= 0;
+static int cmd_line_hio_numa	= 0;
 
 static void usage() {
     printf("launch_app: App Launch utility for Hobbes\n\n"		                                   \
 	   " Launches an application as specified in command line options or in a job_file.\n\n"           \
 	   "Usage: launch_app <enclave_name> [options] <-f job_file | exe args...>\n"                      \
 	   " Options: \n"						                                   \
-	   "\t[-np <ranks>]               (default: 1)        : Number of ranks  \n"                       \
-	   "\t[--cpulist=<cpus>]          (default: 0,1,2...) : comma separated list of target CPUs \n"	   \
-	   "\t[--use_large_pages]         (default: n)        : Use large pages  \n"                       \
-	   "\t[--use_smartmap]            (default: n)        : Use smartmap     \n"                       \
-	   "\t[--heap_size=<size in MB>]  (default: 16MB)     : Heap size in MB  \n"            	   \
-	   "\t[--stack_size=<size in MB>] (default: 256KB)    : Stack size in MB \n" 		           \
-	   "\t[--name=<name>]             (default: exe name) : Name of Job      \n"		           \
-	   "\t[--envp=<envp>]             (default: NULL)     : ENVP string      \n"		           \
+	   "\t[-np <ranks>]                  (default: 1)        : Number of ranks  \n"                     \
+	   "\t[--cpulist=<cpus>]             (default: 0,1,2...) : comma separated list of target CPUs \n"  \
+	   "\t[--use_large_pages]            (default: n)        : Use large pages  \n"                     \
+	   "\t[--use-smartmap]               (default: n)        : Use smartmap     \n"                     \
+	   "\t[--heap_size=<size in MB>]     (default: 16MB)     : Heap size in MB  \n"            	   \
+	   "\t[--stack_size=<size in MB>]    (default: 256KB)    : Stack size in MB \n" 		           \
+	   "\t[--name=<name>]                (default: exe name) : Name of Job      \n"		           \
+	   "\t[--envp=<envp>]                (default: NULL)     : ENVP string      \n"		           \
+	   "\t[--with-hio=<stub exe>]        (default: NULL)     : Launch HIO stub for the app\n"	   \
+	   "\t[--with-hio-args=<args>]       (default: NULL)     : Argument string for HIO stub\n"	   \
+	   "\t[--with-hio-envp=<envp>]	     (default: NULL)	 : ENVP string for HIO stub\n"		   \
+	   "\t[--with-hio-enclave=<enclave>] (default: master)   : Enclave to launch HIO stub in\n"	   \
+	   "\t[--with-hio-numa=<numa node>]  (default: 0)        : NUMA node for HIO memory allocation\n"  \
 	   );
     
     exit(-1);
 }
 
 
+static int __app_stub(hobbes_id_t enclave_id);
+
+
 int launch_app_main(int argc, char ** argv) {
-    int         use_job_file  = 0;
-    hobbes_id_t enclave_id    = HOBBES_INVALID_ID;
-    int         ret           = 0;
+    int         use_job_file   = 0;
+    hobbes_id_t enclave_id     = HOBBES_INVALID_ID;
 
     /* Parse Options */
     {
@@ -86,6 +111,11 @@ int launch_app_main(int argc, char ** argv) {
 	    {"stack_size",       required_argument, &cmd_line_stack_size,  1},
 	    {"name",             required_argument, &cmd_line_name,        1},
 	    {"envp",             required_argument, &cmd_line_envp,        1},
+	    {"with-hio",	 required_argument, &cmd_line_hio,	   1},
+	    {"with-hio-args",	 required_argument, &cmd_line_hio_args,	   1},
+	    {"with-hio-envp",	 required_argument, &cmd_line_hio_envp,	   1},
+	    {"with-hio-enclave", required_argument, &cmd_line_hio_enclave, 1},
+	    {"with-hio-numa",    required_argument, &cmd_line_hio_numa,	   1},
 	    {0, 0, 0, 0}
 	};
 
@@ -171,6 +201,34 @@ int launch_app_main(int argc, char ** argv) {
 			    envp = optarg;
 			    break;
 			}
+			case 8: {
+			    hio_exe_path = optarg;
+			    break;
+			}
+			case 9: {
+			    hio_exe_argv = optarg;
+			    break;
+			}
+			case 10: {
+			    hio_envp = optarg;
+			    break;
+			}
+			case 11: {
+			    hio_enclave = optarg;
+			    break;
+			}
+			case 12: {
+			    uint32_t numa = HOBBES_INVALID_NUMA_ID;
+
+			    numa = smart_atou32(numa, optarg);
+			    if (numa == HOBBES_INVALID_NUMA_ID) {
+				ERROR("Invalid NUMA node specified\n");
+				usage();
+			    }
+
+			    hio_numa = numa;
+			    break;
+			}
 			default:
 			    break;
 
@@ -246,7 +304,6 @@ int launch_app_main(int argc, char ** argv) {
 	}	
     }
 
-
     /*
     if (cpu_list == NULL) {
 	cpu_mask = 0xffffffffffffffffULL;
@@ -265,30 +322,218 @@ int launch_app_main(int argc, char ** argv) {
 	    cpu_mask |= (0x1ULL << idx);
 	}
     }
-
     */
-
-    {
-	hobbes_app_spec_t app_spec = hobbes_build_app_spec( name, 
-							    exe_path, 
-							    exe_argv, 
-							    envp, 
-							    cpu_list,
-							    use_large_pages, 
-							    use_smartmap, 
-							    num_ranks, 
-							    heap_size, 
-							    stack_size);
+ 
+    /* Launch app */
+    return __app_stub(enclave_id);
+}
 
 
-	ret =  hobbes_launch_app(enclave_id, app_spec);
+static int
+__app_exited(hobbes_id_t app_id)
+{
+
+    app_state_t state;
+
+    if (app_id == HOBBES_INVALID_ID)
+	return 0;
+
+    state = hobbes_get_app_state(app_id);
+    switch(state) {
+	case APP_STOPPED:
+	case APP_CRASHED:
+	case APP_ERROR:
+	    return 1;
+
+	default:
+	    return 0;
+    }
+}
+
+
+static void
+__kill_app(hobbes_id_t enclave_id,
+	   hobbes_id_t app_id)
+{
+    app_state_t state;
+
+    if (app_id == HOBBES_INVALID_ID)
+	return;
+
+    state = hobbes_get_app_state(app_id);
+    if (state != APP_RUNNING)
+	return;
+
+    hobbes_kill_app(enclave_id, app_id);
+}
+
+
+/* Launch app */
+static int
+__app_stub(hobbes_id_t enclave_id)
+{
+    hobbes_id_t       hio_enclave_id = HOBBES_INVALID_ID;
+    hobbes_id_t       app_id         = HOBBES_INVALID_ID;
+    hobbes_id_t       hio_app_id     = HOBBES_INVALID_ID;
+    hobbes_app_spec_t app_spec       = NULL;
+    hobbes_app_spec_t hio_app_spec   = NULL;
+    hnotif_t          notifier       = NULL; 
+    int               ret            = -1;
+
+    /* Create the notifier */
+    notifier = hnotif_create(HNOTIF_EVT_APPLICATION);
+    if (notifier == NULL) {
+	ERROR("Could not create hobbes notifier: cannot launch app\n");
+	return -1;
+    }
+
+    /* Create HIO app */
+    if (hio_exe_path != NULL) {
+	char stub_name[64] = {0};
+	snprintf(stub_name, 64, "%s-hio", name);
+
+	hio_enclave_id = hobbes_get_enclave_id(hio_enclave);
+	if (hio_enclave_id == HOBBES_INVALID_ID) {
+	    ERROR("Cannot launch HIO stub in enclave %s: no such enclave\n",
+		hio_enclave);
+	    goto hio_out;
+	}
+
+	hio_app_id = hobbes_create_app(stub_name, hio_enclave_id, HOBBES_INVALID_ID);
+	if (hio_app_id == HOBBES_INVALID_ID) {
+	    ERROR("Could not create HIO app\n");
+	    goto hio_create_out;
+	}
 	
-	hobbes_free_app_spec(app_spec);
+	hio_app_spec = hobbes_init_hio_app(
+		    hio_app_id,
+		    stub_name,
+		    exe_path,
+		    hio_exe_path,
+		    hio_exe_argv,
+		    hio_envp,
+		    use_large_pages,
+		    heap_size,
+		    stack_size,
+		    hio_numa
+	    );
 
-	if (ret != 0) {
-	    ERROR("Error launching application on remote enclave\n");
+	if (hio_app_spec == NULL) {
+	    ERROR("Error initializing HIO app\n");
+	    goto hio_init_out;
 	}
     }
 
+    /* Create app */
+    {
+	app_id = hobbes_create_app(name, enclave_id, hio_app_id);
+	if (app_id == HOBBES_INVALID_ID) {
+	    ERROR("Could not create app\n");
+	    goto create_out;
+	}
+
+	app_spec = hobbes_build_app_spec(
+			    name, 
+			    exe_path, 
+			    exe_argv, 
+			    envp, 
+			    cpu_list,
+			    use_large_pages, 
+			    use_smartmap, 
+			    num_ranks, 
+			    heap_size, 
+			    stack_size,
+			    app_id
+		    );
+	if (app_spec == NULL) {
+	    ERROR("Could not build app spec\n");
+	    goto spec_out;
+	}
+    }
+
+    /* Launch HIO app */
+    if (hio_app_id != HOBBES_INVALID_ID) {
+	ret = hobbes_launch_app(hio_enclave_id, hio_app_spec);
+	if (ret != 0) {
+	    ERROR("Error launching HIO applicationn");
+	    goto hio_launch_out;
+	}
+    }
+
+    /* Give HIO some time to come up. TODO: figure out a better way to do this */
+    sleep(1);
+
+    /* Launch app */
+    {
+	ret = hobbes_launch_app(enclave_id, app_spec);
+	if (ret != 0) {
+	    ERROR("Error launching application\n");
+	    goto launch_out;
+	}
+    }
+
+    /* Wait for events on launch fd */
+    while (1) {
+	int app_exited = 0;
+	int hio_exited = 0;
+	int fd         = hnotif_get_fd(notifier);
+
+	fd_set rset;
+	FD_ZERO(&rset);
+	FD_SET(fd, &rset);
+
+	ret = select(fd + 1, &rset, NULL, NULL, NULL);
+	if (ret == -1) {
+	    ERROR("Select error\n");
+	    continue;
+	}
+
+	assert(FD_ISSET(fd, &rset));
+	hnotif_ack(fd);
+
+	app_exited = __app_exited(app_id);
+	hio_exited = __app_exited(hio_app_id);
+
+	if (app_exited || hio_exited) {
+	    if (app_exited) {
+		printf("App exited (state=%s)\n"
+			"Tearing down HIO stub and exiting\n",
+			app_state_to_str(hobbes_get_app_state(app_id)));
+	    } else {
+		printf("HIO stub exited (state=%s)\n"
+			"Tearing down app and exiting because the HIO behavior is now undefined\n",
+			app_state_to_str(hobbes_get_app_state(hio_app_id)));
+	    }
+
+	    break;
+	}
+    }
+
+    /* Kill app */
+    __kill_app(enclave_id, app_id);
+
+launch_out:
+    /* Kill stub */
+    __kill_app(hio_enclave_id, hio_app_id);
+
+hio_launch_out:
+    hobbes_free_app_spec(app_spec);
+
+spec_out:
+    hobbes_free_app(app_id);
+
+create_out:
+    if (hio_app_id != HOBBES_INVALID_ID) {
+	hobbes_free_app_spec(hio_app_spec);
+	hobbes_deinit_hio_app();
+    }
+
+hio_init_out:
+    if (hio_app_id != HOBBES_INVALID_ID)
+	hobbes_free_app(hio_app_id);
+
+hio_create_out:
+hio_out:
+    hnotif_free(notifier);
     return ret;
 }

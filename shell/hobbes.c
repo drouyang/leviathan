@@ -78,12 +78,13 @@ list_apps_main(int argc, char ** argv)
     }
 
     printf("------------------------------------------------------------------------------------------------\n");
-    printf("| HPID     | Enclave                          | Application                      | State       |\n");
+    printf("| HPID     | HIOPID   | Enclave                          | Application                      | State       |\n");
     printf("------------------------------------------------------------------------------------------------\n");
 
     for (i = 0; i < num_apps; i++) {
-	printf("| %-*d | %-*s | %-*s | %-*s |\n",
+	printf("| %-*d | %-*d | %-*s | %-*s | %-*s |\n",
 	       8,  apps[i].id,
+	       8,  apps[i].hio_id,
 	       32, hobbes_get_enclave_name(apps[i].enclave_id),
 	       32, apps[i].name,
 	       11, app_state_to_str(apps[i].state));
@@ -185,9 +186,8 @@ main(int argc, char ** argv)
 
 	i++;
     }
-    
-    hobbes_client_deinit();
 
+    hobbes_client_deinit();
 
     return 0;
 }

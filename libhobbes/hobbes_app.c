@@ -289,10 +289,11 @@ hobbes_set_app_state(hobbes_id_t app_id,
 
 }
 
-app_state_t 
-hobbes_get_app_state(hobbes_id_t app_id)
+
+hobbes_id_t
+hobbes_get_app_id(char * app_name)
 {
-    return hdb_get_app_state(hobbes_master_db, app_id);
+    return hdb_get_app_id(hobbes_master_db, app_name);
 }
 
 hobbes_id_t 
@@ -307,6 +308,17 @@ hobbes_get_app_name(hobbes_id_t app_id)
     return hdb_get_app_name(hobbes_master_db, app_id);
 }
 
+app_state_t 
+hobbes_get_app_state(hobbes_id_t app_id)
+{
+    return hdb_get_app_state(hobbes_master_db, app_id);
+}
+
+hobbes_id_t
+hobbes_get_app_hio_id(hobbes_id_t app_id)
+{
+    return hdb_get_app_hio_id(hobbes_master_db, app_id);
+}
 
 struct app_info * 
 hobbes_get_app_list(int * num_apps)
@@ -338,6 +350,7 @@ hobbes_get_app_list(int * num_apps)
 
 	info_arr[i].state      = hdb_get_app_state  ( hobbes_master_db, id_arr[i] );
 	info_arr[i].enclave_id = hdb_get_app_enclave( hobbes_master_db, id_arr[i] );
+	info_arr[i].hio_id     = hdb_get_app_hio_id ( hobbes_master_db, id_arr[i] );
 
 	strncpy(info_arr[i].name, hdb_get_app_name(hobbes_master_db, id_arr[i]), 31);
     }
@@ -346,8 +359,6 @@ hobbes_get_app_list(int * num_apps)
     
     return info_arr;
 }
-
-
 
 const char *
 app_state_to_str(app_state_t state) 

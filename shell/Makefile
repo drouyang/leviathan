@@ -15,6 +15,7 @@ CFLAGS =	-g -W -Wall -Werror		\
 		-I$(PETLIB_PATH) 		\
 		-I$(PALACIOS_PATH)/user 	\
 		-I../libhobbes 			\
+		-Ielf-utils/			\
 		-static  
 
 
@@ -23,7 +24,8 @@ AR = ar
 
 libs  :=	$(PISCES_PATH)/linux_usr/libpisces.a \
 		$(PALACIOS_PATH)/user/libv3vee_user.a \
-	 	../libhobbes/libhobbes.a
+	 	../libhobbes/libhobbes.a \
+		./elf-utils/libelfrw.a
 
 
 
@@ -36,7 +38,9 @@ hobbes_objs := 	hobbes.o	\
 		vm.o		\
 		vm_console.o	\
 		pisces.o        \
-		system.o
+		system.o	\
+		hio.o		\
+		elf-utils/elf_hio.o
 
 
 build = \
@@ -75,6 +79,6 @@ hobbes: $(hobbes_objs)
 
 
 clean:
-	rm -f $(wildcard  $(execs)) *.o
+	rm -f $(wildcard  $(execs)) *.o elf-utils/*.o
 
 FORCE:

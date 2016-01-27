@@ -1393,9 +1393,10 @@ __get_app_by_name(hdb_db_t   db,
 
 
 static hobbes_id_t
-__create_app_record(hdb_db_t      db,
-		    char        * name, 
-		    hobbes_id_t   enclave_id)
+__create_app_record(hdb_db_t    db,
+		    char      * name, 
+		    hobbes_id_t enclave_id,
+		    hobbes_id_t hio_app_id)
 {
     void       * hdr_rec       = NULL;
     hobbes_id_t  app_id        = HOBBES_INVALID_ID;
@@ -1422,13 +1423,13 @@ __create_app_record(hdb_db_t      db,
     }
     
     /* Insert app into the db */
-    app = wg_create_record(db, 5);
-    wg_set_field(db, app, HDB_TYPE_FIELD,   wg_encode_int(db, HDB_REC_APP));
-    wg_set_field(db, app, HDB_APP_ID,       wg_encode_int(db, app_id));
-    wg_set_field(db, app, HDB_APP_STATE,    wg_encode_int(db, APP_INITTED));
-    wg_set_field(db, app, HDB_APP_NAME,     wg_encode_str(db, name, NULL));
-    wg_set_field(db, app, HDB_APP_ENCLAVE,  wg_encode_int(db, enclave_id));
-
+    app = wg_create_record(db, 6);
+    wg_set_field(db, app, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_APP));
+    wg_set_field(db, app, HDB_APP_ID,          wg_encode_int(db, app_id));
+    wg_set_field(db, app, HDB_APP_STATE,       wg_encode_int(db, APP_INITTED));
+    wg_set_field(db, app, HDB_APP_NAME,	       wg_encode_str(db, name, NULL));
+    wg_set_field(db, app, HDB_APP_ENCLAVE,     wg_encode_int(db, enclave_id));
+    wg_set_field(db, app, HDB_APP_HIO_APP_ID,  wg_encode_int(db, hio_app_id));
     
     /* Update the app Header information */
     wg_set_field(db, hdr_rec, HDB_APP_HDR_NEXT, wg_encode_int(db, app_id  + 1));
@@ -1440,7 +1441,8 @@ __create_app_record(hdb_db_t      db,
 hobbes_id_t 
 hdb_create_app(hdb_db_t    db,
 	       char      * name, 
-	       hobbes_id_t enclave_id)
+	       hobbes_id_t enclave_id,
+	       hobbes_id_t hio_app_id)
 {
     wg_int      lock_id;
     hobbes_id_t app_id = HOBBES_INVALID_ID;
@@ -1452,7 +1454,7 @@ hdb_create_app(hdb_db_t    db,
 	return HOBBES_INVALID_ID;
     }
 
-    app_id = __create_app_record(db, name, enclave_id);
+    app_id = __create_app_record(db, name, enclave_id, hio_app_id);
     
     if (!wg_end_write(db, lock_id)) {
 	ERROR("Apparently this is catastrophic...\n");
@@ -1526,94 +1528,6 @@ hdb_delete_app(hdb_db_t    db,
 }
 
 
-static hobbes_id_t 
-__get_app_enclave(hdb_db_t    db,
-		  hobbes_id_t app_id)
-{
-    hdb_app_t     app        = NULL;
-    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
-
-
-    app = __get_app_by_id(db, app_id);
-    
-    if (app == NULL) {
-	ERROR("Could not find app (id: %d)\n", app_id);
-	return HOBBES_INVALID_ID;
-    }
-
-    enclave_id = wg_decode_int(db, wg_get_field(db, app, HDB_APP_ENCLAVE));
-
-    return enclave_id;
-}
-
-hobbes_id_t
-hdb_get_app_enclave(hdb_db_t    db,
-		    hobbes_id_t app_id)
-{
-    wg_int      lock_id;
-    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return HOBBES_INVALID_ID;
-    }
-
-    enclave_id = __get_app_enclave(db, app_id);
-    
-    if (!wg_end_read(db, lock_id)) {
-	ERROR("Apparently this is catastrophic...\n");
-	return HOBBES_INVALID_ID;
-    }
-    
-
-    return enclave_id;
-}
-
-static app_state_t
-__get_app_state(hdb_db_t    db, 
-		hobbes_id_t app_id)
-{
-    hdb_app_t   app   = NULL;
-    app_state_t state = APP_ERROR;
-
-    app = __get_app_by_id(db, app_id);
-    
-    if (app == NULL) {
-	ERROR("Could not find app (id: %d)\n", app_id);
-	return APP_ERROR;
-    }
-
-    state = wg_decode_int(db, wg_get_field(db, app, HDB_APP_STATE));
-
-    return state;
-}
-
-app_state_t
-hdb_get_app_state(hdb_db_t    db, 
-		  hobbes_id_t app_id)
-{
-    wg_int lock_id;
-    app_state_t state = 0;
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return APP_ERROR;
-    }
-
-    state = __get_app_state(db, app_id);
-    
-    if (!wg_end_read(db, lock_id)) {
-	ERROR("Apparently this is catastrophic...\n");
-	return APP_ERROR;
-    }
-    
-
-    return state;
-}
 
 
 static int
@@ -1662,54 +1576,6 @@ hdb_set_app_state(hdb_db_t        db,
 }
 
 
-
-static char *
-__get_app_name(hdb_db_t    db, 
-	       hobbes_id_t app_id)
-{
-    hdb_app_t app = NULL;
-
-    char * name = NULL;
-
-    app = __get_app_by_id(db, app_id);
-    
-    if (app == NULL) {
-	ERROR("Could not find app (id: %d)\n", app_id);
-	return NULL;
-    }
-
-    name = wg_decode_str(db, wg_get_field(db, app, HDB_APP_NAME));
-
-    return name;
-}
-
-char * 
-hdb_get_app_name(hdb_db_t    db, 
-		 hobbes_id_t app_id)
-{
-    wg_int lock_id;
-    char * name = NULL;
-
-    lock_id = wg_start_read(db);
-
-    if (!lock_id) {
-	ERROR("Could not lock database\n");
-	return NULL;
-    }
-
-   name = __get_app_name(db, app_id);
-    
-    if (!wg_end_read(db, lock_id)) {
-	ERROR("Apparently this is catastrophic...\n");
-	return NULL;
-    }
-    
-    return name;
-}
-
-
-
-
 static hobbes_id_t
 __get_app_id(hdb_db_t   db, 
 	     char     * app_name)
@@ -1752,6 +1618,183 @@ hdb_get_app_id(hdb_db_t   db,
     
     return app_id;
 }
+
+static hobbes_id_t 
+__get_app_enclave(hdb_db_t    db,
+		  hobbes_id_t app_id)
+{
+    hdb_app_t     app        = NULL;
+    hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
+
+
+    app = __get_app_by_id(db, app_id);
+    
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = wg_decode_int(db, wg_get_field(db, app, HDB_APP_ENCLAVE));
+
+    return enclave_id;
+}
+
+hobbes_id_t
+hdb_get_app_enclave(hdb_db_t    db,
+		    hobbes_id_t app_id)
+{
+    wg_int      lock_id;
+    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    enclave_id = __get_app_enclave(db, app_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+
+    return enclave_id;
+}
+
+static char *
+__get_app_name(hdb_db_t    db, 
+	       hobbes_id_t app_id)
+{
+    hdb_app_t app = NULL;
+
+    char * name = NULL;
+
+    app = __get_app_by_id(db, app_id);
+    
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
+	return NULL;
+    }
+
+    name = wg_decode_str(db, wg_get_field(db, app, HDB_APP_NAME));
+
+    return name;
+}
+
+char * 
+hdb_get_app_name(hdb_db_t    db, 
+		 hobbes_id_t app_id)
+{
+    wg_int lock_id;
+    char * name = NULL;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return NULL;
+    }
+
+    name = __get_app_name(db, app_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return NULL;
+    }
+    
+    return name;
+}
+
+static app_state_t
+__get_app_state(hdb_db_t    db, 
+		hobbes_id_t app_id)
+{
+    hdb_app_t   app   = NULL;
+    app_state_t state = APP_ERROR;
+
+    app = __get_app_by_id(db, app_id);
+    
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
+	return APP_ERROR;
+    }
+
+    state = wg_decode_int(db, wg_get_field(db, app, HDB_APP_STATE));
+
+    return state;
+}
+
+app_state_t
+hdb_get_app_state(hdb_db_t    db, 
+		  hobbes_id_t app_id)
+{
+    wg_int lock_id;
+    app_state_t state = 0;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return APP_ERROR;
+    }
+
+    state = __get_app_state(db, app_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return APP_ERROR;
+    }
+    
+
+    return state;
+}
+
+static hobbes_id_t
+__get_app_hio_id(hdb_db_t    db, 
+		 hobbes_id_t app_id)
+{
+    hdb_app_t   app    = NULL;
+    hobbes_id_t hio_id = HOBBES_INVALID_ID;
+
+    app = __get_app_by_id(db, app_id);
+    
+    if (app == NULL) {
+	ERROR("Could not find app (id: %d)\n", app_id);
+	return HOBBES_INVALID_ID;
+    }
+
+    hio_id = wg_decode_int(db, wg_get_field(db, app, HDB_APP_HIO_APP_ID));
+
+    return hio_id;
+}
+
+hobbes_id_t
+hdb_get_app_hio_id(hdb_db_t    db, 
+		   hobbes_id_t app_id)
+{
+    wg_int lock_id;
+    hobbes_id_t hio_id = HOBBES_INVALID_ID;
+
+    lock_id = wg_start_read(db);
+
+    if (!lock_id) {
+	ERROR("Could not lock database\n");
+	return HOBBES_INVALID_ID;
+    }
+
+    hio_id = __get_app_hio_id(db, app_id);
+    
+    if (!wg_end_read(db, lock_id)) {
+	ERROR("Apparently this is catastrophic...\n");
+	return HOBBES_INVALID_ID;
+    }
+    
+    return hio_id;
+}
+
 
 static hobbes_id_t *
 __get_apps(hdb_db_t   db,
