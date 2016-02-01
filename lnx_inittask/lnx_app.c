@@ -379,6 +379,8 @@ kill_hobbes_lnx_app(hobbes_id_t hpid)
 
     remove_fd_handler(app->stdout_fd);
     hobbes_set_app_state(hpid, APP_STOPPED);
+    hnotif_signal(HNOTIF_EVT_APPLICATION);
+
     free(app);
 
     return 0;

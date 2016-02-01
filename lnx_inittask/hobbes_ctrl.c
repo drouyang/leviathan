@@ -346,17 +346,17 @@ hobbes_init(void)
     printf("\t...done\n");
 
     /* Register commands */
-    hcq_register_cmd(hcq, HOBBES_CMD_APP_LAUNCH, __launch_app);
-    hcq_register_cmd(hcq, HOBBES_CMD_APP_KILL,   __kill_app);
-    hcq_register_cmd(hcq, HOBBES_CMD_PING,       __ping);
-    hcq_register_cmd(hcq, HOBBES_CMD_ADD_CPU,    __add_cpu);
-    hcq_register_cmd(hcq, HOBBES_CMD_ADD_MEM,    __add_memory);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_OPEN,  file_open_handler);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_CLOSE, file_close_handler);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_READ,  file_read_handler);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_WRITE, file_write_handler);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_STAT,  file_stat_handler);
-    hcq_register_cmd(hcq, HOBBES_CMD_FILE_FSTAT, file_fstat_handler);
+    hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    hobbes_register_cmd(HOBBES_CMD_APP_KILL,   __kill_app);
+    hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
+    hobbes_register_cmd(HOBBES_CMD_ADD_CPU,    __add_cpu);
+    hobbes_register_cmd(HOBBES_CMD_ADD_MEM,    __add_memory);
+    hobbes_register_cmd(HOBBES_CMD_FILE_OPEN,  file_open_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_CLOSE, file_close_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_READ,  file_read_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_WRITE, file_write_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_STAT,  file_stat_handler);
+    hobbes_register_cmd(HOBBES_CMD_FILE_FSTAT, file_fstat_handler);
 
     /* Get File descriptor */    
     hcq_fd = hcq_get_fd(hcq);

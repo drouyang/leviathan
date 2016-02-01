@@ -106,12 +106,13 @@ list_cpus_main(int argc, char ** argv)
     }
 
     printf("--------------------------------------------\n");
-    printf("| CPU ID |  State      | Numa | Enclave ID |\n");
+    printf("| CPU ID |  APIC ID | State      | Numa | Enclave ID |\n");
     printf("--------------------------------------------\n");
 
     for (i = 0; i < num_cpus; i++) {
-	printf("| %-*u | %-*s | %-*d | %-*d |\n",
+	printf("| %-*u | %-*u | %-*s | %-*d | %-*d |\n",
                6,  cpu_arr[i].cpu_id,
+               7,  cpu_arr[i].apic_id,
 	       11, cpu_state_to_str(cpu_arr[i].state),
 	       4,  cpu_arr[i].numa_node,
                10, cpu_arr[i].enclave_id);

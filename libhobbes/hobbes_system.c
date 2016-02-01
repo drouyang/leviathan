@@ -251,6 +251,7 @@ hobbes_get_cpu_list(uint32_t * num_cpus)
     for (i = 0; i < cpu_cnt; i++) {
 	cpu_arr[i].cpu_id    = id_arr[i];
 
+	cpu_arr[i].apic_id    = hdb_get_cpu_apic_id    ( hobbes_master_db, id_arr[i] );
 	cpu_arr[i].numa_node  = hdb_get_cpu_numa_node  ( hobbes_master_db, id_arr[i] );
 	cpu_arr[i].state      = hdb_get_cpu_state      ( hobbes_master_db, id_arr[i] );
 	cpu_arr[i].enclave_id = hdb_get_cpu_enclave_id ( hobbes_master_db, id_arr[i] );
