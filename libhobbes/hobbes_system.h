@@ -177,6 +177,12 @@ hobbes_assign_memory(hobbes_id_t  enclave_id,
 		     bool         zeroed);
 
 int
+hobbes_remove_memory(hobbes_id_t enclave_id,
+		     uintptr_t   base_addr,
+		     uint64_t    size,
+		     bool        allocated);
+
+int
 hobbes_assign_cpu(hobbes_id_t enclave_id,
 		  uint32_t    cpu_id,
 		  uint32_t    apic_id);
