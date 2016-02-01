@@ -9,6 +9,8 @@
 #include <ctype.h>
 #include <assert.h>
 #include <stdint.h>
+#include <signal.h>
+#include <errno.h>
 
 #include <hobbes_enclave.h>
 #include <hobbes_app.h>
@@ -63,6 +65,9 @@ static int cmd_line_hio_args	= 0;
 static int cmd_line_hio_envp	= 0;
 static int cmd_line_hio_enclave	= 0;
 static int cmd_line_hio_numa	= 0;
+
+
+static int terminate = 0;
 
 static void usage() {
     printf("launch_app: App Launch utility for Hobbes\n\n"		                                   \
@@ -329,6 +334,13 @@ int launch_app_main(int argc, char ** argv) {
 }
 
 
+static void
+sigint_handler(int signum)
+{
+    terminate = 1;
+}
+
+
 static int
 __app_exited(hobbes_id_t app_id)
 {
@@ -372,13 +384,35 @@ __kill_app(hobbes_id_t enclave_id,
 static int
 __app_stub(hobbes_id_t enclave_id)
 {
-    hobbes_id_t       hio_enclave_id = HOBBES_INVALID_ID;
-    hobbes_id_t       app_id         = HOBBES_INVALID_ID;
-    hobbes_id_t       hio_app_id     = HOBBES_INVALID_ID;
-    hobbes_app_spec_t app_spec       = NULL;
-    hobbes_app_spec_t hio_app_spec   = NULL;
-    hnotif_t          notifier       = NULL; 
-    int               ret            = -1;
+    hobbes_id_t       hio_enclave_id   = HOBBES_INVALID_ID;
+    hobbes_id_t       app_id           = HOBBES_INVALID_ID;
+    hobbes_id_t       hio_app_id       = HOBBES_INVALID_ID;
+    hobbes_app_spec_t app_spec         = NULL;
+    hobbes_app_spec_t hio_app_spec     = NULL;
+    enclave_type_t    enclave_type     = INVALID_ENCLAVE;
+    hnotif_t          notifier         = NULL; 
+    int               ret              = -1;
+    uint8_t           use_prealloc_mem = 0;
+    uintptr_t         data_pa          = HOBBES_INVALID_ADDR;
+    uintptr_t         heap_pa          = HOBBES_INVALID_ADDR;
+    uintptr_t         stack_pa         = HOBBES_INVALID_ADDR;
+    uint64_t          data_size        = 0;
+    uint64_t          page_size        = 0;
+
+    if (use_large_pages)
+	page_size = PAGE_SIZE_2MB;
+    else
+	page_size = PAGE_SIZE_4KB;
+
+    /* Align sizes */
+    heap_size  = PAGE_ALIGN_UP(heap_size, page_size);
+    stack_size = PAGE_ALIGN_UP(stack_size, page_size);
+ 
+    enclave_type = hobbes_get_enclave_type(enclave_id);
+    if (enclave_type == INVALID_ENCLAVE) {
+	ERROR("Invalid enclave type: cannot launch app\n");
+	return -1;
+    }
 
     /* Create the notifier */
     notifier = hnotif_create(HNOTIF_EVT_APPLICATION);
@@ -392,6 +426,12 @@ __app_stub(hobbes_id_t enclave_id)
 	char stub_name[64] = {0};
 	snprintf(stub_name, 64, "%s-hio", name);
 
+	/* Ensure the target enclave is Pisces */
+	if (enclave_type != PISCES_ENCLAVE) {
+	    ERROR("Cannot launch HIO-enabled application in enclave type: %s\n", enclave_type_to_str(enclave_type));
+	    goto hio_out;
+	}
+
 	hio_enclave_id = hobbes_get_enclave_id(hio_enclave);
 	if (hio_enclave_id == HOBBES_INVALID_ID) {
 	    ERROR("Cannot launch HIO stub in enclave %s: no such enclave\n",
@@ -402,7 +442,7 @@ __app_stub(hobbes_id_t enclave_id)
 	hio_app_id = hobbes_create_app(stub_name, hio_enclave_id, HOBBES_INVALID_ID);
 	if (hio_app_id == HOBBES_INVALID_ID) {
 	    ERROR("Could not create HIO app\n");
-	    goto hio_create_out;
+	    goto hio_out;
 	}
 	
 	hio_app_spec = hobbes_init_hio_app(
@@ -412,20 +452,46 @@ __app_stub(hobbes_id_t enclave_id)
 		    hio_exe_path,
 		    hio_exe_argv,
 		    hio_envp,
-		    use_large_pages,
+		    page_size,
+		    hio_numa,
 		    heap_size,
 		    stack_size,
-		    hio_numa
+		    &data_size,
+		    &data_pa,
+		    &heap_pa,
+		    &stack_pa
 	    );
 
 	if (hio_app_spec == NULL) {
 	    ERROR("Error initializing HIO app\n");
 	    goto hio_init_out;
 	}
+
+	/* Now, assign each region as allocated memory to the host enclave */
+	ret = hobbes_assign_memory(enclave_id, data_pa, data_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign data region to host enclave\n");
+	    goto assign_data_out;
+	}
+
+	ret = hobbes_assign_memory(enclave_id, heap_pa, heap_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign heap region to host enclave\n");
+	    goto assign_heap_out;
+	}
+
+	ret = hobbes_assign_memory(enclave_id, stack_pa, stack_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign stack region to host enclave\n");
+	    goto assign_stack_out;
+	}
+
+	use_prealloc_mem = 1;
     }
 
     /* Create app */
     {
+
 	app_id = hobbes_create_app(name, enclave_id, hio_app_id);
 	if (app_id == HOBBES_INVALID_ID) {
 	    ERROR("Could not create app\n");
@@ -433,6 +499,7 @@ __app_stub(hobbes_id_t enclave_id)
 	}
 
 	app_spec = hobbes_build_app_spec(
+			    app_id,
 			    name, 
 			    exe_path, 
 			    exe_argv, 
@@ -443,7 +510,10 @@ __app_stub(hobbes_id_t enclave_id)
 			    num_ranks, 
 			    heap_size, 
 			    stack_size,
-			    app_id
+			    use_prealloc_mem,
+			    data_pa,
+			    heap_pa,
+			    stack_pa
 		    );
 	if (app_spec == NULL) {
 	    ERROR("Could not build app spec\n");
@@ -472,8 +542,20 @@ __app_stub(hobbes_id_t enclave_id)
 	}
     }
 
+    /* Catch sigint to let user kill the app */
+    {
+	struct sigaction new_action, old_action;
+
+	new_action.sa_handler = sigint_handler;
+	sigemptyset(&(new_action.sa_mask));
+
+	sigaction(SIGINT, NULL, &old_action);
+	sigaction(SIGINT, &new_action, NULL);
+    }
+
+
     /* Wait for events on launch fd */
-    while (1) {
+    while (!terminate) {
 	int app_exited = 0;
 	int hio_exited = 0;
 	int fd         = hnotif_get_fd(notifier);
@@ -484,8 +566,11 @@ __app_stub(hobbes_id_t enclave_id)
 
 	ret = select(fd + 1, &rset, NULL, NULL, NULL);
 	if (ret == -1) {
+	    if (errno == EINTR)
+		continue;
+
 	    ERROR("Select error\n");
-	    continue;
+	    terminate = 1;
 	}
 
 	assert(FD_ISSET(fd, &rset));
@@ -505,7 +590,7 @@ __app_stub(hobbes_id_t enclave_id)
 			app_state_to_str(hobbes_get_app_state(hio_app_id)));
 	    }
 
-	    break;
+	    terminate = 1;
 	}
     }
 
@@ -523,6 +608,18 @@ spec_out:
     hobbes_free_app(app_id);
 
 create_out:
+    if (hio_app_id != HOBBES_INVALID_ID)
+	hobbes_remove_memory(enclave_id, stack_pa, stack_size, 1);
+
+assign_stack_out:
+    if (hio_app_id != HOBBES_INVALID_ID)
+	hobbes_remove_memory(enclave_id, heap_pa, heap_size, 1);
+
+assign_heap_out:
+    if (hio_app_id != HOBBES_INVALID_ID)
+	hobbes_remove_memory(enclave_id, data_pa, data_size, 1);
+
+assign_data_out:
     if (hio_app_id != HOBBES_INVALID_ID) {
 	hobbes_free_app_spec(hio_app_spec);
 	hobbes_deinit_hio_app();
@@ -532,7 +629,6 @@ hio_init_out:
     if (hio_app_id != HOBBES_INVALID_ID)
 	hobbes_free_app(hio_app_id);
 
-hio_create_out:
 hio_out:
     hnotif_free(notifier);
     return ret;

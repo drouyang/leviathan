@@ -233,7 +233,8 @@ __launch_job(int      pisces_fd,
 			 job_spec->num_ranks, 
 			 job_spec->cpu_mask, 
 			 job_spec->heap_size, 
-			 job_spec->stack_size);
+			 job_spec->stack_size,
+			 0, 0, 0);
 
     free(job_cmd);
 			

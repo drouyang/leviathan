@@ -16,6 +16,7 @@
 #include <elf.h>
 
 #include "elfrw.h"
+#include "../hio.h"
 
 #ifndef TRUE
 #define	TRUE	1
@@ -230,7 +231,8 @@ static int readsecthdrs(void)
 }
 
 static int
-get_binary_data_address_and_size(uintptr_t * address_p,
+get_binary_data_address_and_size(uint64_t    page_size,
+				 uintptr_t * address_p,
 				 uint64_t  * size_p)
 {
     uintptr_t min_address = UINTPTR_MAX;
@@ -244,7 +246,7 @@ get_binary_data_address_and_size(uintptr_t * address_p,
 	return 0;
 
     /* Loop through the program header table, finding the minimum and maximum virtual
-     * addresses for binary data
+     * addresses for binary data. PT_LOAD entries are sorted by p_vaddr
      */
     n = elffhdr.e_phnum;
     for (i = 0; i < n; i++) {
@@ -252,14 +254,13 @@ get_binary_data_address_and_size(uintptr_t * address_p,
 	Elf64_Phdr * p_entry  = &(proghdr[i]);
 
 	if (p_entry->p_type == PT_LOAD) {
-	    uintptr_t start_addr = p_entry->p_vaddr;
-	    uintptr_t end_addr   = start_addr + p_entry->p_memsz;
+	    uintptr_t start_addr = PAGE_ALIGN_DOWN(p_entry->p_vaddr, page_size);
+	    uintptr_t end_addr   = PAGE_ALIGN_UP(p_entry->p_vaddr + p_entry->p_memsz, page_size);
 
 	    if (start_addr < min_address)
 		min_address = start_addr;
 
-	    if (end_addr > max_address)
-		max_address = end_addr;
+	    max_address = end_addr;
 	}
     }
 
@@ -278,6 +279,7 @@ get_binary_data_address_and_size(uintptr_t * address_p,
  */
 int
 hio_parse_elf_binary_data(char      * exe_path,
+			  uint64_t    page_size,
    		          uintptr_t * base_addr,
 		          uint64_t  * size)
 {
@@ -296,7 +298,7 @@ hio_parse_elf_binary_data(char      * exe_path,
 	return -1;
     }
 
-    if (!get_binary_data_address_and_size(base_addr, size)) {
+    if (!get_binary_data_address_and_size(page_size, base_addr, size)) {
 	err("Cannot parse ELF program headers\n");
 	fclose(thefile);
 	return -1;

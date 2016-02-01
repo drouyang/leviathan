@@ -26,7 +26,8 @@ extern hdb_db_t hobbes_master_db;
 
 
 hobbes_app_spec_t
-hobbes_build_app_spec(char        * name, 
+hobbes_build_app_spec(hobbes_id_t   app_id,
+		      char        * name, 
 		      char        * exe_path,
 		      char        * exe_argv,
 		      char        * envp,
@@ -36,12 +37,25 @@ hobbes_build_app_spec(char        * name,
 		      uint8_t       num_ranks,
 		      uint64_t      heap_size,
 		      uint64_t      stack_size,
-		      hobbes_id_t   app_id)
+		      uint8_t       use_prealloc_mem,
+		      uintptr_t     data_base_addr,
+		      uintptr_t     heap_base_addr,
+		      uintptr_t     stack_base_addr)
 {
     pet_xml_t   root_xml = NULL;
     char      * tmp_str  = NULL;
 
     root_xml = pet_xml_new_tree("app");
+
+    if (app_id == HOBBES_INVALID_ID) {
+	ERROR("Must specify a Hobbes app_id to build app spec\n");
+	free(tmp_str);
+	return NULL;
+    }
+
+    /* Set Hobbes app id */
+    asprintf(&tmp_str, "%u", app_id);
+    pet_xml_add_val(root_xml, "app_id", tmp_str);
 
     if ( exe_path == NULL ) {
 	ERROR("Must specify an executable to build app spec\n");
@@ -102,15 +116,18 @@ hobbes_build_app_spec(char        * name,
 	pet_xml_add_val(root_xml, "stack_size", tmp_str);
     }
 
-    /* Set Hobbes app id */
-    if (app_id == HOBBES_INVALID_ID) {
-	ERROR("Must specify a Hobbes app_id to build app spec\n");
-	free(tmp_str);
-	return NULL;
-    }
+    if ( use_prealloc_mem ) {
+	pet_xml_add_val(root_xml, "use_prealloc_mem", "1");
 
-    asprintf(&tmp_str, "%u", app_id);
-    pet_xml_add_val(root_xml, "app_id", tmp_str);
+	asprintf(&tmp_str, "%lu", data_base_addr);
+	pet_xml_add_val(root_xml, "data_base_addr", tmp_str);
+
+	asprintf(&tmp_str, "%lu", heap_base_addr);
+	pet_xml_add_val(root_xml, "heap_base_addr", tmp_str);
+
+	asprintf(&tmp_str, "%lu", stack_base_addr);
+	pet_xml_add_val(root_xml, "stack_base_addr", tmp_str);
+    } 
 
     free(tmp_str);
     return (hobbes_app_spec_t)root_xml;

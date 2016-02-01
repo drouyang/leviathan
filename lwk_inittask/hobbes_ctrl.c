@@ -87,7 +87,30 @@ __launch_app(hcq_handle_t hcq,
     return 0;
 }
 
+static int
+__kill_app(hcq_handle_t hcq,
+	   uint64_t     cmd)
+{
+    uint32_t      data_size = 0;
+    hobbes_id_t * hpid      = NULL;
 
+    int ret = -1;
+
+    hpid = hcq_get_cmd_data(hcq, cmd, &data_size);
+
+    if (hpid == NULL) {
+	ERROR("Could not read App spec\n");
+	goto out;
+    }
+
+    ret = kill_hobbes_lwk_app(*hpid);
+
+    printf("Returning from app kill (ret=%d)\n", ret);
+
+out:
+    hcq_cmd_return(hcq, cmd, ret, 0, NULL);
+    return 0;
+}
 
 
 
@@ -391,6 +414,7 @@ hobbes_init(void)
     printf("\t...done\n");
 
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
+    hobbes_register_cmd(HOBBES_CMD_APP_KILL,   __kill_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);
     hobbes_register_cmd(HOBBES_CMD_PING,       __ping);
     hobbes_register_cmd(HOBBES_CMD_ADD_CPU,    __add_cpu);

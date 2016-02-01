@@ -11,12 +11,16 @@
 
 extern int errno;
 
+/* 1 PML entry */
+#define SMARTMAP_ALIGN (1ULL << 39)
+
 
 /* 4KB:   Min LWK address */
 #define LWK_BASE_ADDR (1ULL << 12)
 
-/* 64 GB: Max LWK address */
-#define LWK_MAX_ADDR  (1ULL << 36)
+/* 512GB: Max LWK address is the end of the first PML entry */
+#define LWK_MAX_ADDR  SMARTMAP_ALIGN
+
 
 #define LWK_SIZE      (LWK_MAX_ADDR - LWK_BASE_ADDR)
 

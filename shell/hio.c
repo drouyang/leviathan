@@ -13,15 +13,9 @@
 
 #include "hio.h"
 
-
-#define PAGE_SIZE_4KB (1ULL << 12)
-
-#define PAGE_MASK(ps)			(~(ps - 1))
-#define PAGE_ALIGN_DOWN(addr, ps)	(addr & PAGE_MASK(ps))
-#define PAGE_ALIGN_UP(addr, ps)		((addr + (ps - 1)) & PAGE_MASK(ps))
-
-/* 64GB: stack base address */
-#define HIO_STACK_BASE	(1ULL << 36)		
+/* 512GB: stack base address */
+#define SMARTMAP_ALIGN  (1ULL << 39)
+#define HIO_STACK_BASE	SMARTMAP_ALIGN		
 
 
 /* HIO regions */
@@ -160,12 +154,14 @@ allocate_out:
     return -1;
 }
 
+
 static int
 hio_get_data_base_address_and_size(char      * exe_path,
+				   uint64_t    page_size,
 				   uintptr_t * data_va,
 				   uint64_t  * data_size)
 {
-    return hio_parse_elf_binary_data(exe_path, data_va, data_size);
+    return hio_parse_elf_binary_data(exe_path, page_size, data_va, data_size);
 }
 
 static void
@@ -174,6 +170,7 @@ hio_set_heap_base_address(uintptr_t   data_va,
 			  uint32_t    page_size,
 			  uintptr_t * heap_va)
 {
+    /* Kitten sets the heap at the first page aligned address after the LOAD segment */
     *heap_va = PAGE_ALIGN_UP(data_va + data_size, page_size);
 }
 
@@ -252,10 +249,14 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
 		    char	* hio_exe_path,
 		    char	* hio_argv,
 		    char	* hio_envp,
-		    int		  use_large_pages,
+		    uint64_t	  page_size,
+		    uint32_t	  numa_node,
 		    uint64_t	  heap_size,
 		    uint64_t	  stack_size,
-		    uint32_t	  numa_node)
+		    uint64_t    * data_size_p,
+		    uintptr_t   * data_pa_p,
+		    uintptr_t   * heap_pa_p,
+		    uintptr_t   * stack_pa_p)
 {
 
     uintptr_t data_va   = 0;
@@ -266,7 +267,6 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
     uintptr_t heap_pa   = 0;
     uintptr_t stack_pa  = 0;
 
-    uint32_t  page_size = 0;
     uint64_t  data_size = 0;
 
     void * data_local_va  = NULL;
@@ -280,25 +280,17 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
     hobbes_app_spec_t spec   = NULL;
     int               status = 0;
 
-    if (use_large_pages)
-	page_size = (1 << 21);
-    else
-	page_size = (1 << 12);
-
-
     /* (1) VA base addresses and sizes */
     {
 	/* Get data base address */
-	status = hio_get_data_base_address_and_size(exe_path, &data_va, &data_size);
+	status = hio_get_data_base_address_and_size(exe_path, page_size, &data_va, &data_size);
 	if (status) {
 	    ERROR("Could not parse binary data from %s\n", exe_path);
 	    return NULL;
 	}
 
-	/* Align sizes */
-	heap_size  = PAGE_ALIGN_UP(heap_size, page_size);
-	stack_size = PAGE_ALIGN_UP(stack_size, page_size);
-	data_size  = PAGE_ALIGN_UP(data_size, PAGE_SIZE_4KB);
+	/* Align size */
+	data_size  = PAGE_ALIGN_UP(data_size, page_size);
 
 	/* Set heap base address */
 	hio_set_heap_base_address(data_va, data_size, page_size, &heap_va);
@@ -356,12 +348,13 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
 		&stub_argv);
 
 	spec = hobbes_build_app_spec(
+		hio_app_id,
 		name,
 		hio_exe_path,
 		stub_argv,
 		hio_envp,
 		NULL, 0, 0, 1, 0, 0,
-		hio_app_id);
+		0, 0, 0, 0);
 
 	free(stub_argv);
 
@@ -412,6 +405,12 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
     hio_stack.size         = stack_size;
     hio_stack.local_va     = stack_local_va;
     hio_stack.segid        = stack_segid;
+
+    /* Output params */
+    *data_size_p = data_size;
+    *data_pa_p   = data_pa;
+    *heap_pa_p   = heap_pa;
+    *stack_pa_p  = stack_pa;
 
     return spec;
 

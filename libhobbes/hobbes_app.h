@@ -30,7 +30,8 @@ typedef enum {
 
 
 hobbes_app_spec_t
-hobbes_build_app_spec(char        * name, 
+hobbes_build_app_spec(hobbes_id_t   app_id,
+		      char        * name, 
 		      char        * exe_path,
 		      char        * exe_argv,
 		      char        * envp,
@@ -40,7 +41,10 @@ hobbes_build_app_spec(char        * name,
 		      uint8_t       num_ranks,
 		      uint64_t      heap_size,
 		      uint64_t      stack_size,
-		      hobbes_id_t   app_id);
+		      uint8_t	    use_prealloc_mem,
+		      uintptr_t     data_base_addr,
+		      uintptr_t     heap_base_addr,
+		      uintptr_t     stack_base_addr);
 
 void hobbes_free_app_spec(hobbes_app_spec_t spec);
 
