@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-
 #include <pet_log.h>
 #include <pet_xml.h>
 
@@ -25,11 +24,7 @@
 
 static hcq_handle_t hcq = HCQ_INVALID_HANDLE;
 
-static void hcq_exit( void ) {
-    printf("Freeing Hobbes Command Queue\n");
-    hcq_free_queue(hcq);
-}
-
+extern int exit_leviathan;
 
 static int 
 __handle_cmd(int    fd, 
@@ -63,6 +58,24 @@ hobbes_register_cmd(uint64_t        cmd,
     return hcq_register_cmd(hcq, cmd, handler_fn);
 }
 
+
+static int
+__shutdown(hcq_handle_t hcq,
+	   uint64_t     cmd)
+{
+    /* Shutdown Palacios */
+    if (palacios_enabled) {
+	v3_shutdown();
+    }
+
+    /* Return, then shutdown */
+    hcq_cmd_return(hcq, cmd, 0, 0, NULL);
+
+    /* Tell leviathan to exit */
+    exit_leviathan = 1;
+
+    return 0;
+}
 
 static int
 __launch_app(hcq_handle_t hcq, 
@@ -434,8 +447,6 @@ __hcq_init( void )
 	return hcq;
     }
 
-    atexit(hcq_exit);
-
     segid = hcq_get_segid(hcq);
 
     enclave_id = hobbes_get_my_enclave_id();
@@ -491,6 +502,7 @@ hobbes_init(void)
 	
     printf("\t...done\n");
 
+    hobbes_register_cmd(HOBBES_CMD_SHUTDOWN,   __shutdown);
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);
     hobbes_register_cmd(HOBBES_CMD_APP_KILL,   __kill_app);
     hobbes_register_cmd(HOBBES_CMD_LOAD_FILE,  __load_file);

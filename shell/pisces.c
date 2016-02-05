@@ -165,8 +165,6 @@ pisces_enclave_create(pet_xml_t   xml,
 	    }
 	}
 
-	printf("Launching Enclave\n");
-	
 	if (pisces_launch(pisces_id, numa_zone, boot_cpu, base_addr, mem_size, 1) != 0) {
 	    ERROR("Could not launch pisces enclave (%d)\n", pisces_id);
 	    ERROR("ERROR ERROR ERROR: We really need to implement this: pisces_free(pisces_id);\n");
@@ -176,8 +174,6 @@ pisces_enclave_create(pet_xml_t   xml,
 	    return -1;
 	}
 
-
-	printf("Launched\n");
 	/* Set the logical cpu id for the enclave */
 	hobbes_set_cpu_enclave_logical_id(boot_cpu, 0);
     }
@@ -367,12 +363,27 @@ pisces_enclave_destroy(hobbes_id_t enclave_id)
 
     char * name   = hdb_get_enclave_name(hobbes_master_db, enclave_id);
     int    dev_id = hdb_get_enclave_dev_id(hobbes_master_db, enclave_id);
+    int    ret    = 0;
 
-    if (pisces_teardown(dev_id, 0, 0) != 0) {
-	ERROR("Could not teardown pisces enclave (%s)\n", name);
-	return -1;
+    /* First, send hobbes shutdown */
+    ret = hobbes_shutdown_enclave(enclave_id);
+    if (ret == 0) {
+	/* Sleep for a second to let the enclave init_task teardown */
+	sleep(1);
+
+	/* Free enclave */
+	pisces_free(dev_id);
+    } else {
+	ERROR("Could not shutdown enclave (%s): force killing via Pisces legacy path\n", name);
+
+        /* Teardown and free */
+	if (pisces_teardown(dev_id, 0, 0) != 0) {
+	    ERROR("Could not teardown pisces enclave (%s)\n", name);
+	    return -1;
+	}
     }
 
+    /* Release enclave resources */
     hobbes_free_enclave_mem(enclave_id);
     hobbes_free_enclave_cpus(enclave_id);
 

@@ -2,26 +2,26 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/reboot.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
-#include <lwk/liblwk.h>
 #include <arch/types.h>
-#include <lwk/pmem.h>
-#include <lwk/smp.h>
 #include <sys/ioctl.h>
 #include <pthread.h>
 #include <poll.h>
 #include <assert.h>
-
-
 #include <stdint.h>
+
+#include <lwk/liblwk.h>
+#include <lwk/pmem.h>
+#include <lwk/smp.h>
+
 
 #include <pet_log.h>
 #include <pet_hashtable.h>
 
 #include <v3vee.h>
-
 #include <hobbes.h>
 #include <xemem.h>
 #include <hobbes_enclave.h>
@@ -38,10 +38,14 @@
 cpu_set_t   enclave_cpus;
 char      * enclave_name =  NULL; 
 
+int exit_leviathan = 0;
+
 
 static struct hashtable * handler_table = NULL;
 static struct pollfd    * handler_fds   = NULL;
 static uint32_t           handler_cnt   = 0;
+
+
 
 static int update_poll_fds( void );
 
@@ -134,7 +138,7 @@ main(int argc, char ** argv, char * envp[])
 
     /* Command Loop */
     printf("Entering Command Loop\n");
-    while (1) {
+    while (exit_leviathan == 0) {
 	int      ret  = 0;
 	uint32_t i    = 0;
 
@@ -172,8 +176,12 @@ main(int argc, char ** argv, char * envp[])
 	    }
 	}
     }
-    
-    
+
+    hobbes_exit();
+
+    /* Shutdown the enclave */
+    reboot(RB_HALT_SYSTEM);
+
     return 0;
 }
 		

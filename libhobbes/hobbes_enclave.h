@@ -57,6 +57,8 @@ hcq_handle_t    hobbes_open_enclave_cmdq(hobbes_id_t enclave_id);
 void            hobbes_close_enclave_cmdq(hcq_handle_t hcq);
 int             hobbes_register_enclave_cmdq(hobbes_id_t enclave_id, xemem_segid_t segid);
 
+int             hobbes_shutdown_enclave(hobbes_id_t enclave_id);
+
 struct enclave_info {
     hobbes_id_t id;
 

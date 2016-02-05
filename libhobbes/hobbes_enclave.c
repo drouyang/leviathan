@@ -219,6 +219,42 @@ hobbes_register_enclave_cmdq(hobbes_id_t   enclave_id,
 }
 
 
+int
+hobbes_shutdown_enclave(hobbes_id_t enclave_id)
+{
+    hcq_handle_t hcq = HCQ_INVALID_HANDLE;
+    hcq_cmd_t    cmd = HCQ_INVALID_CMD;
+
+    uint32_t  ret_size = 0;
+    uint8_t * ret_data = NULL;
+    int            ret = -1;
+
+    hcq = hobbes_open_enclave_cmdq(enclave_id);
+    if (hcq == HCQ_INVALID_HANDLE) {
+	ERROR("Could not connect to enclave's command queue\n");
+	goto out;
+    }
+
+    cmd = hcq_cmd_issue(hcq, HOBBES_CMD_SHUTDOWN, 0, NULL);
+    if (cmd == HCQ_INVALID_CMD) {
+	ERROR("Error issuing shutdown command\n");
+	goto out;
+    }
+
+    ret = hcq_get_ret_code(hcq, cmd);
+    if (ret != 0) {
+	ret_data = hcq_get_ret_data(hcq, cmd, &ret_size);
+	ERROR("Error shutting down enclave (%s) [ret=%d]\n", ret_data, ret);
+	goto out;
+    }
+
+out:
+    if (cmd != HCQ_INVALID_CMD)	   hcq_cmd_complete(hcq, cmd);
+    if (hcq != HCQ_INVALID_HANDLE) hobbes_close_enclave_cmdq(hcq);;
+
+    return ret;
+}
+
 struct enclave_info * 
 hobbes_get_enclave_list(uint32_t * num_enclaves)
 {

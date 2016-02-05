@@ -582,8 +582,11 @@ __app_stub(hobbes_id_t enclave_id)
 	if (app_exited || hio_exited) {
 	    if (app_exited) {
 		printf("App exited (state=%s)\n"
-			"Tearing down HIO stub and exiting\n",
-			app_state_to_str(hobbes_get_app_state(app_id)));
+			"%s\n",
+			app_state_to_str(hobbes_get_app_state(app_id)),
+			hio_app_id == HOBBES_INVALID_ID ?
+				"exiting app_launch" :
+				"tearing down HIO stub and exiting app_launch");
 	    } else {
 		printf("HIO stub exited (state=%s)\n"
 			"Tearing down app and exiting because the HIO behavior is now undefined\n",
