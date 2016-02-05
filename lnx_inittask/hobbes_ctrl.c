@@ -18,6 +18,7 @@
 #include <v3vee.h>
 
 #include "init.h"
+#include "hobbes_system.h"
 #include "hobbes_ctrl.h"
 #include "lnx_app.h"
 #include "file_io.h"
@@ -193,6 +194,9 @@ __add_cpu(hcq_handle_t hcq,
 
 	ret = 0;
     }
+
+    /* Finally, update the internal db state */
+    hobbes_set_cpu_enclave_logical_id(cpu_id, cpu_id);
 
  out:
     if (err_str) ERROR("%s\n", err_str);

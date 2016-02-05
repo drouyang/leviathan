@@ -49,7 +49,8 @@ hdb_register_cpu(hdb_db_t    db,
 		 uint32_t    apic_id,
 		 uint32_t    numa_node,
 		 cpu_state_t state,
-		 hobbes_id_t enclave_id);
+		 hobbes_id_t enclave_id,
+		 uint32_t    enclave_logical_id);
 
 
 uint32_t
@@ -69,11 +70,19 @@ hdb_get_cpu_enclave_id(hdb_db_t db,
 		       uint32_t cpu_id);
 
 uint32_t 
+hdb_get_cpu_enclave_logical_id(hdb_db_t db,
+			       uint32_t cpu_id);
+
+int
+hdb_set_cpu_enclave_logical_id(hdb_db_t db,
+			       uint32_t cpu_id,
+			       uint32_t enclave_logical_id);
+
+uint32_t 
 hdb_alloc_cpu(hdb_db_t    db,
 	      uint32_t    cpu_id,
 	      uint32_t    numa_node,
 	      hobbes_id_t enclave_id); 
-
 
 int 
 hdb_free_cpu(hdb_db_t db,

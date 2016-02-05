@@ -24,6 +24,7 @@
 #include "pisces_ctrl.h"
 #include "palacios.h"
 #include "app_launch.h"
+#include "hobbes_system.h"
 
 static struct hashtable * pisces_cmd_handlers = NULL;
 
@@ -160,6 +161,11 @@ __add_cpu(int      pisces_fd,
 	if (issue_v3_cmd(V3_ADD_CPU, (uintptr_t)logical_cpu) == -1) {
 	    ERROR("Error: Could not add CPU to Palacios\n");
 	}
+    }
+
+    /* TODO: Move this hack into hobbes_ctrl.c one cpu assignment moves to Hobbes */
+    if (hobbes_enabled) {
+	hobbes_set_cpu_enclave_logical_id(cpu_cmd.phys_cpu_id, logical_cpu);
     }
 			    
     CPU_SET(logical_cpu, &enclave_cpus);

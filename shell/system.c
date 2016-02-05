@@ -105,20 +105,21 @@ list_cpus_main(int argc, char ** argv)
 	return 0;
     }
 
-    printf("------------------------------------------------------\n");
-    printf("| CPU ID |  APIC ID | State      | Numa | Enclave ID |\n");
-    printf("------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------\n");
+    printf("| CPU ID |  APIC ID | State      | Numa | Enclave ID | Logical ID |\n");
+    printf("-------------------------------------------------------------------\n");
 
     for (i = 0; i < num_cpus; i++) {
-	printf("| %-*u | %-*u | %-*s | %-*d | %-*d |\n",
+	printf("| %-*u | %-*u | %-*s | %-*d | %-*d | %-*d |\n",
                6,  cpu_arr[i].cpu_id,
                7,  cpu_arr[i].apic_id,
 	       11, cpu_state_to_str(cpu_arr[i].state),
 	       4,  cpu_arr[i].numa_node,
-               10, cpu_arr[i].enclave_id);
+               10, cpu_arr[i].enclave_id,
+	       10, cpu_arr[i].enclave_logical_id);
     }
 
-    printf("------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------\n");
     
     free(cpu_arr);
 

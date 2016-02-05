@@ -12,6 +12,7 @@
 #include <pet_xml.h>
 
 #include "hobbes.h"
+#include "hobbes_system.h"
 #include "hobbes_db.h"
 #include "hobbes_util.h"
 #include "pisces.h"
@@ -177,6 +178,8 @@ pisces_enclave_create(pet_xml_t   xml,
 
 
 	printf("Launched\n");
+	/* Set the logical cpu id for the enclave */
+	hobbes_set_cpu_enclave_logical_id(boot_cpu, 0);
     }
 
     /* Wait for 2 seconds for enclave userspace to initialize

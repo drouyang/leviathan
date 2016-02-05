@@ -249,12 +249,13 @@ hobbes_get_cpu_list(uint32_t * num_cpus)
     cpu_arr = calloc(sizeof(struct hobbes_cpu_info), cpu_cnt);
 
     for (i = 0; i < cpu_cnt; i++) {
-	cpu_arr[i].cpu_id    = id_arr[i];
+	cpu_arr[i].cpu_id	      = id_arr[i];
 
-	cpu_arr[i].apic_id    = hdb_get_cpu_apic_id    ( hobbes_master_db, id_arr[i] );
-	cpu_arr[i].numa_node  = hdb_get_cpu_numa_node  ( hobbes_master_db, id_arr[i] );
-	cpu_arr[i].state      = hdb_get_cpu_state      ( hobbes_master_db, id_arr[i] );
-	cpu_arr[i].enclave_id = hdb_get_cpu_enclave_id ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].apic_id	      = hdb_get_cpu_apic_id	       ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].numa_node	      = hdb_get_cpu_numa_node	       ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].state	      = hdb_get_cpu_state	       ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].enclave_id	      = hdb_get_cpu_enclave_id	       ( hobbes_master_db, id_arr[i] );
+	cpu_arr[i].enclave_logical_id = hdb_get_cpu_enclave_logical_id ( hobbes_master_db, id_arr[i] );
     }
 
     free(id_arr);
@@ -266,6 +267,13 @@ uint32_t
 hobbes_get_cpu_apic_id(uint32_t cpu_id)
 {
     return hdb_get_cpu_apic_id(hobbes_master_db, cpu_id);
+}
+
+int
+hobbes_set_cpu_enclave_logical_id(uint32_t cpu_id,
+				  uint32_t logical_id)
+{
+    return hdb_set_cpu_enclave_logical_id(hobbes_master_db, cpu_id, logical_id);
 }
 
 

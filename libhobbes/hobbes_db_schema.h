@@ -113,6 +113,7 @@ extern "C" {
 #define HDB_CPU_NUMA_NODE             3
 #define HDB_CPU_STATE                 4
 #define HDB_CPU_ENCLAVE_ID            5
+#define HDB_CPU_ENCLAVE_LOGICAL_ID    6
 
 /* Columns notification events */
 #define HDB_NOTIF_SEGID               1

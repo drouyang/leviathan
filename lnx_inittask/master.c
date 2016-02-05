@@ -722,6 +722,7 @@ populate_system_info(hdb_db_t db)
 	for (i = 0; i < num_cpus; i++) {
 	    cpu_state_t state      = CPU_INVALID;
 	    hobbes_id_t enclave_id = HOBBES_INVALID_ID;
+	    uint32_t    logical_id = HOBBES_INVALID_CPU_ID;
 
 
 	    switch (cpu_arr[i].state) {
@@ -744,6 +745,7 @@ populate_system_info(hdb_db_t db)
 		case PET_CPU_RSVD:
 		    state      = CPU_ALLOCATED;
 		    enclave_id = HOBBES_MASTER_ENCLAVE_ID;
+		    logical_id = cpu_arr[i].cpu_id;
 		    break;
 		case PET_CPU_OFFLINE:
 		case PET_CPU_INVALID:
@@ -752,7 +754,13 @@ populate_system_info(hdb_db_t db)
 		    break;
 	    }
 	    
-	    ret = hdb_register_cpu(db, cpu_arr[i].cpu_id, cpu_arr[i].apic_id, cpu_arr[i].numa_node, state, enclave_id);
+	    ret = hdb_register_cpu(db, 
+			cpu_arr[i].cpu_id, 
+			cpu_arr[i].apic_id, 
+			cpu_arr[i].numa_node, 
+			state, 
+			enclave_id,
+			logical_id); /* Logical id = cpu id in the master */
 	    
 	    if (ret == -1) {
 		ERROR("Error registering CPU with database\n");
