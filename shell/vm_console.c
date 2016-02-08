@@ -138,7 +138,7 @@ struct hobbes_vm_cons {
 
 
 
-#define RING_BUF_PAGES 16
+#define RING_BUF_PAGES 512
 #define RING_BUF_SIZE  RING_BUF_PAGES * PAGE_SIZE
 
 static int cont = 1;
@@ -973,8 +973,6 @@ vm_pisces_enclave_console(hobbes_id_t enclave_id,
 	ERROR("Could not XEMEM_ATTACH ring buffer\n");
 	goto out_xemem_attach;
     }
-
-    printf("RBUF TOTAL ENTRIES: %d\n", cons->ring_buf->total_entries);
 
     /* Catch sigint */
     signal(SIGINT, handle_pisces_sigint);
