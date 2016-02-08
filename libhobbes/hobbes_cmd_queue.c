@@ -280,7 +280,7 @@ hcq_connect(xemem_segid_t segid)
 
     struct xemem_addr addr;
     
-    printf("HCQ SEGID = %ld\n", segid);
+//    printf("HCQ SEGID = %ld\n", segid);
 
     client_segid = xemem_make_signalled(NULL, 0, NULL, &client_fd);
     
@@ -887,7 +887,7 @@ __cmd_return(struct cmd_queue * cq,
 	segid = wg_decode_int(db, wg_get_field(db, cmd_rec, HCQ_CMD_FIELD_SEGID));
 	
 	if (segid > 0) {
-	    printf("Sending signal to client segid (%lu)\n", segid);
+	    //printf("Sending signal to client segid (%lu)\n", segid);
 	    xemem_signal_segid(segid);
 	}
     }
