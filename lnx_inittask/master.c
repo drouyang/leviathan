@@ -50,7 +50,6 @@ static void usage(char * exec_name) {
 
 int master_init(int argc, char ** argv) {
 
-    static int numa_zone_is_set = 0;
     static int cpu_list_is_set  = 0;
     static int cpu_str_is_set   = 0;
     static int mem_str_is_set   = 0;
@@ -79,10 +78,10 @@ int master_init(int argc, char ** argv) {
 	int  opt_index = 0;
 
 	static struct option long_options[] = {
-	    {"cpu",      required_argument, &cpu_str_is_set,   'c'},
-	    {"numa",     required_argument, &numa_zone_is_set, 'n'},
-	    {"cpulist",  required_argument, &cpu_list_is_set,   1 },
-	    {"mem",      required_argument, &mem_str_is_set,   'm'},
+	    {"cpu",      required_argument, NULL,		'c'},
+	    {"numa",     required_argument, NULL,		'n'},
+	    {"cpulist",  required_argument, &cpu_list_is_set,    1 },
+	    {"mem",      required_argument, NULL,		'm'},
 	    {0, 0, 0, 0}
 	};
 
@@ -95,6 +94,8 @@ int master_init(int argc, char ** argv) {
 			ERROR("Invalid CPU argument (%s)\n", optarg);
 			usage(argv[0]);
 		    }
+
+		    cpu_str_is_set = 1;
 
 		    break;
 		case 'n':
@@ -114,6 +115,8 @@ int master_init(int argc, char ** argv) {
 			usage(argv[0]);
 		    }
 
+		    mem_str_is_set = 1;
+
 		    break;
 		case 0: {
 		    switch (opt_index) {
@@ -131,7 +134,6 @@ int master_init(int argc, char ** argv) {
 	}
 
     }
-
 
 
     if ((cpu_list_is_set != 0) && 
