@@ -846,8 +846,8 @@ vm_pisces_handle(int    cons_fd,
     assert(notifications >= 0);
 
     /* Clear the rest */
-    while (notifications-- > 0)
-	assert(xemem_ack(cons_fd) >= 0);
+    if (notifications > 0) 
+	xemem_ack_all(cons_fd);
 
     /* Process all that's there */
     while (1) {

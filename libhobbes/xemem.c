@@ -213,6 +213,17 @@ xemem_ack(int fd)
     return ret;
 }
 
+int 
+xemem_ack_all(int fd)
+{
+    int ret = 0;
+
+    /* Do we need to do any DB updates? */
+
+    ret = xpmem_ack_all(fd);
+
+    return ret;
+}
 
 
 void *

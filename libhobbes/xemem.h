@@ -81,6 +81,7 @@ int xemem_signal(xemem_apid_t apid);
 int xemem_signal_segid(xemem_segid_t segid);
 
 int xemem_ack(int fd);
+int xemem_ack_all(int fd);
 
 struct xemem_addr {
     xemem_apid_t apid;    /* apid that represents memory */
