@@ -215,6 +215,9 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 	goto out;
     }
 
+    /* Close vm interface */
+    close(vm_id);
+
 
  out:
     if (err_str) ERROR("%s\n", err_str);

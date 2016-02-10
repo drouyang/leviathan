@@ -343,6 +343,8 @@ __free_vm_memory(hobbes_id_t enclave_id,
 	}
     }
 
+    free(info_arr);
+
     return 0;
 }
 
