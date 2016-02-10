@@ -1882,16 +1882,19 @@ hdb_get_mem_numa_node(hdb_db_t  db,
 
 
 static uintptr_t *
-__get_mem_blocks(hdb_db_t   db,
-		 uint64_t * num_blks)
+__get_mem_blocks(hdb_db_t    db,
+	         hobbes_id_t enclave_id,
+		 uint64_t  * num_blks)
 {
-    uintptr_t * addr_arr = NULL;
-    void      * db_rec   = NULL;
-    uint64_t    cnt      = 0;
-    uint64_t    i        = 0;
+    uintptr_t * addr_arr   = NULL;
+    void      * db_rec     = NULL;
+    uint64_t    cnt        = 0;
+    uint64_t    enc_cnt    = 0;
+    uint64_t    i          = 0;
+    hobbes_id_t blk_enc_id = HOBBES_INVALID_ID;
 
     cnt       = __get_sys_blk_cnt(db);
-    *num_blks = cnt;
+    *num_blks = 0;
 
     if ((cnt == 0) || (cnt == (uint64_t)-1)) {
 	return NULL;
@@ -1908,20 +1911,29 @@ __get_mem_blocks(hdb_db_t   db,
 	    break;
 	}
 
-	addr_arr[i] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_MEM_BASE_ADDR));
+	blk_enc_id = wg_decode_int(db, wg_get_field(db, db_rec, HDB_MEM_ENCLAVE_ID));
+
+	if ((enclave_id != HOBBES_INVALID_ID) &&
+	    (enclave_id != blk_enc_id))
+	    continue;
+
+	addr_arr[enc_cnt++] = wg_decode_int(db, wg_get_field(db, db_rec, HDB_MEM_BASE_ADDR));
     }
+
+    *num_blks = enc_cnt;
 
     return addr_arr;
 }
 
-uintptr_t * 
-hdb_get_mem_blocks(hdb_db_t   db,
-		   uint64_t * num_blks)
+static uintptr_t *
+__hdb_get_mem_blocks(hdb_db_t    db,
+		     hobbes_id_t enclave_id,
+		     uint64_t  * num_blks)
 {
     uintptr_t * addr_arr = NULL;
     wg_int      lock_id;
 
-   if (!num_blks) {
+    if (!num_blks) {
 	return NULL;
     }
 
@@ -1932,7 +1944,7 @@ hdb_get_mem_blocks(hdb_db_t   db,
 	return NULL;
     }
 
-    addr_arr = __get_mem_blocks(db, num_blks);
+    addr_arr = __get_mem_blocks(db, enclave_id, num_blks);
 
     if (!wg_end_read(db, lock_id)) {
 	ERROR("Catastrophic database locking error\n");
@@ -1940,6 +1952,21 @@ hdb_get_mem_blocks(hdb_db_t   db,
     }
 
     return addr_arr;
+}
+
+uintptr_t * 
+hdb_get_mem_blocks(hdb_db_t   db,
+		   uint64_t * num_blks)
+{
+    return __hdb_get_mem_blocks(db, HOBBES_INVALID_ID, num_blks);
+}
+
+uintptr_t *
+hdb_get_enclave_mem_blocks(hdb_db_t    db,
+			   hobbes_id_t enclave_id,
+			   uint64_t  * num_blks)
+{
+    return __hdb_get_mem_blocks(db, enclave_id, num_blks);
 }
 
 

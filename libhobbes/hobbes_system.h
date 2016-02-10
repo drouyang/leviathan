@@ -156,6 +156,10 @@ struct hobbes_cpu_info {
 struct hobbes_memory_info * 
 hobbes_get_memory_list(uint64_t * num_mem_blks);
 
+struct hobbes_memory_info *
+hobbes_get_enclave_memory_list(hobbes_id_t enclave_id,
+			       uint64_t  * num_mem_blks);
+
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(uint32_t * num_cpus);
 

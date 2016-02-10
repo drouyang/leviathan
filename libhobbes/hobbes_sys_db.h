@@ -164,6 +164,11 @@ uintptr_t *
 hdb_get_mem_blocks(hdb_db_t   db,
 		   uint64_t * num_blks);
 
+uintptr_t * 
+hdb_get_enclave_mem_blocks(hdb_db_t    db,
+		           hobbes_id_t enclave_id,
+		           uint64_t  * num_blks);
+
 
 
 /* Debugging */

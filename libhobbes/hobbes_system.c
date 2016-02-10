@@ -190,9 +190,9 @@ hobbes_free_enclave_cpus(hobbes_id_t enclave_id)
 }
 
 
-
-struct hobbes_memory_info * 
-hobbes_get_memory_list(uint64_t * num_mem_blks)
+static struct hobbes_memory_info *
+__get_memory_list(hobbes_id_t  enclave_id,
+		  uint64_t   * num_mem_blks)
 {
     struct hobbes_memory_info * blk_arr  = NULL;
     uint64_t                  * addr_arr = NULL;
@@ -200,7 +200,10 @@ hobbes_get_memory_list(uint64_t * num_mem_blks)
     uint64_t blk_cnt = 0;
     uint64_t i       = 0;
 
-    addr_arr = hdb_get_mem_blocks(hobbes_master_db, &blk_cnt);
+    if (enclave_id == HOBBES_INVALID_ID)
+	addr_arr = hdb_get_mem_blocks(hobbes_master_db, &blk_cnt);
+    else
+	addr_arr = hdb_get_enclave_mem_blocks(hobbes_master_db, enclave_id, &blk_cnt);
 
     if (addr_arr == NULL) {
 	ERROR("Could not retrieve memory block list\n");
@@ -225,9 +228,22 @@ hobbes_get_memory_list(uint64_t * num_mem_blks)
     *num_mem_blks = blk_cnt;
 
     return blk_arr;
+
+}
+
+struct hobbes_memory_info * 
+hobbes_get_memory_list(uint64_t * num_mem_blks)
+{
+    return __get_memory_list(HOBBES_INVALID_ID, num_mem_blks);
 }
 
 
+struct hobbes_memory_info *
+hobbes_get_enclave_memory_list(hobbes_id_t enclave_id,
+			       uint64_t  * num_mem_blks)
+{
+    return __get_memory_list(enclave_id, num_mem_blks);
+}
 
 struct hobbes_cpu_info *
 hobbes_get_cpu_list(uint32_t * num_cpus)
