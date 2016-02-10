@@ -550,27 +550,23 @@ __create_vm(pet_xml_t   xml,
 	err_str = hcq_get_ret_data(hcq, cmd, &err_len);
 
 	if (err_len > 0) {
-	    printf("%s\n", err_str);
+	    ERROR("%s\n", err_str);
 	}
 
 	hcq_cmd_complete(hcq, cmd);
 	hobbes_close_enclave_cmdq(hcq);
-    }
 
+	if (ret != 0)
+	    goto err2;
 
-
-    {
 	hnotif_signal(HNOTIF_EVT_ENCLAVE);
     }
 
-
-
     return ret;
-
 
 err2:
     /* Deallocate memory */
-    hobbes_free_enclave_mem(enclave_id);
+    __free_vm_memory(enclave_id, host_enclave_id);
 
 err1:
     /* Remove enclave from the database */
