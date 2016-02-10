@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <assert.h>
+#include <time.h>
 
 
 #include <hobbes.h>
@@ -250,6 +251,8 @@ __hobbes_destroy_vm(hcq_handle_t hcq,
 	goto out;
     }
 
+    /* Close vm interface */
+    close(vm_id);
 
  out:
     if (err_str) ERROR("%s\n", err_str);
@@ -428,8 +431,18 @@ __hobbes_cons_event(int    fd,
     /* We don't actually read anything - just kick the reader side which maps the console
      * directly
      */
-
     xemem_signal(state->kick_apid);
+
+    /* Sleep for 10ms to prevent flooding the Linux side with interrupts */
+    {
+	struct timespec ts;
+
+	ts.tv_sec  = 0;
+	ts.tv_nsec = (10 * 1000 * 1000);
+
+	nanosleep(&ts, NULL);
+    }
+
     return 0;
 }
 

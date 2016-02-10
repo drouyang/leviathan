@@ -102,7 +102,6 @@ create_vm_main(int argc, char ** argv)
 
 }
 
-
 static int
 __allocate_vm_memory(hobbes_id_t enclave_id, 
 		     hobbes_id_t host_enclave_id,
@@ -302,6 +301,51 @@ __allocate_vm_memory(hobbes_id_t enclave_id,
 
     return -1;
 }
+
+static int
+__free_vm_memory(hobbes_id_t enclave_id,
+		 hobbes_id_t host_enclave_id)
+{
+    struct hobbes_memory_info * info_arr = NULL;
+    uint64_t                    num_blks = 0;
+    uint64_t                    i        = 0;
+    int                         status   = 0;
+    
+    info_arr = hobbes_get_enclave_memory_list(enclave_id, &num_blks);
+    if (info_arr == NULL) {
+	ERROR("Cannot get VM memory list: cannot remove memory from the VM host enclave\n");
+	return -1;
+    }
+
+    for (i = 0; i < num_blks; i++) {
+	uintptr_t base_addr = info_arr[i].base_addr;
+	uint64_t  size      = info_arr[i].size_in_bytes;
+
+	/* Remove memory from the host */
+	status = hobbes_remove_memory(
+		host_enclave_id,
+		base_addr,
+		size,
+		true);
+
+	if (status != 0) {
+	    ERROR("Cannot remove memory block [%p, %p) from VM host enclave\n",
+		(void *)base_addr, (void *)(base_addr + size));
+	    continue;
+	}
+
+        /* Remove from DB */
+	status = hobbes_free_mem(base_addr, size);
+
+	if (status != 0) {
+	    ERROR("Cannot free mem block [%p, %p)\n",
+		(void *)base_addr, (void *)(base_addr + size));
+	}
+    }
+
+    return 0;
+}
+
 
 
 static int 
@@ -601,7 +645,7 @@ hobbes_destroy_vm(hobbes_id_t enclave_id)
     hobbes_close_enclave_cmdq(hcq);
 
     /* Free memory */
-    hobbes_free_enclave_mem(enclave_id);
+    __free_vm_memory(enclave_id, host_enclave_id);
     
     if (ret == 0) {
 	/* Remove enclave from the database */
