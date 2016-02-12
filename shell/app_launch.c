@@ -23,22 +23,25 @@
 #include "hio.h"
 
 
-#define DEFAULT_NUM_RANKS       1
-#define DEFAULT_CPU_LIST        NULL
-#define DEFAULT_USE_LARGE_PAGES 0
-#define DEFAULT_USE_SMARTMAP    0
-#define DEFAULT_HEAP_SIZE       (16 * 1024 * 1024)
-#define DEFAULT_STACK_SIZE      (256 * 1024)
-#define DEFAULT_ENVP            ""
+#define DEFAULT_NUM_RANKS	1
+#define DEFAULT_CPU_LIST	NULL
+#define DEFAULT_USE_LARGE_PAGES	0
+#define DEFAULT_USE_SMARTMAP	0
+#define DEFAULT_PREALLOC_MEM	1
+#define DEFAULT_PREALLOC_NUMA	0
+#define DEFAULT_HEAP_SIZE	(16 * 1024 * 1024)
+#define DEFAULT_STACK_SIZE	(256 * 1024)
+#define DEFAULT_ENVP		""
 #define DEFAULT_HIO_ARGV	NULL
 #define DEFAULT_HIO_ENVP	NULL
 #define DEFAULT_HIO_ENCLAVE	"master"
-#define DEFAULT_HIO_NUMA_NODE   0
 
 static unsigned int         num_ranks        = DEFAULT_NUM_RANKS;
 static char               * cpu_list         = DEFAULT_CPU_LIST;
 static unsigned char        use_large_pages  = DEFAULT_USE_LARGE_PAGES;
 static unsigned char        use_smartmap     = DEFAULT_USE_SMARTMAP;
+static unsigned char        prealloc_mem     = DEFAULT_PREALLOC_MEM;
+static unsigned int	    prealloc_numa    = DEFAULT_PREALLOC_NUMA;
 static unsigned long long   heap_size        = DEFAULT_HEAP_SIZE;
 static unsigned long long   stack_size       = DEFAULT_STACK_SIZE;
 static char               * name             = NULL;
@@ -49,22 +52,22 @@ static char		  * hio_exe_path     = NULL;
 static char		  * hio_exe_argv     = DEFAULT_HIO_ARGV;
 static char		  * hio_envp         = DEFAULT_HIO_ENVP;
 static char		  * hio_enclave	     = DEFAULT_HIO_ENCLAVE;
-static unsigned int	    hio_numa	     = DEFAULT_HIO_NUMA_NODE;
 
-static int cmd_line_np          = 0;
-static int cmd_line_cpu_list    = 0;
-static int cmd_line_large_pages = 0;
-static int cmd_line_smartmap    = 0;
-static int cmd_line_heap_size   = 0;
-static int cmd_line_stack_size  = 0;
-static int cmd_line_name        = 0;
-static int cmd_line_envp        = 0;
-static int cmd_line_exe         = 1;
-static int cmd_line_hio		= 0;
-static int cmd_line_hio_args	= 0;
-static int cmd_line_hio_envp	= 0;
-static int cmd_line_hio_enclave	= 0;
-static int cmd_line_hio_numa	= 0;
+static int cmd_line_np            = 0;
+static int cmd_line_cpu_list      = 0;
+static int cmd_line_large_pages   = 0;
+static int cmd_line_smartmap      = 0;
+static int cmd_line_prealloc_mem  = 0;
+static int cmd_line_prealloc_numa = 0;
+static int cmd_line_heap_size     = 0;
+static int cmd_line_stack_size    = 0;
+static int cmd_line_name          = 0;
+static int cmd_line_envp          = 0;
+static int cmd_line_exe           = 1;
+static int cmd_line_hio 	  = 0;
+static int cmd_line_hio_args	  = 0;
+static int cmd_line_hio_envp	  = 0;
+static int cmd_line_hio_enclave	  = 0;
 
 
 static int terminate = 0;
@@ -74,19 +77,20 @@ static void usage() {
 	   " Launches an application as specified in command line options or in a job_file.\n\n"           \
 	   "Usage: launch_app <enclave_name> [options] <-f job_file | exe args...>\n"                      \
 	   " Options: \n"						                                   \
-	   "\t[-np <ranks>]                  (default: 1)        : Number of ranks  \n"                     \
-	   "\t[--cpulist=<cpus>]             (default: 0,1,2...) : comma separated list of target CPUs \n"  \
-	   "\t[--use_large_pages]            (default: n)        : Use large pages  \n"                     \
-	   "\t[--use-smartmap]               (default: n)        : Use smartmap     \n"                     \
+	   "\t[-np <ranks>]                  (default: 1)        : Number of ranks  \n"                    \
+	   "\t[--cpulist=<cpus>]             (default: 0,1,2...) : comma separated list of target CPUs \n" \
+	   "\t[--use_large_pages]            (default: n)        : Use large pages  \n"                    \
+	   "\t[--use-smartmap]               (default: n)        : Use smartmap     \n"                    \
+	   "\t[--no-prealloc-mem]            (default: n)        : Allocate memory from target enclave instead of the shell \n" \
+	   "\t[--prealloc-numa]              (default: 0)        : NUMA node for memory preallocation \n"  \
 	   "\t[--heap_size=<size in MB>]     (default: 16MB)     : Heap size in MB  \n"            	   \
-	   "\t[--stack_size=<size in MB>]    (default: 256KB)    : Stack size in MB \n" 		           \
+	   "\t[--stack_size=<size in MB>]    (default: 256KB)    : Stack size in MB \n" 		   \
 	   "\t[--name=<name>]                (default: exe name) : Name of Job      \n"		           \
 	   "\t[--envp=<envp>]                (default: NULL)     : ENVP string      \n"		           \
 	   "\t[--with-hio=<stub exe>]        (default: NULL)     : Launch HIO stub for the app\n"	   \
 	   "\t[--with-hio-args=<args>]       (default: NULL)     : Argument string for HIO stub\n"	   \
 	   "\t[--with-hio-envp=<envp>]	     (default: NULL)	 : ENVP string for HIO stub\n"		   \
 	   "\t[--with-hio-enclave=<enclave>] (default: master)   : Enclave to launch HIO stub in\n"	   \
-	   "\t[--with-hio-numa=<numa node>]  (default: 0)        : NUMA node for HIO memory allocation\n"  \
 	   );
     
     exit(-1);
@@ -108,19 +112,20 @@ int launch_app_main(int argc, char ** argv) {
 	opterr = 1;
 
 	static struct option long_options[] = {
-	    {"np",               required_argument, &cmd_line_np,          1},
-	    {"cpulist",          required_argument, &cmd_line_cpu_list,    1},
-	    {"use-large-pages",  no_argument,       &cmd_line_large_pages, 1},
-	    {"use-smartmap",     no_argument,       &cmd_line_smartmap,    1},
-	    {"heap_size",        required_argument, &cmd_line_heap_size,   1},
-	    {"stack_size",       required_argument, &cmd_line_stack_size,  1},
-	    {"name",             required_argument, &cmd_line_name,        1},
-	    {"envp",             required_argument, &cmd_line_envp,        1},
-	    {"with-hio",	 required_argument, &cmd_line_hio,	   1},
-	    {"with-hio-args",	 required_argument, &cmd_line_hio_args,	   1},
-	    {"with-hio-envp",	 required_argument, &cmd_line_hio_envp,	   1},
-	    {"with-hio-enclave", required_argument, &cmd_line_hio_enclave, 1},
-	    {"with-hio-numa",    required_argument, &cmd_line_hio_numa,	   1},
+	    {"np",               required_argument, &cmd_line_np,		1},
+	    {"cpulist",          required_argument, &cmd_line_cpu_list,		1},
+	    {"use-large-pages",  no_argument,       &cmd_line_large_pages,	1},
+	    {"use-smartmap",     no_argument,       &cmd_line_smartmap,		1},
+	    {"no-prealloc-mem",  no_argument,       &cmd_line_prealloc_mem,	1},
+	    {"prealloc-numa",    required_argument, &cmd_line_prealloc_numa,	1},
+	    {"heap_size",        required_argument, &cmd_line_heap_size,	1},
+	    {"stack_size",       required_argument, &cmd_line_stack_size,	1},
+	    {"name",             required_argument, &cmd_line_name,		1},
+	    {"envp",             required_argument, &cmd_line_envp,		1},
+	    {"with-hio",	 required_argument, &cmd_line_hio,		1},
+	    {"with-hio-args",	 required_argument, &cmd_line_hio_args,		1},
+	    {"with-hio-envp",	 required_argument, &cmd_line_hio_envp,		1},
+	    {"with-hio-enclave", required_argument, &cmd_line_hio_enclave,	1},
 	    {0, 0, 0, 0}
 	};
 
@@ -133,7 +138,6 @@ int launch_app_main(int argc, char ** argv) {
 		    cmd_line_exe = 0;
 		    break;
 		case 0:
-		    
 
 		    switch (opt_index) {
 			case 0: {
@@ -163,6 +167,23 @@ int launch_app_main(int argc, char ** argv) {
 			    break;
 			}
 			case 4: {
+			    prealloc_mem = 0;
+			    break;
+			}
+			case 5: {
+			    uint32_t numa = HOBBES_INVALID_NUMA_ID;
+
+			    numa = smart_atou32(numa, optarg);
+			    if (numa == HOBBES_INVALID_NUMA_ID) {
+				ERROR("Invalid NUMA node specified\n");
+				usage();
+			    }
+
+			    prealloc_numa = numa;
+
+			    break;
+			}
+			case 6: {
 			    unsigned long long heap_size_in_MB = 0;
 
 			    if (!isdigit(*optarg)) {
@@ -180,7 +201,7 @@ int launch_app_main(int argc, char ** argv) {
 		    
 			    break;
 			}
-			case 5: {
+			case 7: {
 			    unsigned long long stack_size_in_MB = 0;
 
 			    if (!isdigit(*optarg)) {
@@ -198,40 +219,28 @@ int launch_app_main(int argc, char ** argv) {
 		    
 			    break;
 			}
-			case 6: {
+			case 8: {
 			    name = optarg;
 			    break;
 			} 
-			case 7: {
+			case 9: {
 			    envp = optarg;
 			    break;
 			}
-			case 8: {
+			case 10: {
 			    hio_exe_path = optarg;
 			    break;
 			}
-			case 9: {
+			case 11: {
 			    hio_exe_argv = optarg;
 			    break;
 			}
-			case 10: {
+			case 12: {
 			    hio_envp = optarg;
 			    break;
 			}
-			case 11: {
+			case 13: {
 			    hio_enclave = optarg;
-			    break;
-			}
-			case 12: {
-			    uint32_t numa = HOBBES_INVALID_NUMA_ID;
-
-			    numa = smart_atou32(numa, optarg);
-			    if (numa == HOBBES_INVALID_NUMA_ID) {
-				ERROR("Invalid NUMA node specified\n");
-				usage();
-			    }
-
-			    hio_numa = numa;
 			    break;
 			}
 			default:
@@ -328,6 +337,11 @@ int launch_app_main(int argc, char ** argv) {
 	}
     }
     */
+
+    /* Ensure we use prealloc mem if we want hio */
+    if (hio_exe_path != NULL) {
+	prealloc_mem = 1;
+    }
  
     /* Launch app */
     return __app_stub(enclave_id);
@@ -392,7 +406,7 @@ __app_stub(hobbes_id_t enclave_id)
     enclave_type_t    enclave_type     = INVALID_ENCLAVE;
     hnotif_t          notifier         = NULL; 
     int               ret              = -1;
-    uint8_t           use_prealloc_mem = 0;
+    uintptr_t         data_base_va     = HOBBES_INVALID_ADDR;
     uintptr_t         data_pa          = HOBBES_INVALID_ADDR;
     uintptr_t         heap_pa          = HOBBES_INVALID_ADDR;
     uintptr_t         stack_pa         = HOBBES_INVALID_ADDR;
@@ -403,8 +417,16 @@ __app_stub(hobbes_id_t enclave_id)
 	page_size = PAGE_SIZE_2MB;
     else
 	page_size = PAGE_SIZE_4KB;
+ 
+    /* Determine data base address and size of the executable */
+    ret = hobbes_parse_elf_binary_data(exe_path, page_size, &data_base_va, &data_size);
+    if (ret != 0) {
+	ERROR("Cannot parse application binary: cannot launch app\n");
+	return -1;
+    }
 
     /* Align sizes */
+    data_size  = PAGE_ALIGN_UP(data_size, page_size);
     heap_size  = PAGE_ALIGN_UP(heap_size, page_size);
     stack_size = PAGE_ALIGN_UP(stack_size, page_size);
  
@@ -419,6 +441,46 @@ __app_stub(hobbes_id_t enclave_id)
     if (notifier == NULL) {
 	ERROR("Could not create hobbes notifier: cannot launch app\n");
 	return -1;
+    }
+
+    if (prealloc_mem) {
+	/* Allocate memory on behalf of the target host enclave */
+	data_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, data_size);
+	if (data_pa == HOBBES_INVALID_ADDR) {
+	    ERROR("Could not preallocate memory for data region\n");
+	    goto alloc_data_out;
+	}
+
+	heap_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, heap_size);
+	if (heap_pa == HOBBES_INVALID_ADDR) {
+	    ERROR("Could not preallocate memory for heap region\n");
+	    goto alloc_heap_out;
+	}
+
+	stack_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, stack_size);
+	if (stack_pa == HOBBES_INVALID_ADDR) {
+	    ERROR("Could not preallocate memory for stack region\n");
+	    goto alloc_stack_out;
+	}
+
+	/* Now, assign each region as allocated memory to the host enclave */
+	ret = hobbes_assign_memory(enclave_id, data_pa, data_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign data region to host enclave\n");
+	    goto assign_data_out;
+	}
+
+	ret = hobbes_assign_memory(enclave_id, heap_pa, heap_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign heap region to host enclave\n");
+	    goto assign_heap_out;
+	}
+
+	ret = hobbes_assign_memory(enclave_id, stack_pa, stack_size, true, false);
+	if (ret != 0) {
+	    ERROR("Could not assign stack region to host enclave\n");
+	    goto assign_stack_out;
+	}
     }
 
     /* Create HIO app */
@@ -453,45 +515,23 @@ __app_stub(hobbes_id_t enclave_id)
 		    hio_exe_argv,
 		    hio_envp,
 		    page_size,
-		    hio_numa,
+		    data_base_va,
+		    data_pa,
+		    heap_pa,
+		    stack_pa,
+		    data_size,
 		    heap_size,
-		    stack_size,
-		    &data_size,
-		    &data_pa,
-		    &heap_pa,
-		    &stack_pa
+		    stack_size
 	    );
 
 	if (hio_app_spec == NULL) {
 	    ERROR("Error initializing HIO app\n");
 	    goto hio_init_out;
 	}
-
-	/* Now, assign each region as allocated memory to the host enclave */
-	ret = hobbes_assign_memory(enclave_id, data_pa, data_size, true, false);
-	if (ret != 0) {
-	    ERROR("Could not assign data region to host enclave\n");
-	    goto assign_data_out;
-	}
-
-	ret = hobbes_assign_memory(enclave_id, heap_pa, heap_size, true, false);
-	if (ret != 0) {
-	    ERROR("Could not assign heap region to host enclave\n");
-	    goto assign_heap_out;
-	}
-
-	ret = hobbes_assign_memory(enclave_id, stack_pa, stack_size, true, false);
-	if (ret != 0) {
-	    ERROR("Could not assign stack region to host enclave\n");
-	    goto assign_stack_out;
-	}
-
-	use_prealloc_mem = 1;
     }
 
     /* Create app */
     {
-
 	app_id = hobbes_create_app(name, enclave_id, hio_app_id);
 	if (app_id == HOBBES_INVALID_ID) {
 	    ERROR("Could not create app\n");
@@ -508,9 +548,10 @@ __app_stub(hobbes_id_t enclave_id)
 			    use_large_pages, 
 			    use_smartmap, 
 			    num_ranks, 
+			    data_size,
 			    heap_size, 
 			    stack_size,
-			    use_prealloc_mem,
+			    prealloc_mem,
 			    data_pa,
 			    heap_pa,
 			    stack_pa
@@ -611,28 +652,31 @@ spec_out:
     hobbes_free_app(app_id);
 
 create_out:
-    if (hio_app_id != HOBBES_INVALID_ID)
-	hobbes_remove_memory(enclave_id, stack_pa, stack_size, 1);
-
-assign_stack_out:
-    if (hio_app_id != HOBBES_INVALID_ID)
-	hobbes_remove_memory(enclave_id, heap_pa, heap_size, 1);
-
-assign_heap_out:
-    if (hio_app_id != HOBBES_INVALID_ID)
-	hobbes_remove_memory(enclave_id, data_pa, data_size, 1);
-
-assign_data_out:
-    if (hio_app_id != HOBBES_INVALID_ID) {
-	hobbes_free_app_spec(hio_app_spec);
-	hobbes_deinit_hio_app();
-    }
+    if (hio_app_id != HOBBES_INVALID_ID) hobbes_deinit_hio_app();
 
 hio_init_out:
-    if (hio_app_id != HOBBES_INVALID_ID)
-	hobbes_free_app(hio_app_id);
+    if (hio_app_id != HOBBES_INVALID_ID) hobbes_free_app(hio_app_id);
 
 hio_out:
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, stack_pa, stack_size, true);
+
+assign_stack_out:
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, heap_pa, heap_size, true);
+
+assign_heap_out:
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, data_pa, data_size, true);
+
+assign_data_out:
+    if (prealloc_mem) hobbes_free_mem(stack_pa, stack_size);
+
+alloc_stack_out:
+    if (prealloc_mem) hobbes_free_mem(heap_pa, heap_size);
+
+alloc_heap_out:
+    if (prealloc_mem) hobbes_free_mem(data_pa, data_size);
+
+alloc_data_out:
     hnotif_free(notifier);
+
     return ret;
 }

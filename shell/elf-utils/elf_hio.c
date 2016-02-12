@@ -278,10 +278,10 @@ get_binary_data_address_and_size(uint64_t    page_size,
  * Top-level functions.
  */
 int
-hio_parse_elf_binary_data(char      * exe_path,
-			  uint64_t    page_size,
-   		          uintptr_t * base_addr,
-		          uint64_t  * size)
+hobbes_parse_elf_binary_data(char      * exe_path,
+  			     uint64_t    page_size,
+   		             uintptr_t * base_addr,
+		             uint64_t  * size)
 {
     thefilename = exe_path;
     *base_addr  = 0;

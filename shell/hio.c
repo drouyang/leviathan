@@ -34,22 +34,6 @@ static struct hio_region hio_stack;
 
 
 
-static uintptr_t
-hio_allocate_region(hobbes_id_t enclave_id,
-		    uint32_t    numa_node,
-		    uint64_t	size)
-{
-    return hobbes_alloc_mem(enclave_id, numa_node, size);
-}
-
-static int
-hio_free_region(hobbes_id_t enclave_id,
-		uintptr_t   base_addr,
-		uint64_t    size)
-{
-    return hobbes_free_mem(base_addr, size);
-}
-
 static void *
 hio_map_region(uintptr_t base_addr,
                uint64_t  size)
@@ -96,35 +80,14 @@ hio_unmap_region(void   * vaddr,
     return munmap(vaddr, size);
 }
 
-static xemem_segid_t
-hio_export_region(void   * vaddr,
-		  uint64_t size)
-{
-    return xemem_make(vaddr, size, NULL);
-}
-
 static int
-hio_remove_region(xemem_segid_t segid)
-{
-    return xemem_remove(segid);
-}
-
-static int
-hio_allocate_and_export_region(uint64_t        size,
-			       uint32_t        numa_node,
-			       void         ** va_p,
-			       uintptr_t     * pa_p,
-			       xemem_segid_t * segid_p)
+hio_export_region(uintptr_t       pa,
+		  uint64_t        size,
+	          void         ** va_p,
+		  xemem_segid_t * segid_p)
 {
     xemem_segid_t segid = XEMEM_INVALID_SEGID;
-    uintptr_t     pa    = HOBBES_INVALID_ADDR;
     void        * va    = NULL;
-
-    pa = hio_allocate_region(HOBBES_MASTER_ENCLAVE_ID, numa_node, size);
-    if (pa == HOBBES_INVALID_ADDR) {
-	ERROR("Cannot allocate memory for HIO region\n");
-	goto allocate_out;
-    }
 
     va = hio_map_region(pa, size);
     if (va == NULL) {
@@ -132,14 +95,13 @@ hio_allocate_and_export_region(uint64_t        size,
 	goto map_out;
     }
 
-    segid = hio_export_region(va, size);
+    segid = xemem_make(va, size, NULL);
     if (segid == XEMEM_INVALID_SEGID) {
 	ERROR("Cannot export HIO region\n");
 	goto export_out;
     }
 
     *va_p    = va;
-    *pa_p    = pa;
     *segid_p = segid;
 
     return 0;
@@ -148,21 +110,9 @@ export_out:
     hio_unmap_region(va, size);
 
 map_out:
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, pa, size);
-
-allocate_out:
     return -1;
 }
 
-
-static int
-hio_get_data_base_address_and_size(char      * exe_path,
-				   uint64_t    page_size,
-				   uintptr_t * data_va,
-				   uint64_t  * data_size)
-{
-    return hio_parse_elf_binary_data(exe_path, page_size, data_va, data_size);
-}
 
 static void
 hio_set_heap_base_address(uintptr_t   data_va,
@@ -243,31 +193,23 @@ hio_prepare_argv(uintptr_t     data_va,
 }
 
 hobbes_app_spec_t
-hobbes_init_hio_app(hobbes_id_t   hio_app_id,
-		    char	* name,
-		    char	* exe_path,
-		    char	* hio_exe_path,
-		    char	* hio_argv,
-		    char	* hio_envp,
-		    uint64_t	  page_size,
-		    uint32_t	  numa_node,
-		    uint64_t	  heap_size,
-		    uint64_t	  stack_size,
-		    uint64_t    * data_size_p,
-		    uintptr_t   * data_pa_p,
-		    uintptr_t   * heap_pa_p,
-		    uintptr_t   * stack_pa_p)
+hobbes_init_hio_app(hobbes_id_t hio_app_id,
+		    char      * name,
+		    char      * exe_path,
+		    char      * hio_exe_path,
+		    char      * hio_argv,
+		    char      * hio_envp,
+		    uint64_t    page_size,
+		    uintptr_t   data_va,
+		    uintptr_t   data_pa,
+		    uintptr_t   heap_pa,
+		    uintptr_t   stack_pa,
+		    uint64_t    data_size,
+		    uint64_t	heap_size,
+		    uint64_t	stack_size)
 {
-
-    uintptr_t data_va   = 0;
     uintptr_t heap_va   = 0;
     uintptr_t stack_va  = 0;
-
-    uintptr_t data_pa   = 0;
-    uintptr_t heap_pa   = 0;
-    uintptr_t stack_pa  = 0;
-
-    uint64_t  data_size = 0;
 
     void * data_local_va  = NULL;
     void * heap_local_va  = NULL;
@@ -282,15 +224,7 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
 
     /* (1) VA base addresses and sizes */
     {
-	/* Get data base address */
-	status = hio_get_data_base_address_and_size(exe_path, page_size, &data_va, &data_size);
-	if (status) {
-	    ERROR("Could not parse binary data from %s\n", exe_path);
-	    return NULL;
-	}
-
-	/* Align size */
-	data_size  = PAGE_ALIGN_UP(data_size, page_size);
+	/* Data va/size passed in as parameter now */
 
 	/* Set heap base address */
 	hio_set_heap_base_address(data_va, data_size, page_size, &heap_va);
@@ -299,30 +233,33 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
 	hio_set_stack_base_address(stack_size, &stack_va);
     }
 
-    /* (2) Allocate/export PA */
+    /* (2) Export PA regions via XEMEM */
     {
-	status = hio_allocate_and_export_region(data_size, numa_node,
-		    &data_local_va,
-		    &data_pa,
-		    &data_segid);
+	status = hio_export_region(
+			data_pa,
+			data_size,
+			&data_local_va,
+			&data_segid);
 	if (status) {
 	    ERROR("Could not export HIO data region\n");
 	    goto out_data;
 	}
 
-	status = hio_allocate_and_export_region(heap_size, numa_node,
-		    &heap_local_va,
-		    &heap_pa,
-		    &heap_segid);
+	status = hio_export_region(
+			heap_pa,
+			heap_size,
+			&heap_local_va,
+			&heap_segid);
 	if (status) {
 	    ERROR("Could not export HIO heap region\n");
 	    goto out_heap;
 	}
 
-	status = hio_allocate_and_export_region(stack_size, numa_node,
-		    &stack_local_va,
-		    &stack_pa,
-		    &stack_segid);
+	status = hio_export_region(
+			stack_pa,
+			stack_size,
+			&stack_local_va,
+			&stack_segid);
 	if (status) {
 	    ERROR("Could not export HIO stack region\n");
 	    goto out_stack;
@@ -353,8 +290,18 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
 		hio_exe_path,
 		stub_argv,
 		hio_envp,
-		NULL, 0, 0, 1, 0, 0,
-		0, 0, 0, 0);
+		NULL, /* cpu list */
+		0, /* use large pages */
+		0, /* use smartmap */
+		1, /* num ranks */
+		0, /* data size */
+		0, /* heap size */
+		0, /* stack size */
+		1, /* use prealloc mem */
+		0, /* data pa */
+		0, /* heap pa */
+		0  /* stack pa */
+	);
 
 	free(stub_argv);
 
@@ -406,28 +353,19 @@ hobbes_init_hio_app(hobbes_id_t   hio_app_id,
     hio_stack.local_va     = stack_local_va;
     hio_stack.segid        = stack_segid;
 
-    /* Output params */
-    *data_size_p = data_size;
-    *data_pa_p   = data_pa;
-    *heap_pa_p   = heap_pa;
-    *stack_pa_p  = stack_pa;
-
     return spec;
 
 out_spec:
-    hio_remove_region(stack_segid);
+    xemem_remove(stack_segid);
     hio_unmap_region(stack_local_va, stack_size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, stack_pa, stack_size);
 
 out_stack:
-    hio_remove_region(heap_segid);
+    xemem_remove(heap_segid);
     hio_unmap_region(heap_local_va, heap_size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, heap_pa, heap_size);
 
 out_heap:
-    hio_remove_region(data_segid);
+    xemem_remove(data_segid);
     hio_unmap_region(data_local_va, data_size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, data_pa, data_size);
 
 out_data:
     return NULL;
@@ -436,17 +374,14 @@ out_data:
 int
 hobbes_deinit_hio_app(void)
 {
-    hio_remove_region(hio_stack.segid);
+    xemem_remove(hio_stack.segid);
     hio_unmap_region(hio_stack.local_va, hio_stack.size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, hio_stack.base_addr_pa, hio_stack.size);
 
-    hio_remove_region(hio_heap.segid);
+    xemem_remove(hio_heap.segid);
     hio_unmap_region(hio_heap.local_va, hio_heap.size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, hio_heap.base_addr_pa, hio_heap.size);
 
-    hio_remove_region(hio_data.segid);
+    xemem_remove(hio_data.segid);
     hio_unmap_region(hio_data.local_va, hio_data.size);
-    hio_free_region(HOBBES_MASTER_ENCLAVE_ID, hio_data.base_addr_pa, hio_data.size);
 
     return 0;
 }

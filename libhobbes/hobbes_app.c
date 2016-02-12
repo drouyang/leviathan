@@ -35,6 +35,7 @@ hobbes_build_app_spec(hobbes_id_t   app_id,
 		      uint8_t       use_large_pages,
 		      uint8_t       use_smartmap,
 		      uint8_t       num_ranks,
+		      uint64_t      data_size,
 		      uint64_t      heap_size,
 		      uint64_t      stack_size,
 		      uint8_t       use_prealloc_mem,
@@ -100,6 +101,13 @@ hobbes_build_app_spec(hobbes_id_t   app_id,
     /* Set smartmap flag */
     if ( use_smartmap ) {
 	pet_xml_add_val(root_xml, "use_smartmap", "1");
+    }
+
+    /* Set heap size */
+    if ( data_size > 0 ) {
+	asprintf(&tmp_str, "%lu", data_size);
+	
+	pet_xml_add_val(root_xml, "data_size", tmp_str);
     }
 
     /* Set heap size */

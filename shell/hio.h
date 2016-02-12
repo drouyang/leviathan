@@ -27,23 +27,24 @@ hobbes_init_hio_app(
 	char	    * hio_argv,
 	char	    * hio_envp,
 	uint64_t      page_size,
-	uint32_t      numa_node,
+	uintptr_t     data_va,
+	uintptr_t     data_pa,
+	uintptr_t     heap_pa,
+	uintptr_t     stack_pa,
+	uint64_t      data_size,
 	uint64_t      heap_size,
-	uint64_t      stack_size,
-	uint64_t    * data_size,
-	uintptr_t   * data_pa,
-	uintptr_t   * heap_pa,
-	uintptr_t   * stack_pa);
+	uint64_t      stack_size);
 
 
 int
 hobbes_deinit_hio_app(void);
 
+
 /* Defined in elf-utils/elf_hio.c */
 int
-hio_parse_elf_binary_data(char      * exe_path,
-			  uint64_t    page_size,
-			  uintptr_t * base_addr,
-			  uint64_t  * size);
+hobbes_parse_elf_binary_data(char      * exe_path,
+			     uint64_t    page_size,
+			     uintptr_t * data_base_va,
+			     uint64_t  * data_size);
 
 #endif
