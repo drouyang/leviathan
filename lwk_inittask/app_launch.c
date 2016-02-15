@@ -13,6 +13,9 @@
 #include <sys/ioctl.h>
 #include <pthread.h>
 #include <poll.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 
 #include <lwk/liblwk.h>
@@ -23,6 +26,7 @@
 
 #include <pet_log.h>
 #include <pet_xml.h>
+#include <pet_hashtable.h>
 
 #include <hobbes.h>
 #include <hobbes_app.h>
@@ -36,6 +40,7 @@ extern cpu_set_t enclave_cpus;
 
 #include "pisces.h"
 #include "app_launch.h"
+#include "init.h"
 
 #define DEFAULT_NUM_RANKS       (1)
 #define DEFAULT_CPU_MASK        (~0x0ULL)
@@ -50,6 +55,253 @@ extern cpu_set_t enclave_cpus;
 
 #define MAX_ARGC 32
 #define MAX_ENVC 64
+
+
+#define LWK_PROCESS_ALIVE  0
+#define LWK_PROCESS_EXITED 1
+
+
+
+/*
+ * The app_htable and proc_htable hash tables track the apps and
+ * processes, respectively, that are are hosted by this enclave.
+ * Each app that is launched into the enclave has one 'lwk_app_state'
+ * structure added to the app_htable, representing the state of
+ * the application. Each process that is launched when an app is
+ * started (the num_ranks in the app) has one entry added to the
+ * proc_htable.
+ *
+ *   app_htable  key= hpid   val= lwk_app_state_t
+ *   proc_htable key= os_pid val= hpid
+ */
+static struct hashtable * app_htable  = NULL;
+static struct hashtable * proc_htable = NULL;
+
+
+/*
+ * Physical memory allocation state tracking structure.
+ * This structure keeps track of the physical memory that is associated
+ * with each application process. When the process dies, this structure
+ * is used to free the physical memory used by the process.
+ */
+typedef struct pmem_state {
+    struct pmem_region elf;
+    struct pmem_region data;
+    struct pmem_region heap;
+    struct pmem_region stack;
+} pmem_state_t;
+
+
+/*
+ * Application state tracking structure.
+ * One of these structures is created for each application that is launched
+ * and added to the app_htable.
+ */
+typedef struct lwk_app_state {
+    hobbes_id_t     hpid;
+    job_flags_t     job_flags;
+    unsigned int    num_ranks;
+    start_state_t * start_state; /* array of num_ranks entries */
+    pmem_state_t *  pmem_state;  /* array of num_ranks entries */
+    unsigned int    num_exited;
+} lwk_app_state_t;
+
+
+static uint32_t
+htable_hash_fn(uintptr_t key)
+{
+    return pet_hash_ptr(key);
+}
+
+
+static int
+htable_eq_fn(uintptr_t key1, uintptr_t key2)
+{
+    return (key1 == key2);
+}
+
+
+static lwk_app_state_t *
+lookup_app_by_hpid(hobbes_id_t hpid)
+{
+    lwk_app_state_t *app;
+
+    app = (lwk_app_state_t *)pet_htable_search(app_htable, (uintptr_t) hpid);
+    if (app == NULL) {
+        printf("ERROR: could not find hpid %d in app_htable\n", hpid);
+	return NULL;
+    }
+
+    return app;
+}
+
+
+static lwk_app_state_t *
+lookup_app_by_pid(pid_t pid)
+{
+    hobbes_id_t hpid;
+
+    hpid = (hobbes_id_t) pet_htable_search(proc_htable, (uintptr_t) pid);
+    if (hpid == (uintptr_t) NULL) {
+        printf("ERROR: could not find pid %ld in proc_htable\n", (long) pid);
+        return NULL;
+    }
+
+    return lookup_app_by_hpid(hpid);
+}
+
+
+/*
+ * This function stashes away some information about a
+ * newly launched app so that it can be retrieved later.
+ */
+static int
+remember_app(hobbes_id_t     hpid,
+             job_flags_t     job_flags,
+             unsigned int    num_ranks,
+             start_state_t * start_state,
+             pmem_state_t *  pmem_state)
+{
+    lwk_app_state_t *app;
+    int status;
+    unsigned int rank;
+
+    app = malloc(sizeof(lwk_app_state_t));
+    if (!app)
+        hobbes_panic("Could not allocate new lwk_app_state_t structure\n");
+
+    app->hpid             = hpid;
+    app->job_flags        = job_flags;
+    app->num_ranks        = num_ranks;
+    app->start_state      = start_state;
+    app->pmem_state       = pmem_state;
+    app->num_exited       = 0;
+
+    status = pet_htable_insert(app_htable, (uintptr_t)hpid, (uintptr_t)app);
+    if (status == 0) {
+        hobbes_panic("Could not add app %d to the application hash table\n", hpid);
+    }
+
+    /* For each process in the app, add an os_pid->hpid reverse mapping entry */
+    for (rank = 0; rank < num_ranks; rank++) {
+        pid_t pid = (pid_t)app->start_state[rank].aspace_id;
+        status = pet_htable_insert(proc_htable,
+                                   (uintptr_t)pid,
+                                   (uintptr_t)hpid);
+        if (status == 0) {
+            hobbes_panic("Could not add process %ld to the process hash table\n", (long) pid);
+        }
+
+        /*
+         * Initialize the "process exited status" to "not exited".
+         * HACK: We overload start_state.arg[0] to be a flag indicating if the
+         * process has exited or not (0 = not exited, 1 = exited).
+        */
+        app->start_state[rank].arg[0] = LWK_PROCESS_ALIVE;
+    }
+
+    return 0;
+}
+
+
+/* Free all application state tracking state for the specified app */
+static int
+forget_app(lwk_app_state_t *app)
+{
+    pid_t pid;
+    uintptr_t status;
+    unsigned int rank;
+
+    /* Remove the app from the application hash table */
+    status = pet_htable_remove(app_htable, (uintptr_t) app->hpid, 0);
+    if (status == (uintptr_t) NULL) {
+        hobbes_panic("Could not find app %d in the application hash table\n", app->hpid);
+    }
+
+    /* Remove all of the app's entries in the process hash table */
+    for (rank = 0; rank < app->num_ranks; rank++) {
+        pid    = (pid_t)app->start_state[rank].aspace_id;
+        status = pet_htable_remove(proc_htable, (uintptr_t) pid, 0);
+        if (status == (uintptr_t) NULL) {
+            hobbes_panic("Could not find process %ld in the application hash table\n", (long) pid);
+        }
+    }
+
+    free(app->start_state);
+    free(app->pmem_state);
+    free(app);
+
+    return 0;
+}
+
+
+/* Free all physical resources used by the specified app (e.g., phys mem) */
+static int
+clean_up_app(lwk_app_state_t *app)
+{
+    unsigned int rank;
+
+    /* Destroy/Free all resources that were being used by the app */
+    for (rank = 0; rank < app->num_ranks; rank++) {
+        if (aspace_destroy(app->start_state[rank].aspace_id)) {
+            hobbes_panic("aspace_destroy() failed\n");
+        }
+
+        /* If we allocated physical memory for the app, free it */
+        if (!app->job_flags.use_prealloc_mem) {
+            if (pmem_free_umem(&app->pmem_state[rank].data)) {
+                hobbes_panic("pmem_free_umem(data) failed\n");
+            }
+
+            if (pmem_free_umem(&app->pmem_state[rank].heap)) {
+                hobbes_panic("pmem_free_umem(heap) failed\n");
+            }
+
+            if (pmem_free_umem(&app->pmem_state[rank].stack)) {
+                hobbes_panic("pmem_free_umem(stack) failed\n");
+            }
+        }
+    }
+
+    /* Free the physical memory storing the ELF exe */
+    if (pmem_free_umem(&app->pmem_state[0].elf)) {
+        hobbes_panic("pmem_free_umem(elf) failed\n");
+    }
+
+    forget_app(app);
+    return 0;
+}
+
+
+int
+init_lwk_app(void)
+{
+    app_htable = pet_create_htable(0, htable_hash_fn, htable_eq_fn);
+    if (!app_htable) {
+        ERROR("Could not create application hash table\n");
+        return -1;
+    }
+
+    proc_htable = pet_create_htable(0, htable_hash_fn, htable_eq_fn);
+    if (!proc_htable) {
+        ERROR("Could not create application process table\n");
+        return -1;
+    }
+
+    /* TODO: call add_fd_handler(fd, reap_children, app) here */
+
+    return 0;
+}
+
+
+int
+deinit_lwk_app(void)
+{
+    pet_free_htable(app_htable, 1, 0);
+    pet_free_htable(proc_htable, 0, 0);
+    return 0;
+}
+
 
 static int
 load_segment_hobbes(void            * elf_image,
@@ -426,14 +678,17 @@ out_load_executable:
     return status;
 }
 
-int 
-launch_lwk_app(char        * name, 
-	       char        * exe_path, 
-	       char        * argv, 
-	       char        * envp, 
+
+int
+launch_lwk_app(hobbes_id_t   hpid,
+	       char        * name,
+	       char        * exe_path,
+	       char        * argv,
+	       char        * envp,
 	       job_flags_t   flags,
-	       uint8_t       num_ranks, 
+	       unsigned int  num_ranks,
 	       uint64_t      cpu_mask,
+	       uint64_t      data_size,
 	       uint64_t      heap_size,
 	       uint64_t      stack_size,
 	       uintptr_t     data_pa,
@@ -447,7 +702,13 @@ launch_lwk_app(char        * name,
     cpu_set_t      job_cpus;
     user_cpumask_t lwk_cpumask;
 
+    pmem_state_t * pmem_state;
+    start_state_t * start_state;
+
     int status = 0;
+
+    int error_status = -1;
+    unsigned int rank;
 
 
     /* Figure out which CPUs are being requested */
@@ -464,8 +725,6 @@ launch_lwk_app(char        * name,
     }
 
 
-
-
     /* Check if we can host the job on the current CPUs */
     /* Create a kitten compatible cpumask */
     {
@@ -473,11 +732,11 @@ launch_lwk_app(char        * name,
 
 	CPU_AND(&job_cpus, &spec_cpus, &enclave_cpus);
 
-	if (CPU_COUNT(&job_cpus) < num_ranks) {
+	if (CPU_COUNT(&job_cpus) < (int) num_ranks) {
 	    printf("Error: Could not find enough CPUs for job\n");
-	    return -1;
+	    error_status = -1;
+            goto error_exit;
 	}
-	
 
 	cpus_clear(lwk_cpumask);
 	
@@ -489,31 +748,52 @@ launch_lwk_app(char        * name,
     }
 
 
+    /* Allocate a structure to track the physical memory used by the app */
+    {
+        pmem_state = (pmem_state_t *)calloc(1, num_ranks * sizeof(pmem_state_t));
+        if (!pmem_state) {
+            printf("ERROR: alloc of pmem_state[] failed\n");
+            error_status = -1;
+            goto error_exit;
+        }
+
+        for (rank = 0; rank < num_ranks; rank++) {
+            pmem_region_unset_all(&pmem_state[rank].elf);
+            pmem_region_unset_all(&pmem_state[rank].data);
+            pmem_region_unset_all(&pmem_state[rank].heap);
+            pmem_region_unset_all(&pmem_state[rank].stack);
+        }
+    }
+
+
     /* Load exe file info memory */
     {
 	size_t file_size = 0;
 	id_t   my_aspace_id;
 
 	status = aspace_get_myid(&my_aspace_id);
-	if (status != 0) 
-	    return status;
+	if (status != 0) {
+            error_status = status;
+            goto error_free_pmem_state;
+        }
 
 	file_size = pisces_file_stat(exe_path);
 
 	{
-	
-	    paddr_t pmem = elf_dflt_alloc_pmem(file_size, page_size, 0);
+            status = pmem_alloc_umem(file_size, page_size, &pmem_state[0].elf);
+            if (status) {
+		printf("ERROR: Could not allocate space for exe file\n");
+		error_status = -1;
+                goto error_free_pmem_state;
+            }
 
-	    printf("PMEM Allocated at %p (file_size=%lu) (page_size=0x%x) (pmem_size=%p)\n", 
-		   (void *)pmem, 
+            paddr_t pmem = pmem_state[0].elf.start;
+
+	    printf("PMEM Allocated at %p (file_size=%lu) (page_size=0x%x) (pmem_size=%p)\n",
+		   (void *)pmem,
 		   file_size,
-		   page_size, 
+		   page_size,
 		   (void *)round_up(file_size, page_size));
-
-	    if (pmem == 0) {
-		printf("Could not allocate space for exe file\n");
-		return -1;
-	    }
 
 	    /* Map the segment into this address space */
 	    status =
@@ -526,11 +806,13 @@ launch_lwk_app(char        * name,
 					   "File",
 					   pmem
 					   );
-	    if (status)
-		return status;
+	    if (status) {
+		error_status = status;
+                goto error_free_elf_pmem;
+            }
 	
 	}
-    
+
 	printf("Loading EXE into memory\n");
 	pisces_file_load(exe_path, (void *)file_addr);
     }
@@ -539,23 +821,62 @@ launch_lwk_app(char        * name,
     printf("Job Launch Request (%s) [%s %s]\n", name, exe_path, argv);
 
 
+    /* Setup physical memory for each process in the application */
+    {
+        if (flags.use_prealloc_mem) {
+            for (rank = 0; rank < num_ranks; rank++) {
+                /* FIXME: Shell should allocate memory for each rank.
+                 *        Currently the shell assumes there is only one
+                 *        rank per enclave, and only allocates physical
+                 *        memory for one process. */
+                pmem_state[rank].data.start = data_pa;
+                pmem_state[rank].heap.start = heap_pa;
+                pmem_state[rank].stack.start = stack_pa;
+            }
+        } else {
+            for (rank = 0; rank < num_ranks; rank++) {
+		printf("allocating data_size  = %lu\n", data_size);
+		status = pmem_alloc_umem(data_size, page_size, &pmem_state[rank].data);
+		if (status) {
+                    printf("ERROR: data alloc failed, status=%d\n", status);
+                    error_status = status;
+                    goto error_free_elf_pmem;
+                }
+
+		printf("allocating heap_size  = %lu\n", heap_size);
+		status = pmem_alloc_umem(heap_size,  page_size, &pmem_state[rank].heap);
+		if (status) {
+                    printf("ERROR: heap alloc failed, status=%d\n", status);
+                    error_status = status;
+                    goto error_free_elf_pmem;
+                }
+
+		printf("allocating stack_size = %lu\n", stack_size);
+		status = pmem_alloc_umem(stack_size, page_size, &pmem_state[rank].stack);
+		if (status) {
+                    printf("ERROR: stack alloc failed, status=%d\n", status);
+                    error_status = status;
+                    goto error_free_elf_pmem;
+                }
+            }
+        }
+    }
+
+
     /* Initialize start state for each rank */
     {
-	start_state_t * start_state = NULL;
-	int rank = 0; 
-
 	/* Allocate start state for each rank */
 	start_state = (start_state_t *)malloc(num_ranks * sizeof(start_state_t));
 	if (!start_state) {
-	    printf("malloc of start_state[] failed\n");
-	    return -1;
+            printf("ERROR: alloc of pmem_state[] failed\n");
+	    status = -1;
+            goto error_free_app_pmem;
 	}
-
 
 	for (rank = 0; rank < num_ranks; rank++) {
 	    int cpu = ANY_ID;
 	    int i   = 0;
-	    
+
 	    for (i = 0; i < CPU_SETSIZE; i++) {
 		if (CPU_ISSET(i, &job_cpus)) {
 		    CPU_CLR(i, &job_cpus);
@@ -566,63 +887,49 @@ launch_lwk_app(char        * name,
 
 
 	    printf("Loading Rank %d on CPU %d\n", rank, cpu);
-	    
+
 	    start_state[rank].task_id  = ANY_ID;
 	    start_state[rank].cpu_id   = ANY_ID; /* Why does this not work if set to 'cpu'? */
 	    start_state[rank].user_id  = 1;
 	    start_state[rank].group_id = 1;
-	    
+
 	    sprintf(start_state[rank].task_name, "%s-%d", name, rank);
 
 	    char * env_str = NULL;
 	    asprintf(&env_str, "%s PMI_RANK=%d PMI_SIZE=%d\n", envp, rank, num_ranks);
 
-	    if (flags.use_prealloc_mem) {
-		status = elf_load_hobbes((void *)file_addr,
-			      name,
-			      ANY_ID,
-			      page_size, 
-			      heap_size,   // heap_size 
-			      stack_size,  // stack_size 
-			      argv,        // argv_str
-			      env_str,     // environment string
-			      &start_state[rank],
-			      (uintptr_t)data_pa,
-			      (uintptr_t)heap_pa,
-			      (uintptr_t)stack_pa
-			      );
-	    } else {
-		status = elf_load((void *)file_addr,
-			      name,
-			      ANY_ID,
-			      page_size, 
-			      heap_size,   // heap_size 
-			      stack_size,  // stack_size 
-			      argv,        // argv_str
-			      env_str,     // environment string
-			      &start_state[rank],
-			      0,
-			      &elf_dflt_alloc_pmem
-			      );
-	    }
-	    
+            status = elf_load_hobbes((void *)file_addr,
+			  name,
+			  ANY_ID,
+			  page_size,
+			  heap_size,   // heap_size
+			  stack_size,  // stack_size
+			  argv,        // argv_str
+			  env_str,     // environment string
+			  &start_state[rank],
+			  pmem_state[rank].data.start,
+			  pmem_state[rank].heap.start,
+			  pmem_state[rank].stack.start
+	    );
+
 	    free(env_str);
 
 	    if (status) {
 		printf("elf_load failed, status=%d\n", status);
+                error_status = status;
+                goto error_free_aspaces;
 	    }
-	    
 
-	    if ( aspace_update_user_cpumask(start_state[rank].aspace_id, &lwk_cpumask) != 0) {
+	    if (aspace_update_user_cpumask(start_state[rank].aspace_id, &lwk_cpumask) != 0) {
 		printf("Error updating CPU mask\n");
-		return -1;
+                error_status = -1;
+                goto error_free_aspaces;
 	    }
-		 
 
 	    /* Setup Smartmap regions if enabled */
 	    if (flags.use_smartmap) {
-		int src = 0;
-		int dst = 0;
+		unsigned int src = 0;
+		unsigned int dst = 0;
 
 		printf("Creating SMARTMAP mappings...\n");
 		for (dst = 0; dst < num_ranks; dst++) {
@@ -637,26 +944,54 @@ launch_lwk_app(char        * name,
 			
 			if (status) {
 			    printf("smartmap failed, status=%d\n", status);
-			    return -1;
+			    error_status = -1;
+                            goto error_free_aspaces;
 			}
 		    }
 		}
 		printf("    OK\n");
 	    }
 
-	    
 	    printf("Creating Task\n");
-	    
 	    status = task_create(&start_state[rank], NULL);
 	}
+
+        /* Stash away some info about the app that will be needed later */
+        remember_app(hpid, flags, num_ranks, start_state, pmem_state);
     }
-    
+
     return 0;
+
+
+error_free_aspaces:
+    for (rank = 0; rank < num_ranks; rank++) {
+        if (start_state[rank].task_id != ANY_ID)
+            if (aspace_destroy(start_state[rank].aspace_id))
+                hobbes_panic("aspace_destroy() failed\n");
+    }
+//error_free_start_state:
+    free(start_state);
+error_free_app_pmem:
+    if (flags.use_prealloc_mem) {
+        for (rank = 0; rank < num_ranks; rank++) {
+            if (pmem_state[rank].data.end && pmem_free_umem(&pmem_state[rank].data))
+                hobbes_panic("pmem_free_umem(data) failed\n");
+            if (pmem_state[rank].heap.end && pmem_free_umem(&pmem_state[rank].heap))
+                hobbes_panic("pmem_free_umem(heap) failed\n");
+            if (pmem_state[rank].stack.end && pmem_free_umem(&pmem_state[rank].stack))
+                hobbes_panic("pmem_free_umem(stack) failed\n");
+        }
+    }
+error_free_elf_pmem:
+    pmem_free_umem(&pmem_state[0].elf);
+error_free_pmem_state:
+    free(pmem_state);
+error_exit:
+    return error_status;
 }
 
 
-
-int 
+int
 launch_hobbes_lwk_app(char * spec_str)
 {
     pet_xml_t   spec  = NULL;
@@ -679,8 +1014,9 @@ launch_hobbes_lwk_app(char * spec_str)
 	char        * envp       = DEFAULT_ENVP; 
 	char        * hobbes_env = NULL;
 	job_flags_t   flags      = {0};
-	uint8_t       num_ranks  = DEFAULT_NUM_RANKS; 
+	unsigned int  num_ranks  = DEFAULT_NUM_RANKS; 
 	uint64_t      cpu_mask   = DEFAULT_CPU_MASK;
+	uint64_t      data_size  = 0;
 	uint64_t      heap_size  = DEFAULT_HEAP_SIZE;
 	uint64_t      stack_size = DEFAULT_STACK_SIZE;
 	uint64_t      data_pa    = HOBBES_INVALID_ADDR;
@@ -787,6 +1123,19 @@ launch_hobbes_lwk_app(char * spec_str)
 	    flags.use_smartmap = DEFAULT_USE_SMARTMAP;
 	}
 
+	/* Data Size */
+	val_str = pet_xml_get_val(spec, "data_size");
+	
+	if (val_str) {
+	    data_size = smart_atoi(0, val_str);
+            printf("data_size = %lu\n", data_size);
+	}
+
+        if (data_size == 0) {
+            ERROR("data_size cannot be 0\n");
+            goto out;
+        }
+
 	/* Heap Size */
 	val_str = pet_xml_get_val(spec, "heap_size");
 	
@@ -851,13 +1200,15 @@ launch_hobbes_lwk_app(char * spec_str)
 	    }
 	    
 	    /* Launch App */
-	    ret = launch_lwk_app(name, 
+	    ret = launch_lwk_app(hpid,
+				 name, 
 				 exe_path, 
 				 argv,
 				 hobbes_env,
 				 flags,
 				 num_ranks,
 				 cpu_mask,
+				 data_size,
 				 heap_size,
 				 stack_size,
 				 data_pa,
@@ -890,12 +1241,134 @@ launch_hobbes_lwk_app(char * spec_str)
 
 
 int
+kill_lwk_app(hobbes_id_t hpid)
+{
+    lwk_app_state_t *app;
+    unsigned int rank;
+
+    app = lookup_app_by_hpid(hpid);
+    if (app == NULL) {
+        printf("kill_lwk_app() could not find app %d\n", hpid);
+	return -1;
+    }
+
+    printf("Sending SIGKILL to all processes in app %d\n", hpid);
+    for (rank = 0; rank < app->num_ranks; rank++) {
+        pid_t pid = (pid_t)app->start_state[rank].aspace_id;
+
+        if (app->start_state[rank].arg[0]) {
+            /* the process has already exited, no need to send SIGKILL */
+            printf("    rank %u (pid %ld) has already exited\n", rank, (long) pid);
+        } else {
+	    printf("    sending SIGKILL to rank %u (pid %ld)\n", rank, (long) pid);
+            kill(pid, SIGKILL);
+        }
+    }
+    printf("Done, all processes in app %d have been sent a SIGKILL\n", hpid);
+
+    printf("Waiting for all processes in app %d to exit...\n", hpid);
+    for (rank = 0; rank < app->num_ranks; rank++) {
+        pid_t pid = (pid_t)app->start_state[rank].aspace_id;
+	pid_t ret_pid;
+        int status;
+
+        if (app->start_state[rank].arg[0]) {
+            /* the process has already exited */
+            printf("    rank %u (pid %ld) has already exited\n", rank, (long) pid);
+            continue;
+        } else {
+            /* wait for the process to exit */
+            if ((ret_pid = waitpid(pid, &status, 0)) == pid) {
+                printf("    rank %u (pid %ld) exited, exit_status= %d\n", rank, (long) pid, status);
+            } else {
+                printf("    rank %u (pid %ld) waitpid returned error %d, errno=%d\n", rank, (long) pid, ret_pid, errno);
+            }
+        }
+    }
+
+    printf("Done, all processes in app %d have exited\n", hpid);
+    clean_up_app(app);
+
+    return 0;
+}
+
+
+int
 kill_hobbes_lwk_app(hobbes_id_t hpid)
 {
-    /* TODO: actuall kill it somehow */
+    if (kill_lwk_app(hpid) == 0) {
+        /* Notify shell that app is dead */
+        hobbes_set_app_state(hpid, APP_STOPPED);
+        hnotif_signal(HNOTIF_EVT_APPLICATION);
+    }
 
-    hobbes_set_app_state(hpid, APP_STOPPED);
-    hnotif_signal(HNOTIF_EVT_APPLICATION);
+    return 0;
+}
+
+
+int
+mark_pid_exited(pid_t pid, int status)
+{
+    unsigned int rank;
+    int found = false;
+
+    lwk_app_state_t *app = lookup_app_by_pid(pid);
+    if (!app) {
+        printf("ERROR: mark_pid_exited() could not find app for pid %ld\n", (long) pid);
+        return -1;
+    }
+
+    /* Mark the process as exited */
+    app->num_exited += 1;
+    for (rank = 0; rank < app->num_ranks; rank++) {
+        if (app->start_state[rank].aspace_id == (id_t) pid) {
+            printf("    marking app %d rank %u (pid %ld) as exited\n", app->hpid, rank, (long) pid);
+            app->start_state[rank].arg[0] = LWK_PROCESS_EXITED;
+            app->start_state[rank].arg[1] =status;
+            found = true;
+            break;
+        }
+    }
+    if (found == false) {
+        hobbes_panic("Could not find rank corresponding to pid %ld\n", (long) pid);
+    }
+
+/* TODO: fix me */
+#if 0
+    /* If all processes in the app have exited, destroy the app */
+    if (app->num_exited == app->num_ranks) {
+        hpid = app->hpid;
+
+        printf("All processes in app %d have exited\n", app->hpid);
+        clean_up_app(app);
+
+        /* Notify shell that app is dead */
+        hobbes_set_app_state(hpid, APP_STOPPED);
+        hnotif_signal(HNOTIF_EVT_APPLICATION);
+    }
+#endif
+
+    return 0;
+}
+
+
+/* Reap children that have exited. */
+int
+reap_exited_children(void)
+{
+    int status;
+    pid_t pid;
+    unsigned num_exited = 0;
+
+    printf("Reaping all exiting children...\n");
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        printf("    pid %ld exited, exit status was %d\n", (long) pid, status);
+        mark_pid_exited(pid, status);
+        ++num_exited;
+    }
+
+    printf("Done, reaped %u exited children\n", num_exited);
 
     return 0;
 }

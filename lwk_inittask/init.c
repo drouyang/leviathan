@@ -12,6 +12,8 @@
 #include <poll.h>
 #include <assert.h>
 #include <stdint.h>
+#include <signal.h>
+#include <errno.h>
 
 #include <lwk/liblwk.h>
 #include <lwk/pmem.h>
@@ -63,6 +65,7 @@ handler_hash_fn(uintptr_t key)
     return pet_hash_ptr(key);
 }
 
+
 static int
 handler_equal_fn(uintptr_t key1, uintptr_t key2)
 {
@@ -70,10 +73,28 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
 }
 
 
+static void
+handle_sigchld(int sig, siginfo_t *siginfo, void *ucontext) {
+    printf("Got a SIGCHLD event for pid %ld\n", (long) siginfo->si_pid);
+}
+
+
+static void
+register_for_sigchld(void)
+{
+    struct sigaction sa;
+    sa.sa_sigaction = &handle_sigchld;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
+    if (sigaction(SIGCHLD, &sa, 0) == -1) {
+        perror(0);
+        exit(-1);
+    }
+}
+
 
 bool hobbes_enabled   = false;
 bool palacios_enabled = false;
-
 
 
 int
@@ -131,10 +152,17 @@ main(int argc, char ** argv, char * envp[])
     }
  palacios_init_out:
 
-
-
     printf("Hobbes:   %s\n", (hobbes_enabled   ?  "ENABLED" : "DISABLED"));
     printf("Palacios: %s\n", (palacios_enabled ?  "ENABLED" : "DISABLED"));
+
+    /* Init app framework */
+    if (init_lwk_app() == -1) {
+        ERROR("Could not initialize lnx_app framework\n");
+        exit(-1);
+    }
+
+    /* Install a signal handler for SIGCHLD */
+    register_for_sigchld();
 
     /* Command Loop */
     printf("Entering Command Loop\n");
@@ -149,6 +177,16 @@ main(int argc, char ** argv, char * envp[])
 	    break;
 	}
 
+	if (ret == -EINTR) {
+            /*
+	     * We assume that if we get an -EINTR, a child has exited.
+	     * This might not be the best assumption in the long term,
+	     * but it works for now... a SIGCHLD is really the only
+	     * reason that poll should return -EINTR with the way
+	     * things are currently setup.
+	     */
+	    reap_exited_children();
+	}
 	
 	for (i = 0; i < handler_cnt; i++) {
 	    if (handler_fds[i].revents & POLLIN) {
@@ -343,4 +381,21 @@ load_remote_file(char * remote_file,
     free(file_buf);
 
     return 0;
+}
+
+
+/* This halts the enclave, all cores go into a halt loop */
+void
+hobbes_panic(const char *fmt, ...)
+{
+    va_list args;
+
+    /* Print a message to the enclave's console */
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+
+    /* Halt the enclave */
+    hobbes_set_enclave_state(hobbes_get_my_enclave_id(), ENCLAVE_ERROR);
+    reboot(RB_HALT_SYSTEM);
 }

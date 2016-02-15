@@ -20,21 +20,28 @@ typedef union {
 }  job_flags_t;
 
 
-int launch_lwk_app(char        * name, 
+int launch_lwk_app(hobbes_id_t   hpid,
+		   char        * name, 
 		   char        * exe_path, 
 		   char        * argv, 
 		   char        * envp, 
 		   job_flags_t   flags,
-		   uint8_t       ranks, 
+		   unsigned int  ranks,
 		   uint64_t      cpu_mask,
+		   uint64_t      data_size,
 		   uint64_t      heap_size,
 		   uint64_t      stack_size,
 		   uintptr_t     data_base_addr,
 		   uintptr_t     heap_base_addr,
 		   uintptr_t     stack_base_addr);
 
+int kill_lwk_app(hobbes_id_t hpid);
+int reap_exited_children(void);
+
 int launch_hobbes_lwk_app(char * spec_str);
 int kill_hobbes_lwk_app(hobbes_id_t hpid);
 
+int init_lwk_app(void);
+int deinit_lwk_app(void);
 
 #endif

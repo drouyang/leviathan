@@ -23,7 +23,6 @@ extern bool hobbes_enabled;
 
 typedef int (*fd_handler_fn)(int fd, void * priv_data);
 
-
 int add_fd_handler(int             fd, 
                    fd_handler_fn   handler,
                    void          * priv_data);
@@ -33,5 +32,7 @@ int remove_fd_handler(int fd);
 
 int  load_remote_file(char * remote_file, char * local_file);
 int store_remote_file(char * remote_file, char * local_file);
+
+void hobbes_panic(const char *fmt, ...);
 
 #endif

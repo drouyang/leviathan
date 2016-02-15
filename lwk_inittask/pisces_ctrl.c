@@ -217,6 +217,7 @@ __launch_job(int      pisces_fd,
     struct cmd_launch_job  * job_cmd  = (struct cmd_launch_job *)calloc(1, sizeof(struct cmd_launch_job));
     struct pisces_job_spec * job_spec = NULL;
     int ret = 0;
+    static hobbes_id_t fake_hpid = 10000000UL;  /* HACK: start at high offset to avoid interferring with Leviathan */
 
     ret = read(pisces_fd, job_cmd, sizeof(struct cmd_launch_job));
 
@@ -231,13 +232,15 @@ __launch_job(int      pisces_fd,
     
     job_spec = &(job_cmd->spec);
 
-    ret = launch_lwk_app(job_spec->name,
+    ret = launch_lwk_app(fake_hpid++,
+			 job_spec->name,
 			 job_spec->exe_path, 
 			 job_spec->argv, 
 			 job_spec->envp, 
 			 (job_flags_t)(job_spec->flags), 
 			 job_spec->num_ranks, 
 			 job_spec->cpu_mask, 
+			 0,  /* data_size */
 			 job_spec->heap_size, 
 			 job_spec->stack_size,
 			 0, 0, 0);
