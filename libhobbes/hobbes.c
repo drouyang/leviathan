@@ -30,6 +30,7 @@
 hdb_db_t            hobbes_master_db = NULL;
 static xemem_apid_t hobbes_db_apid;
 static bool         hobbes_enabled   = false;
+static pid_t        hobbes_pid       = 0;
 
 
 static int
@@ -74,6 +75,9 @@ hobbes_app_auto_init() {
     
     /* Mark hobbes as enabled */
     hobbes_enabled = true;
+
+    /* Save pid of process so that children do not touch hobbes state on deinit */
+    hobbes_pid     = getpid();
 }
 
 
@@ -85,6 +89,10 @@ hobbes_app_auto_deinit()
     //    DEBUG("Hobbes: Deinitializing\n");
 
     if (!hobbes_enabled) {
+	return;
+    }
+
+    if (getpid() != hobbes_pid) {
 	return;
     }
 
