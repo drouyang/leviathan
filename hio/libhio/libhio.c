@@ -87,36 +87,6 @@ sigterm_handler(int sig)
     term_loop = true;
 }
 
-/* A child exited */
-static void
-sigchld_handler(int         sig,
-		        siginfo_t * si_info,
-		        void      * unused)
-{
-    struct hio_rank * hio_rank = NULL;
-    uint32_t          rank     = 0;
-    pid_t             pid      = si_info->si_pid;
-
-    rank = (uint32_t)pet_htable_remove(hio_table, (uintptr_t)pid, 0);
-    if (rank == 0) {
-        ERROR("Received SIGCHLD for process %d, but process rank not found in hashtable\n",
-            pid);
-        return;
-    }
-
-    /* Actual rank is offset by 1 */
-    rank -= 1;
-
-    hio_rank = &(hio_ranks[rank]);
-
-    assert(hio_rank->pid == pid);
-    assert(hio_rank->exited == 0);
-    hio_rank->exited = 1;
-
-    ++num_exited;
-}
-
-
 static void
 __hio_kill_children(void)
 {
@@ -149,21 +119,8 @@ __hio_install_sig_handlers(void)
         return -1;
     }
 
-    /* Catch sigchld to see when children exit */
-    memset(&new_action, 0, sizeof(struct sigaction));
-    new_action.sa_sigaction = sigchld_handler;
-    new_action.sa_flags    |= SA_SIGINFO;
-    sigemptyset(&(new_action.sa_mask));
-
-    if (sigaction(SIGCHLD, &new_action, NULL) == -1) {
-        ERROR("Could not register SIGCHLD handler\n");
-        return -1;
-    }
-
     return 0;
-
 }
-
 
 static int
 __hio_update_table(char        * id,
@@ -441,15 +398,56 @@ __hio_free_lwk_aspace(void)
 static int
 __libhio_loop(void)
 {
+    struct hio_rank * hio_rank = NULL;
+
+    uint32_t rank   = 0;
+    pid_t    pid    = 0;
+    int      status = 0;
+
     while (num_exited < num_ranks) {
         if (term_loop)
             __hio_kill_children();
 
-        wait(NULL);
+        pid = wait(&status);
+        if (pid == -1) {
+            if (errno == EINTR)
+                continue;
+
+            if (errno == ECHILD) {
+                ERROR("All children have exited. Force exiting libhio parent loop\n");
+                break;
+            }
+
+            ERROR("wait: %s\n", strerror(errno));
+            continue;
+        }
+
+        rank = (uint32_t)pet_htable_remove(hio_table, (uintptr_t)pid, 0);
+        assert(rank != 0);
+
+        /* Actual rank is offset by 1 */
+        rank -= 1;
+
+        if (WIFEXITED(status)) {
+            printf("Rank %d (pid %d) exited with status %d\n",
+                rank, pid, WEXITSTATUS(status));
+            fflush(stdout);
+        } else {
+            printf("Rank %d (pid %d) exited abnormally\n", rank, pid);
+            fflush(stdout);
+        }
+
+        hio_rank = &(hio_ranks[rank]);
+
+        assert(hio_rank->pid == pid);
+        assert(hio_rank->exited == 0);
+        hio_rank->exited = 1;
+
+        ++num_exited;
     }
 
-    fprintf(stderr, "All children have exited\n");
-    fflush(stderr);
+    printf("All children have exited\n");
+    fflush(stdout);
 
     pet_free_htable(hio_table, 0, 0);
     free(hio_ranks);
