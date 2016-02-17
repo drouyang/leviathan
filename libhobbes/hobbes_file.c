@@ -10,10 +10,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <pet_log.h>
 #include <pet_xml.h>
 
+#include "hobbes_enclave.h"
 #include "hobbes_util.h"
 #include "hobbes_file.h"
 #include "hobbes_cmd_queue.h"
@@ -344,9 +346,9 @@ hfio_read(hobbes_file_t   file,
 
 
 ssize_t
-hfio_write(hobbes_file_t   file,
-	   char          * buf, 
-	   size_t          count)
+hfio_write(hobbes_file_t file,
+	   const char  * buf, 
+	   size_t        count)
 {
     hcq_cmd_t cmd =  HCQ_INVALID_CMD;
     ssize_t   ret = -1;
@@ -433,4 +435,164 @@ hfio_lseek(hobbes_file_t file,
 }
 
 
-	  
+ssize_t
+hfio_read_file(hobbes_file_t hfile,
+       	       char        * buf,
+	       size_t        count)
+{
+    ssize_t bytes_total     = 0;
+    ssize_t bytes_requested = 0;
+    ssize_t bytes_read      = 0;
+
+    while (1) {
+	bytes_requested = count;
+	if (bytes_requested > HFIO_MAX_XFER_SIZE)
+	    bytes_requested = HFIO_MAX_XFER_SIZE;
+	
+	/* Read a chunk */
+	bytes_read = hfio_read(hfile, &(buf[bytes_total]), bytes_requested);
+	if (bytes_read == 0)
+	    break;
+
+	/* Update the bytes read and truncate the destination buf */
+	bytes_total += bytes_read;
+	count       -= bytes_read;
+	buf[bytes_read] = 0;
+
+	if (count == 0)
+	    break;
+    }
+
+    return bytes_read;
+}
+
+ssize_t
+hfio_write_file(hobbes_file_t hfile,
+		const char  * buf,
+		size_t        count)
+{
+    ssize_t bytes_total     = 0;
+    ssize_t bytes_requested = 0;
+    ssize_t bytes_written   = 0;
+
+    while (1) {
+	bytes_requested = count;
+	if (bytes_requested > HFIO_MAX_XFER_SIZE)
+	    bytes_requested = HFIO_MAX_XFER_SIZE;
+	
+	/* Write a chunk */
+	bytes_written = hfio_write(hfile, &(buf[bytes_total]), bytes_requested);
+	if (bytes_written == 0)
+	    break;
+
+	/* Update the bytes read and truncate the destination buf */
+	bytes_total += bytes_written;
+	count       -= bytes_written;
+
+	if (count == 0)
+	    break;
+    }
+
+    return bytes_written;
+}
+
+int
+hobbes_copy_file(char      * path,
+		 hobbes_id_t src_enclave,
+		 hobbes_id_t dst_enclave)
+{
+    hcq_handle_t  src_hcq   = HCQ_INVALID_HANDLE;
+    hcq_handle_t  dst_hcq   = HCQ_INVALID_HANDLE;
+    hobbes_file_t src_hfile = HOBBES_INVALID_FILE;
+    hobbes_file_t dst_hfile = HOBBES_INVALID_FILE;
+
+    ssize_t bytes         = 0;
+    ssize_t bytes_read    = 0;
+    ssize_t bytes_written = 0;
+
+    int    status = -1;
+    char * buffer = NULL;
+    struct stat st;
+
+    /* Open command queues */
+    {
+	src_hcq = hobbes_open_enclave_cmdq(src_enclave);
+	if (src_hcq == HCQ_INVALID_HANDLE) {
+	    ERROR("Cannot open enclave %d command queue\n", src_enclave);
+	    return -1;
+	}
+
+	dst_hcq = hobbes_open_enclave_cmdq(dst_enclave);
+	if (dst_hcq == HCQ_INVALID_HANDLE) {
+	    ERROR("Cannot open enclave %d command queue\n", dst_enclave);
+	    goto dst_hcq_out;
+	}
+    }
+
+    /* Open Hobbes files */
+    {
+	src_hfile = hfio_open(src_hcq, path, O_RDONLY);
+	if (src_hfile == HOBBES_INVALID_FILE) {
+	    ERROR("Cannot open %s in enclave %d\n", path, src_enclave);
+	    goto src_hfile_out;
+	}
+
+	dst_hfile = hfio_open(dst_hcq, path, O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IROTH);
+	if (dst_hfile == HOBBES_INVALID_FILE) {
+	    ERROR("Cannot open %s in enclave %d\n", path, dst_enclave);
+	    goto dst_hfile_out;
+	}
+    }
+
+    /* Stat to determine size */
+    status = hfio_fstat(src_hfile, &st);
+    if (status != 0) {
+	ERROR("Cannot stat %s in enclave %d\n", path, src_enclave);
+	goto stat_out;
+    }
+
+    bytes  = st.st_size;
+    buffer = malloc(bytes);
+    if (buffer == NULL) {
+	ERROR("malloc: %s\n", strerror(errno));
+	status = -errno;
+	goto malloc_out;
+    }
+    
+    /* Read it */
+    bytes_read = hfio_read_file(src_hfile, buffer, bytes);
+    if (bytes_read != bytes) {
+	ERROR("Only read %lu bytes out of %lu bytes of file %s\n", bytes_read, bytes, path);
+	status = -1;
+	goto read_out;
+    }
+
+    /* Write it */
+    bytes_written = hfio_write_file(dst_hfile, (const char *)buffer, bytes);
+    if (bytes_written != bytes) {
+	ERROR("Only wrote %lu bytes out of %lu bytes of file %s\n", bytes_written, bytes, path);
+	status = -1;
+	goto write_out;
+    }
+
+    status = 0;
+
+write_out:
+read_out:
+    free(buffer);
+
+malloc_out:
+stat_out:
+    hfio_close(dst_hfile);
+
+dst_hfile_out:
+    hfio_close(src_hfile);
+
+src_hfile_out:
+    hobbes_close_enclave_cmdq(dst_hcq);
+
+dst_hcq_out:
+    hobbes_close_enclave_cmdq(src_hcq);
+
+    return status;
+}

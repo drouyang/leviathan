@@ -215,6 +215,7 @@ cat_file_main(int argc, char ** argv)
     hobbes_id_t   enclave_id = HOBBES_INVALID_ID;
     hcq_handle_t  hcq        = HCQ_INVALID_HANDLE; 
     hobbes_file_t hfile      = HOBBES_INVALID_FILE;
+    int           status     = -1;
     
     if (argc < 2) {
 	printf("Usage: hobbes cat_file <enclave name> <path>\n");
@@ -239,41 +240,42 @@ cat_file_main(int argc, char ** argv)
 
     if (hfile == HOBBES_INVALID_FILE) {
 	ERROR("Could not open file (%s)\n", argv[2]);
-	return -1;
+	goto hfile_out;
     }
 
     {
-	char * tmp_buf = NULL;
+	char  * tmp_buf    = NULL;
+	off_t   bytes      = 0;
+	ssize_t bytes_read = 0;
+	struct  stat st;
 
-	tmp_buf = calloc(HFIO_MAX_XFER_SIZE + 1, 1);
+	if (hfio_fstat(hfile, &st) != 0) {
+	    ERROR("Could not stat file %s\n", argv[2]);
+	    goto stat_out;
+	}
+	bytes = st.st_size;
 
+	tmp_buf = calloc(bytes, 1);
 	if (tmp_buf == NULL) {
 	    ERROR("Could not allocate temporary read buffer\n");
-	    return -1;
+	    goto calloc_out;
 	}
 
-	while (1) {
-	    ssize_t bytes_read = 0;
-	    
-	    bytes_read = hfio_read(hfile, tmp_buf, HFIO_MAX_XFER_SIZE);
-
-	    if (bytes_read == 0) {
-		break;
-	    }
-
-	    tmp_buf[bytes_read] = 0;
-
+	bytes_read = hfio_read_file(hfile, tmp_buf, bytes);
+	if (bytes_read > 0)
 	    printf("%s", tmp_buf);
-	}
 
 	free(tmp_buf);
     }
     
+calloc_out:
+stat_out:
     hfio_close(hfile);
 
+hfile_out:
     hobbes_close_enclave_cmdq(hcq);
 
-    return 0;
+    return status;
 }
 
 
@@ -304,7 +306,7 @@ cat_into_file_main(int argc, char ** argv)
         }
     }
 
- if (argc < 2) {
+     if (argc < 2) {
 	printf("Usage: hobbes cat_file <enclave name> <path>\n");
 	return -1;
     }

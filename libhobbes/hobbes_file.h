@@ -31,9 +31,23 @@ hobbes_file_t hfio_open(hcq_handle_t hcq, char * path, int flags, ...);
 int     hfio_stat (hcq_handle_t  hcq,  char * path, struct stat * buf);
 int     hfio_fstat(hobbes_file_t file, struct stat * buf);
 ssize_t hfio_read (hobbes_file_t file, char * buf,  size_t count);
-ssize_t hfio_write(hobbes_file_t file, char * buf,  size_t count);
+ssize_t hfio_write(hobbes_file_t file, const char * buf,  size_t count);
 off_t   hfio_lseek(hobbes_file_t file, off_t offset, int whence);
 void    hfio_close(hobbes_file_t file);
+
+
+/* High level file transfer avoiding buffer size constraints */
+ssize_t
+hfio_read_file(hobbes_file_t file, char * buf, size_t count);
+
+ssize_t
+hfio_write_file(hobbes_file_t file, const char * buf, size_t count);
+
+/* Copy a file from one enclave to another */
+int 
+hobbes_copy_file(char      * path,
+		 hobbes_id_t src_enclave,
+		 hobbes_id_t dst_enclave);
 
 
 /*
