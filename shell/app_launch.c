@@ -398,25 +398,37 @@ __kill_app(hobbes_id_t enclave_id,
 static int
 __app_stub(hobbes_id_t enclave_id)
 {
-    hobbes_id_t       hio_enclave_id   = HOBBES_INVALID_ID;
-    hobbes_id_t       app_id           = HOBBES_INVALID_ID;
-    hobbes_id_t       hio_app_id       = HOBBES_INVALID_ID;
-    hobbes_app_spec_t app_spec         = NULL;
-    hobbes_app_spec_t hio_app_spec     = NULL;
-    enclave_type_t    enclave_type     = INVALID_ENCLAVE;
-    hnotif_t          notifier         = NULL; 
-    int               ret              = -1;
-    uintptr_t         data_base_va     = HOBBES_INVALID_ADDR;
-    uintptr_t         data_pa          = HOBBES_INVALID_ADDR;
-    uintptr_t         heap_pa          = HOBBES_INVALID_ADDR;
-    uintptr_t         stack_pa         = HOBBES_INVALID_ADDR;
-    uint64_t          data_size        = 0;
-    uint64_t          page_size        = 0;
+    hobbes_id_t       hio_enclave_id = HOBBES_INVALID_ID;
+    hobbes_id_t       app_id         = HOBBES_INVALID_ID;
+    hobbes_id_t       hio_app_id     = HOBBES_INVALID_ID;
+    hobbes_app_spec_t app_spec       = NULL;
+    hobbes_app_spec_t hio_app_spec   = NULL;
+    enclave_type_t    enclave_type   = INVALID_ENCLAVE;
+    hnotif_t          notifier       = NULL; 
+    int               ret            = -1;
+    uintptr_t         data_base_va   = HOBBES_INVALID_ADDR;
+    uintptr_t         data_pa        = HOBBES_INVALID_ADDR;
+    uintptr_t         heap_pa        = HOBBES_INVALID_ADDR;
+    uintptr_t         stack_pa       = HOBBES_INVALID_ADDR;
+    uint64_t          data_size      = 0;
+    uint64_t          page_size      = 0;
 
     if (use_large_pages)
 	page_size = PAGE_SIZE_2MB;
     else
 	page_size = PAGE_SIZE_4KB;
+
+    /* Catch sigint to let user kill the app */
+    {
+	struct sigaction new_action, old_action;
+
+	new_action.sa_handler = sigint_handler;
+	sigemptyset(&(new_action.sa_mask));
+
+	sigaction(SIGINT, NULL, &old_action);
+	sigaction(SIGINT, &new_action, NULL);
+    }
+
  
     /* Determine data base address and size of the executable */
     ret = hobbes_parse_elf_binary_data(exe_path, page_size, &data_base_va, &data_size);
@@ -429,7 +441,7 @@ __app_stub(hobbes_id_t enclave_id)
     data_size  = PAGE_ALIGN_UP(data_size, page_size);
     heap_size  = PAGE_ALIGN_UP(heap_size, page_size);
     stack_size = PAGE_ALIGN_UP(stack_size, page_size);
- 
+
     enclave_type = hobbes_get_enclave_type(enclave_id);
     if (enclave_type == INVALID_ENCLAVE) {
 	ERROR("Invalid enclave type: cannot launch app\n");
@@ -445,38 +457,38 @@ __app_stub(hobbes_id_t enclave_id)
 
     if (prealloc_mem) {
 	/* Allocate memory on behalf of the target host enclave */
-	data_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, data_size);
+	data_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, data_size * num_ranks);
 	if (data_pa == HOBBES_INVALID_ADDR) {
-	    ERROR("Could not preallocate memory for data region\n");
+	    ERROR("Could not preallocate memory for data regions\n");
 	    goto alloc_data_out;
 	}
 
-	heap_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, heap_size);
+	heap_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, heap_size * num_ranks);
 	if (heap_pa == HOBBES_INVALID_ADDR) {
 	    ERROR("Could not preallocate memory for heap region\n");
 	    goto alloc_heap_out;
 	}
 
-	stack_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, stack_size);
+	stack_pa = hobbes_alloc_mem(enclave_id, prealloc_numa, stack_size * num_ranks);
 	if (stack_pa == HOBBES_INVALID_ADDR) {
 	    ERROR("Could not preallocate memory for stack region\n");
 	    goto alloc_stack_out;
 	}
 
 	/* Now, assign each region as allocated memory to the host enclave */
-	ret = hobbes_assign_memory(enclave_id, data_pa, data_size, true, false);
+	ret = hobbes_assign_memory(enclave_id, data_pa, data_size * num_ranks, true, false);
 	if (ret != 0) {
 	    ERROR("Could not assign data region to host enclave\n");
 	    goto assign_data_out;
 	}
 
-	ret = hobbes_assign_memory(enclave_id, heap_pa, heap_size, true, false);
+	ret = hobbes_assign_memory(enclave_id, heap_pa, heap_size * num_ranks, true, false);
 	if (ret != 0) {
 	    ERROR("Could not assign heap region to host enclave\n");
 	    goto assign_heap_out;
 	}
 
-	ret = hobbes_assign_memory(enclave_id, stack_pa, stack_size, true, false);
+	ret = hobbes_assign_memory(enclave_id, stack_pa, stack_size * num_ranks, true, false);
 	if (ret != 0) {
 	    ERROR("Could not assign stack region to host enclave\n");
 	    goto assign_stack_out;
@@ -514,7 +526,7 @@ __app_stub(hobbes_id_t enclave_id)
 		    hio_exe_path,
 		    hio_exe_argv,
 		    hio_envp,
-		    page_size,
+		    num_ranks,
 		    data_base_va,
 		    data_pa,
 		    heap_pa,
@@ -571,9 +583,6 @@ __app_stub(hobbes_id_t enclave_id)
 	}
     }
 
-    /* Give HIO some time to come up. TODO: figure out a better way to do this */
-    sleep(1);
-
     /* Launch app */
     {
 	ret = hobbes_launch_app(enclave_id, app_spec);
@@ -582,18 +591,6 @@ __app_stub(hobbes_id_t enclave_id)
 	    goto launch_out;
 	}
     }
-
-    /* Catch sigint to let user kill the app */
-    {
-	struct sigaction new_action, old_action;
-
-	new_action.sa_handler = sigint_handler;
-	sigemptyset(&(new_action.sa_mask));
-
-	sigaction(SIGINT, NULL, &old_action);
-	sigaction(SIGINT, &new_action, NULL);
-    }
-
 
     /* Wait for events on launch fd */
     while (!terminate) {
@@ -658,22 +655,22 @@ hio_init_out:
     if (hio_app_id != HOBBES_INVALID_ID) hobbes_free_app(hio_app_id);
 
 hio_out:
-    if (prealloc_mem) hobbes_remove_memory(enclave_id, stack_pa, stack_size, true);
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, stack_pa, stack_size * num_ranks, true);
 
 assign_stack_out:
-    if (prealloc_mem) hobbes_remove_memory(enclave_id, heap_pa, heap_size, true);
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, heap_pa, heap_size * num_ranks, true);
 
 assign_heap_out:
-    if (prealloc_mem) hobbes_remove_memory(enclave_id, data_pa, data_size, true);
+    if (prealloc_mem) hobbes_remove_memory(enclave_id, data_pa, data_size * num_ranks, true);
 
 assign_data_out:
-    if (prealloc_mem) hobbes_free_mem(stack_pa, stack_size);
+    if (prealloc_mem) hobbes_free_mem(stack_pa, stack_size * num_ranks);
 
 alloc_stack_out:
-    if (prealloc_mem) hobbes_free_mem(heap_pa, heap_size);
+    if (prealloc_mem) hobbes_free_mem(heap_pa, heap_size * num_ranks);
 
 alloc_heap_out:
-    if (prealloc_mem) hobbes_free_mem(data_pa, data_size);
+    if (prealloc_mem) hobbes_free_mem(data_pa, data_size * num_ranks);
 
 alloc_data_out:
     hnotif_free(notifier);

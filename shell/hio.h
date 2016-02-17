@@ -26,7 +26,7 @@ hobbes_init_hio_app(
 	char 	    * hio_exe_path,
 	char	    * hio_argv,
 	char	    * hio_envp,
-	uint64_t      page_size,
+	uint32_t      num_ranks,
 	uintptr_t     data_va,
 	uintptr_t     data_pa,
 	uintptr_t     heap_pa,

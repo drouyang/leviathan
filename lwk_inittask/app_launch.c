@@ -825,13 +825,18 @@ launch_lwk_app(hobbes_id_t   hpid,
     {
         if (flags.use_prealloc_mem) {
             for (rank = 0; rank < num_ranks; rank++) {
-                /* FIXME: Shell should allocate memory for each rank.
-                 *        Currently the shell assumes there is only one
-                 *        rank per enclave, and only allocates physical
-                 *        memory for one process. */
-                pmem_state[rank].data.start = data_pa;
-                pmem_state[rank].heap.start = heap_pa;
-                pmem_state[rank].stack.start = stack_pa;
+		/* Shell allocates memory for each rank. Three chunks (data_pa,
+		 * heap_pa, stack_pa) are passed in, which each represent a
+		 * portion of physically contigous memory. The sizes are
+		 * {data/heap/stack}_size * num_ranks, respectively. 
+		 *
+		 * So, the base address of each rank's pmem region can be
+		 * uniquely calculated by simply offsetting into the chunk
+		 * based on the rank's id and the region size.
+		 */
+                pmem_state[rank].data.start = data_pa + (rank * data_size);
+                pmem_state[rank].heap.start = heap_pa + (rank * heap_size);
+                pmem_state[rank].stack.start = stack_pa + (rank * stack_size);
             }
         } else {
             for (rank = 0; rank < num_ranks; rank++) {
