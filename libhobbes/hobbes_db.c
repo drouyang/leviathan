@@ -1412,16 +1412,30 @@ __create_app_record(hdb_db_t    db,
 	ERROR("malformed database. Missing app Header\n");
 	return HOBBES_INVALID_ID;
     }
-    
+
+ 
     /* Get Next Available app ID and app count */
     app_id  = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_NEXT));
+
+    /* Verify the app id is available */
+    if (__get_app_by_id(db, app_id)) {
+	ERROR("App with ID (%d) already exists\n", app_id);
+	return HOBBES_INVALID_ID;
+    }
+
     app_cnt = wg_decode_int(db, wg_get_field(db, hdr_rec, HDB_APP_HDR_CNT));
     
     if (name == NULL) {
 	snprintf(auto_name, 31, "app-%d", app_id);
 	name = auto_name;
     }
-    
+
+    /* Verify that name is available */
+    if (__get_app_by_name(db, name)) {
+	ERROR("App with the name (%s) already exists\n", name);
+	return HOBBES_INVALID_ID;
+    }
+ 
     /* Insert app into the db */
     app = wg_create_record(db, 6);
     wg_set_field(db, app, HDB_TYPE_FIELD,      wg_encode_int(db, HDB_REC_APP));
