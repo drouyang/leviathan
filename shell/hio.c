@@ -231,7 +231,8 @@ out_hfile:
 */
 
 static char *
-hio_create_specification(uint32_t      num_ranks,
+hio_create_specification(char        * stub_name,
+			 uint32_t      num_ranks,
 			 uintptr_t     data_va,
 			 uint64_t      data_size,
 			 xemem_segid_t data_segid,
@@ -251,6 +252,13 @@ hio_create_specification(uint32_t      num_ranks,
     if (hio_xml == PET_INVALID_XML) {
 	ERROR("Could not create hio xml specification\n");
 	return NULL;
+    }
+
+    /* Name */
+    status = pet_xml_add_val(hio_xml, "name", stub_name);
+    if (status != 0) {
+	ERROR("Could not add name to xml specification\n");
+	goto out;
     }
 
     /* Num ranks */
@@ -406,6 +414,7 @@ hobbes_init_hio_app(hobbes_id_t hio_app_id,
 
 	/* Create xml specification */
 	xml_spec = hio_create_specification(	
+		name,
 		num_ranks,
 		data_va,
 		data_size,
