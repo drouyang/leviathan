@@ -498,7 +498,7 @@ __app_stub(hobbes_id_t enclave_id)
     /* Create HIO app */
     if (hio_exe_path != NULL) {
 	char stub_name[64] = {0};
-	snprintf(stub_name, 64, "%s-hio", name);
+	snprintf(stub_name, 64, "%s-stub", name);
 
 	/* Ensure the target enclave is Pisces */
 	if (enclave_type != PISCES_ENCLAVE) {
