@@ -63,6 +63,12 @@ struct hio_rank {
     uint32_t rank_id;
     pid_t    pid;
     bool     exited;
+
+    /* We need to keep track of the HCQ command (if any) each child is
+     * processing, so that if the child dies we can return failure to the
+     * client
+     */
+    hcq_cmd_t outstanding_cmd;
 };
 
 /* Parent info */
@@ -100,7 +106,7 @@ struct hio_cmd {
     /* The status of the HIO command */
     int32_t      status;
 
-    /* The identified for the HCQ command */
+    /* The identifier for the HCQ command */
     hcq_cmd_t    hcq_cmd;
 
     /* Variable length xml specifying the stub function */
@@ -306,7 +312,11 @@ __parse_specification(char * spec_str)
         ERROR("%s\n", strerror(errno));
         goto out;
     }
-    memset(ranks, 0, sizeof(struct hio_rank) * num_ranks);
+
+    for (i = 0; i < num_ranks; i++) {
+        memset(&(ranks[i]), 0, sizeof(struct hio_rank));
+        ranks[i].outstanding_cmd = HCQ_INVALID_CMD;
+    }
 
     /* num_regions */
     num_regions = smart_atou32(0, pet_xml_get_val(hio_spec, "num_regions"));
@@ -716,7 +726,7 @@ __format_hio_command(hcq_cmd_t         cmd,
     hio_cmd = malloc(bytes);
     if (hio_cmd == NULL) {
         ERROR("Could not malloc hio command structure\n");
-        return -1;
+        return -HIO_SERVER_ERROR;
     }
     
     hio_cmd->cmd_size = bytes;
@@ -743,11 +753,11 @@ __write_hio_command(int              fd,
         switch (b_written) {
             case -1:
                 ERROR("Could not write hio_cmd: %s\n", strerror(errno));
-                return -1;
+                return -HIO_SERVER_ERROR;
 
             case 0:
                 ERROR("Wrote 0 bytes of hio_cmd\n");
-                return -1;
+                return -HIO_SERVER_ERROR;
 
             default:
                 break;
@@ -866,8 +876,7 @@ __setup_hio_args(pet_xml_t   xml_spec,
     return 0;
 
 out:
-
-    return -1;
+    return -HIO_BAD_XML;
 }
 
 static int
@@ -898,7 +907,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
     status = pet_xml_add_val(xml_spec, "nr_segs", tmp_ptr);
     if (status != 0) {
         ERROR("Could not add nr_segs tag to xml spec\n");
-        return -1;
+        return -HIO_SERVER_ERROR;
     }
 
     /* Add subtree for each seg */
@@ -906,7 +915,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
         xml_seg = pet_xml_add_subtree_tail(xml_spec, "seg");
         if (xml_seg == PET_INVALID_XML) {
             ERROR("Could not add seg subtree to xml spec\n");
-            return -1;
+            return -HIO_SERVER_ERROR;
         }
 
         /* Segid */
@@ -914,7 +923,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
         status = pet_xml_add_val(xml_seg, "segid", tmp_ptr);
         if (status != 0) {
             ERROR("Could not add segid to seg subtree in xml spec\n");
-            return -1;
+            return -HIO_SERVER_ERROR;
         }
 
         /* Size */
@@ -922,7 +931,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
         status = pet_xml_add_val(xml_seg, "size", tmp_ptr);
         if (status != 0) {
             ERROR("Could not add size to seg subtree in xml spec\n");
-            return -1;
+            return -HIO_SERVER_ERROR;
         }
 
         /* Vaddr */
@@ -930,7 +939,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
         status = pet_xml_add_val(xml_seg, "vaddr", tmp_ptr);
         if (status != 0) {
             ERROR("Could not add vaddr to seg subtree in xml spec\n");
-            return -1;
+            return -HIO_SERVER_ERROR;
         }
     }
 
@@ -941,7 +950,7 @@ __setup_hio_response(pet_xml_t         xml_spec,
 
     if (status != 0) {
         ERROR("Could not allocate HIO response\n");
-        return -1;
+        return status;
     }
 
     return 0;
@@ -968,13 +977,14 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     xml_spec = pet_xml_parse_str(hio_cmd->xml_str);
     if (xml_spec == PET_INVALID_XML) {
         ERROR("Cannot parse XML from spec str\n");
-        return -1;
+        return -HIO_BAD_XML;
     }
 
     /* Sanity check rank */
     xml_rank = smart_atou32((uint32_t)-1, pet_xml_get_val(xml_spec, "rank"));
     if (xml_rank != rank_id) {
         ERROR("Rank %u (pid %d) received HIO cmd for rank %u\n", rank_id, getpid(), xml_rank);
+        status = -HIO_SERVER_ERROR;
         goto out;
     }
 
@@ -982,6 +992,7 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     cmd_no = smart_atou32((uint32_t)-1, pet_xml_get_val(xml_spec, "cmd"));
     if (cmd_no == (uint32_t)-1) {
         ERROR("Cannot process HIO command: invalid or missing cmd\n");
+        status = -HIO_BAD_XML;
         goto out;
     }
 
@@ -989,6 +1000,7 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     argc = smart_atou32((uint32_t)-1, pet_xml_get_val(xml_spec, "argc"));
     if (argc == (uint32_t)-1) {
         ERROR("Cannot process HIO command: invalid or missing argc\n");
+        status = -HIO_BAD_XML;
         goto out;
     }
 
@@ -996,6 +1008,7 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     cb = (hio_cb_t)pet_htable_search(cmd_htable, (uintptr_t)cmd_no);
     if (cb == NULL) {
         ERROR("Cannot process HIO command: cannot find callback for cmd %u\n", cmd_no);
+        status = -HIO_NO_STUB_CMD;
         goto out;
     }
 
@@ -1003,6 +1016,7 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     args = malloc(sizeof(hio_arg_t) * argc);
     if (args == NULL) {
         ERROR("Cannot process HIO command: cannot allocate arg array\n");
+        status = -HIO_SERVER_ERROR;
         goto out;
     }
 
@@ -1126,7 +1140,7 @@ __parse_cmd_xml(char     * xml_str,
     xml_spec = pet_xml_parse_str(xml_str);
     if (xml_spec == PET_INVALID_XML) {
         ERROR("Could not parse XML spec\n");
-        return -1;
+        return -HIO_BAD_XML;
     }
 
     *rank_no = smart_atou32((uint32_t)-1, pet_xml_get_val(xml_spec, "rank"));
@@ -1134,7 +1148,7 @@ __parse_cmd_xml(char     * xml_str,
 
     if (*rank_no == (uint32_t)-1) {
         ERROR("Could not parse rank from XML spec\n");
-        return -1;
+        return -HIO_BAD_XML;
     }
 
     return 0;
@@ -1148,11 +1162,12 @@ __process_hcq_command(void)
 
     char   * xml_str   = NULL;
     uint32_t xml_size  = 0;
-    int      ret       = -1;
+    int      status    = -1;
     int      fd        = 0;
     uint32_t rank_no   = 0;
 
-    struct hio_cmd * hio_cmd = NULL;
+    struct hio_rank * hio_rank = NULL;
+    struct hio_cmd  * hio_cmd  = NULL;
 
     /* Get next command */
     cmd = hcq_get_next_cmd(hcq);
@@ -1165,6 +1180,7 @@ __process_hcq_command(void)
     cmd_code = hcq_get_cmd_code(hcq, cmd);
     if (cmd_code != HIO_CMD_CODE) {
         ERROR("Received cmd_code %lu on HCQ (should be %lu)\n", cmd_code, HIO_CMD_CODE);
+        status = -HIO_BAD_SERVER_HCQ;
         goto out;
     }
 
@@ -1172,12 +1188,13 @@ __process_hcq_command(void)
     xml_str = (char *)hcq_get_cmd_data(hcq, cmd, &xml_size);
     if (xml_str == NULL) {
         ERROR("Could not read HIO cmd spec\n");
+        status = -HIO_BAD_XML;
         goto out;
     }
 
     /* Parse the xml to get rank_no */
-    ret = __parse_cmd_xml(xml_str, &rank_no);
-    if (ret != 0) {
+    status = __parse_cmd_xml(xml_str, &rank_no);
+    if (status != 0) {
         ERROR("Could not parse rank from HIO cmd spec\n");
         goto out;
     }
@@ -1185,30 +1202,45 @@ __process_hcq_command(void)
     if (rank_no >= num_ranks) {
         ERROR("Rank %u specified to handle HIO command, but only %u ranks created\n",
             rank_no, num_ranks);
+        status = -HIO_BAD_RANK;
+        goto out;
+    }
+
+    /* Ensure the rank is not busy already. Not that we couldn't potentially
+     * handle this, but for now err out as the client must be doing some weird
+     * stuff
+     */
+    hio_rank = &(ranks[rank_no]);
+    if (hio_rank->outstanding_cmd != HCQ_INVALID_CMD) {
+        ERROR("Rank %u specified to handle HIO command, but rank already processing a command\n",
+            rank_no);
+        status = -HIO_RANK_BUSY;
         goto out;
     }
 
     /* Format hio command */
-    ret = __format_hio_command(cmd, -HIO_ERROR, xml_str, &hio_cmd);
-    if (ret != 0) {
+    status = __format_hio_command(cmd, -HIO_SERVER_ERROR, xml_str, &hio_cmd);
+    if (status != 0) {
         ERROR("Could not format HIO cmd from cmd spec\n");
         goto out;
     }
 
     /* Write the cmd to the child */
     fd = TO_CHILD(pipes, rank_no);
-    ret = __write_hio_command(fd, hio_cmd);
+    status = __write_hio_command(fd, hio_cmd);
     free(hio_cmd);
 
-    if (ret != 0) {
+    if (status != 0) {
         ERROR("Could not write HIO cmd to child\n");
         goto out;
-    }
+    } 
 
+    /* Remember that this rank is processing this command */
+    hio_rank->outstanding_cmd = cmd;
     return 0;
 
 out:
-    hcq_cmd_return(hcq, cmd, -1, 0, NULL);
+    hcq_cmd_return(hcq, cmd, status, 0, NULL);
     return 0;
 }
 
@@ -1284,7 +1316,8 @@ __parent_loop(void)
     /* Loop until all children are dead, or we get sigterm'd */
     while (num_exited < num_ranks) {
         fd_set cur_set;
-        struct hio_cmd * hio_cmd = NULL;
+        struct hio_cmd  * hio_cmd  = NULL;
+        struct hio_rank * hio_rank = NULL;
 
         /* Check for sigterm */
         if (term_loop)
@@ -1304,9 +1337,14 @@ __parent_loop(void)
         /* See if HCQ is ready */
         if (FD_ISSET(hcq_fd, &cur_set)) {
             status = __process_hcq_command();
+
+            /* The only time status is non-zero is if we couldn't fetch a command
+             * from the HCQ. That would signify something catastrophic so we 
+             * go down
+             */
             if (status != 0) {
                 ERROR("Could not process HCQ command\n");
-                goto out;
+                break;
             }
 
             --fds_ready;
@@ -1316,24 +1354,43 @@ __parent_loop(void)
         for (i = 0; (fds_ready > 0) && (i < num_ranks); i++) {
             child_fd = FROM_CHILD(pipes, i);
             if (FD_ISSET(child_fd, &cur_set)) {
+
+                hio_rank = &(ranks[i]);
     
                 /* Read command */
                 status = __read_hio_command(child_fd, &hio_cmd);
                 if (status != 0) {
-                    /* Assumption is that child exited */
+                    /* Maybe the child exited. Even if it didn't this is a bad error,
+                     * and marking it as exited will close it's pipe and trigger it
+                     * to exit
+                     */
                     __mark_child_exited(i);
+
+                    /* If there's an outstanding command, return error now */
+                    if (hio_rank->outstanding_cmd != HCQ_INVALID_CMD) {
+                        hcq_cmd_return(
+                            hcq, 
+                            hio_rank->outstanding_cmd,
+                            -HIO_SERVER_ERROR,
+                            0,
+                            NULL
+                        );
+                    }
+                } else {
+                    hcq_cmd_return(
+                        hcq, 
+                        hio_cmd->hcq_cmd, 
+                        hio_cmd->status, 
+                        hio_cmd->cmd_size - sizeof(struct hio_cmd),
+                        hio_cmd->xml_str
+                    );
+
+                    free(hio_cmd);
                 }
 
-                /* Return cmd through the HCQ */
-                hcq_cmd_return(
-                    hcq, 
-                    hio_cmd->hcq_cmd, 
-                    hio_cmd->status, 
-                    hio_cmd->cmd_size - sizeof(struct hio_cmd),
-                    hio_cmd->xml_str
-                );
+                /* No more outstanding command in child */
+                hio_rank->outstanding_cmd = HCQ_INVALID_CMD;
 
-                free(hio_cmd);
                 --fds_ready;
             }
         }

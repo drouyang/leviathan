@@ -74,7 +74,7 @@ main(int     argc,
         }
 
         bytes = hio_read(fd, buf, PAGE_SIZE * 10);
-        printf("Read %li bytes from fd\n", bytes);
+        printf("Read %li bytes from fd %d\n", bytes, fd);
         if (bytes> 0)
             printf("%s\n", buf);
 
@@ -88,7 +88,7 @@ main(int     argc,
         }
 
         bytes = hio_write(fd, "Overwrite file\n", 15);
-        printf("Wrote %li bytes to fd\n", bytes);
+        printf("Wrote %li bytes to fd %d\n", bytes, fd);
 
         hio_close(fd);
     }

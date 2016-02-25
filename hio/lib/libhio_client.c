@@ -124,23 +124,23 @@ __libhio_client_call_rank_stub_fn(uint64_t    cmd_code,
     uint32_t  xml_size    = 0;
     pet_xml_t xml_resp    = PET_INVALID_XML;
 
-    *hio_ret = -HIO_ERROR;
+    *hio_ret = -HIO_CLIENT_ERROR;
 
     /* Add cmd and rank to xml */
     snprintf(tmp_str, 64, "%lu", cmd_code);
     status = pet_xml_add_val(hio_xml, "cmd", tmp_str);
     if (status != 0)
-        return -HIO_NO_XML;
+        return -HIO_CLIENT_ERROR;
 
     snprintf(tmp_str, 64, "%u", rank);
     status = pet_xml_add_val(hio_xml, "rank", tmp_str);
     if (status != 0)
-        return -HIO_NO_XML;
+        return -HIO_CLIENT_ERROR;
 
     /* Convert to str */
     xml_str = pet_xml_get_str(hio_xml);
     if (xml_str == NULL)
-        return -HIO_NO_XML;
+        return -HIO_CLIENT_ERROR;
 
     /* Issue HCQ command */
     cmd = hcq_cmd_issue(
@@ -152,7 +152,7 @@ __libhio_client_call_rank_stub_fn(uint64_t    cmd_code,
     free(xml_str);
 
     if (cmd == HCQ_INVALID_CMD)
-        return -HIO_HCQ_FAULT;
+        return -HIO_BAD_CLIENT_HCQ;
 
     /* Get HCQ response */
     status = hcq_get_ret_code(hio_hcq, cmd);
@@ -168,7 +168,7 @@ __libhio_client_call_rank_stub_fn(uint64_t    cmd_code,
     /* TODO: map XEMEM segids in seg list */
 
     /* Get return value */
-    *hio_ret = smart_atoi(-HIO_ERROR, pet_xml_get_val(xml_resp, "ret"));
+    *hio_ret = smart_atoi(-HIO_SERVER_ERROR, pet_xml_get_val(xml_resp, "ret"));
 
     pet_xml_free(xml_resp);
 
