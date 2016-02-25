@@ -5,18 +5,22 @@ PETLIB			= $(HOBBESDIR)/petlib
 
 CFLAGS   		= -g -W -Wall -Werror \
 				-Wno-nonnull -Wno-unused-parameter \
-				-I$(LIBHOBBES) -I$(PETLIB) -fPIC
+				-I$(LIBHOBBES) -I$(PETLIB) -I../include \
+				-fPIC
 LDFLAGS  		= -lm
 
 
 CC       		= gcc
 AR				= ar
-TARGET			= libhio.a
 
-LIBS		   := $(LIBHOBBES)/libhobbes.a \
+LIBS		    = $(LIBHOBBES)/libhobbes.a \
 				$(PETLIB)/petlib.a
 
-LIBHIO_OBJS    := libhio.o	
+STUB			= libhio_stub.a
+STUB_OBJS       = libhio_stub.o
+
+CLIENT			= libhio_client.a
+CLIENT_OBJS		= libhio_client.o	
 
 build = \
 	@if [ -z "$V" ]; then \
@@ -39,10 +43,13 @@ build = \
 	$(call build,AR,$(AR) rcs $@ $^)
 
 
-all: $(TARGET) $(LIBHOBBES)
+all: $(STUB) $(CLIENT)
 
-$(TARGET): $(LIBHIO_OBJS) $(LIBS)
+$(STUB): $(STUB_OBJS) $(LIBS)
+	$(call build,AR,$(AR) rcs $@ $^)
+
+$(CLIENT): $(CLIENT_OBJS) $(LIBS)
 	$(call build,AR,$(AR) rcs $@ $^)
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f $(STUB) $(CLIENT) *.o

@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 
 #include <libhio.h>
-#include <libhio_macros.h>
 #include <xemem.h>
 
 
@@ -117,45 +116,45 @@ hio_ioctl(int              fd,
 }
 
 /* Define libhio handler functions */
-LIBHIO_CB2(hio_open, int, const char *, int);
-LIBHIO_CB1(hio_close, int, int);
-LIBHIO_CB3(hio_read, ssize_t, int, void *, size_t);
-LIBHIO_CB3(hio_write, ssize_t, int, const void *, size_t);
-LIBHIO_CB6(hio_mmap, void *, void *, size_t, int, int, int, off_t);
-LIBHIO_CB2(hio_munmap, int, void *, size_t);
-LIBHIO_CB3(hio_ioctl, int, int, int, char *);
+LIBHIO_STUB2(hio_open, int, const char *, int);
+LIBHIO_STUB1(hio_close, int, int);
+LIBHIO_STUB3(hio_read, ssize_t, int, void *, size_t);
+LIBHIO_STUB3(hio_write, ssize_t, int, const void *, size_t);
+LIBHIO_STUB6(hio_mmap, void *, void *, size_t, int, int, int, off_t);
+LIBHIO_STUB2(hio_munmap, int, void *, size_t);
+LIBHIO_STUB3(hio_ioctl, int, int, int, char *);
 
 
 static int
-libhio_register_callbacks(void)
+libhio_register_stub_fns(void)
 {
     int status;
 
-    status = libhio_register_callback(__NR_open, hio_open);
+    status = libhio_register_stub_fn(__NR_open, hio_open);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_close, hio_close);
+    status = libhio_register_stub_fn(__NR_close, hio_close);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_read, hio_read);
+    status = libhio_register_stub_fn(__NR_read, hio_read);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_write, hio_write);
+    status = libhio_register_stub_fn(__NR_write, hio_write);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_mmap, hio_mmap);
+    status = libhio_register_stub_fn(__NR_mmap, hio_mmap);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_munmap, hio_munmap);
+    status = libhio_register_stub_fn(__NR_munmap, hio_munmap);
     if (status)
         return -1;
 
-    status = libhio_register_callback(__NR_ioctl, hio_ioctl);
+    status = libhio_register_stub_fn(__NR_ioctl, hio_ioctl);
     if (status)
         return -1;
 
@@ -168,13 +167,13 @@ main(int     argc,
 {
     int status = 0;
 
-    status = libhio_init(&argc, &argv);
+    status = libhio_stub_init(&argc, &argv);
     if (status != 0)
         return -1;
 
-    status = libhio_register_callbacks();
+    status = libhio_register_stub_fns();
     if (status != 0) {
-        fprintf(stderr, "Cannot register hio callbacks\n");
+        fprintf(stderr, "Cannot register hio stubs\n");
         goto out;
     }
 
@@ -182,6 +181,6 @@ main(int     argc,
     status = libhio_event_loop();
 
 out:
-    libhio_deinit();
+    libhio_stub_deinit();
     return status;
 }

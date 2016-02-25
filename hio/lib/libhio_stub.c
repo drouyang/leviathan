@@ -1,5 +1,5 @@
 /*
- * libhio (Hobbes I/O)
+ * libhio (Hobbes I/O) stub library
  * (c) Brian Kocoloski, 2016
  */
 
@@ -22,8 +22,9 @@
 #include <hobbes_cmd_queue.h>
 #include <xemem.h>
 
-#include "libhio.h"
-#include "libhio_error_codes.h"
+#include <libhio.h>
+#include <libhio_types.h>
+#include <libhio_error_codes.h>
 
 
 /* 4KB:   Min LWK address */
@@ -45,9 +46,6 @@
 
 #define FROM_CHILD(p, rank)  READ(C_TO_P(p, rank))
 #define FROM_PARENT(p, rank) READ(P_TO_C(p, rank))
-
-
-#define HIO_CMD_CODE (uint64_t)0xf210
 
 
 struct hio_region {
@@ -105,7 +103,7 @@ struct hio_cmd {
     /* The identified for the HCQ command */
     hcq_cmd_t    hcq_cmd;
 
-    /* Variable length xml specifying the callback */
+    /* Variable length xml specifying the stub function */
     char         xml_str[0];
 };
 
@@ -464,8 +462,8 @@ __reserve_lwk_aspace(void)
 
     if (lwk_reserve == MAP_FAILED) {
         ERROR("Cannot reserve virtual LWK address space: %s."
-        "Continuing as this is not catastrophic. You may want to check ulimit.\n", 
-        strerror(errno));
+            "Continuing as this is not catastrophic. You may want to check ulimit.\n", 
+            strerror(errno));
         return 0;
     } else {
         assert(lwk_reserve == (void *)LWK_BASE_ADDR);
@@ -545,8 +543,8 @@ update_args(int    * argc,
 }
 
 int
-libhio_init(int    * argc,
-            char *** argv)
+libhio_stub_init(int    * argc,
+                 char *** argv)
 {
     int ret = -1;
 
@@ -563,7 +561,7 @@ out:
 }
 
 void
-libhio_deinit(void)
+libhio_stub_deinit(void)
 {
     pet_free_htable(cmd_htable, 0, 0);
     cmd_htable = NULL;
@@ -571,15 +569,14 @@ libhio_deinit(void)
     __free_lwk_aspace();
 }
 
-
 int
 libhio_register_cb(uint64_t cmd_code,
-                   hio_cb_t cb)
+                   hio_cb_t stub_cb)
 {
     int status;
 
     /* We internalize callback lookups because the types are incompatible with hcq registration */
-    status = pet_htable_insert(cmd_htable, (uintptr_t)cmd_code, (uintptr_t)cb);
+    status = pet_htable_insert(cmd_htable, (uintptr_t)cmd_code, (uintptr_t)stub_cb);
     if (status == 0) {
         ERROR("Could not register callback in hashtable (possible duplicate registration\n");
         return -1;
@@ -1192,7 +1189,7 @@ __process_hcq_command(void)
     }
 
     /* Format hio command */
-    ret = __format_hio_command(cmd, HIO_ERROR, xml_str, &hio_cmd);
+    ret = __format_hio_command(cmd, -HIO_ERROR, xml_str, &hio_cmd);
     if (ret != 0) {
         ERROR("Could not format HIO cmd from cmd spec\n");
         goto out;
@@ -1316,7 +1313,7 @@ __parent_loop(void)
         }
 
         /* Process child events */
-        for (i = 0; i < num_ranks; i++) {
+        for (i = 0; (fds_ready > 0) && (i < num_ranks); i++) {
             child_fd = FROM_CHILD(pipes, i);
             if (FD_ISSET(child_fd, &cur_set)) {
     
@@ -1337,9 +1334,7 @@ __parent_loop(void)
                 );
 
                 free(hio_cmd);
-
-                if (--fds_ready == 0)
-                    break;
+                --fds_ready;
             }
         }
     }

@@ -6,14 +6,14 @@ PETLIB			= $(PETLIBDIR)/petlib.a
 
 CFLAGS   		= -g -W -Wall -Werror \
 				-Wno-nonnull -Wno-unused-parameter \
-				-I../libhio -I$(LIBHOBBESDIR) -I$(PETLIBDIR) \
+				-I../include -I$(LIBHOBBESDIR) -I$(PETLIBDIR) \
 				-fPIC -pie
 LDFLAGS  		= -lm
 
 CC       		= gcc
 TARGET			= stub
 
-LIBS		   := ../libhio/libhio.a $(LIBHOBBES) $(PETLIB)
+LIBS		   := ../lib/libhio_stub.a $(LIBHOBBES) $(PETLIB)
 
 TARGET_OBJS    := stub.o	
 
