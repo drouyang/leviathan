@@ -21,6 +21,7 @@ extern "C" {
 
 
 #define HIO_CMD_CODE (uint64_t)0xf210
+extern int hio_status;
 
 /* libhio_stub functions */
 int
