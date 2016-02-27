@@ -75,9 +75,6 @@ hobbes_app_auto_init() {
     
     /* Mark hobbes as enabled */
     hobbes_enabled = true;
-
-    /* Save pid of process so that children do not touch hobbes state on deinit */
-    hobbes_pid     = getpid();
 }
 
 
@@ -93,6 +90,7 @@ hobbes_app_auto_deinit()
     }
 
     if (getpid() != hobbes_pid) {
+	ERROR("App %d forked a child that did not call hobbes_client_init()!\n", hobbes_get_my_app_id());
 	return;
     }
 
@@ -141,6 +139,9 @@ hobbes_client_init()
 	ERROR("Error: Could not connect to database\n");
 	return -1;
     }
+
+    /* Save process pid to prevent fork'ed processes from touching the DB on teardown */
+    hobbes_pid = getpid();
 
     return 0;
 }

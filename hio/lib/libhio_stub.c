@@ -1444,6 +1444,10 @@ libhio_event_loop(void)
             
         case 0:
             /* Child execution */
+
+            /* Setup hobbes */ 
+            hobbes_client_init();
+
             status = __child_loop();
             __free_pipes();
 
