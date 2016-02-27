@@ -14,6 +14,7 @@
 #include <pet_log.h>
 
 #include <libhio.h>
+#include <libhio_types.h>
 
 typedef enum {
     HIO_INVALID,
@@ -21,11 +22,11 @@ typedef enum {
     HIO_APP,
 } client_mode_t;
 
-
 static hcq_handle_t  hio_hcq  = HCQ_INVALID_HANDLE;
 static client_mode_t hio_mode = HIO_INVALID;
 static uint32_t      hio_rank = (uint32_t)-1;
 
+int hio_status;
 
 static int
 __hcq_init(char * hcq_name)
@@ -110,7 +111,6 @@ libhio_client_deinit(void)
     hio_mode = HIO_INVALID;
 }
 
-
 static int
 __libhio_client_call_rank_stub_fn(uint64_t    cmd_code,
                                   uint32_t    rank,
@@ -165,11 +165,9 @@ __libhio_client_call_rank_stub_fn(uint64_t    cmd_code,
 
     xml_resp = pet_xml_parse_str(xml_str);
 
-    /* TODO: map XEMEM segids in seg list */
-
     /* Get return value */
     *hio_ret = smart_atoi(-HIO_SERVER_ERROR, pet_xml_get_val(xml_resp, "ret"));
-
+    
     pet_xml_free(xml_resp);
 
     /* Complete HCQ command */
