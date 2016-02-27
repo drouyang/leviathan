@@ -20,6 +20,7 @@ extern "C" {
 typedef struct hio_segment {
     xemem_segid_t segid;
     uint64_t      size;
+    uint64_t      page_size;
     void        * vaddr;
 } hio_segment_t;
 
@@ -27,11 +28,9 @@ typedef intptr_t hio_arg_t;
 typedef intptr_t hio_ret_t;
 
 typedef int32_t (*hio_cb_t)
-        (uint32_t         argc,
-         hio_arg_t      * args,
-         hio_ret_t      * hio_ret,
-         hio_segment_t ** seg_list,
-         uint32_t       * nr_segs);
+        (uint32_t    argc,
+         hio_arg_t * args,
+         hio_ret_t * hio_ret);
 
 #ifdef __cplusplus
 }

@@ -14,96 +14,84 @@
 #include <libhio.h>
 #include <xemem.h>
 
+#define PAGE_SIZE sysconf(_SC_PAGESIZE)
+
 
 static int
-hio_open(const char     * pathname,
-         int              flags,
-         hio_segment_t ** seg_list,
-         uint32_t       * nr_segs)
+hio_open(const char * pathname,
+         int          flags)
 {
     return open(pathname, flags);
 }
+LIBHIO_STUB2(hio_open, int, const char *, int);
 
 static int
-hio_close(int              fd,
-          hio_segment_t ** seg_list,
-          uint32_t       * nr_segs)
+hio_close(int fd)
 {
     return close(fd);
 }
+LIBHIO_STUB1(hio_close, int, int);
 
 static ssize_t 
-hio_read(int              fd,
-         void           * buf,
-         size_t           count,
-         hio_segment_t ** seg_list,
-         uint32_t       * nr_segs)
+hio_read(int    fd,
+         void * buf,
+         size_t count)
 {
     return read(fd, buf, count);
 }
+LIBHIO_STUB3(hio_read, ssize_t, int, void *, size_t);
 
 static ssize_t
-hio_write(int              fd,
-          const void     * buf,
-          size_t           count,
-          hio_segment_t ** seg_list,
-          uint32_t       * nr_segs)
+hio_write(int          fd,
+          const void * buf,
+          size_t       count)
 {
     return write(fd, buf, count);
 }
+LIBHIO_STUB3(hio_write, ssize_t, int, const void *, size_t);
 
 static void *
-hio_mmap(void           * addr,
-         size_t           length,
-         int              prot,
-         int              flags,
-         int              fd,
-         off_t            offset,
-         hio_segment_t ** seg_list,
-         uint32_t       * nr_segs)
+hio_mmap(void          * addr,
+         size_t          length,
+         int             prot,
+         int             flags,
+         int             fd,
+         off_t           offset,
+         hio_segment_t * seg)
 {
     void * result;
     xemem_segid_t segid;
 
     result = mmap(addr, length, prot, flags, fd, offset);
-    if (result == MAP_FAILED)
+    if (result == MAP_FAILED) 
         return result;
 
     /* Export the mapping */
-    segid = xemem_make(addr, length, NULL);
+    segid = xemem_make(result, length, NULL);
     if (segid == XEMEM_INVALID_SEGID) {
-        munmap(addr, length);
+        munmap(result, length);
         return MAP_FAILED;
     }
 
-    /* Add the segment to the hio seg list */
-    {
-        hio_segment_t * seg = malloc(sizeof(hio_segment_t));
-        if (seg == NULL) {
-            xemem_remove(segid);
-            munmap(addr, length);
-            return MAP_FAILED;
-        }
-
-        seg->segid = segid;
-        seg->size  = length;
-        seg->vaddr = result;
-
-        *seg_list = seg;
-        *nr_segs  = 1;
-    }
+    /* Set the seg parameters */
+    seg->segid     = segid;
+    seg->size      = length;
+    seg->page_size = PAGE_SIZE;
+    seg->vaddr     = result;
 
     return result;
 }
+LIBHIO_STUB7(hio_mmap, void *, void *, size_t, int, int, int, off_t, hio_segment_t *);
 
 static int
-hio_munmap(void           * addr,
-           size_t           length,
-           hio_segment_t ** seg_list,
-           uint32_t       * nr_segs)
+hio_munmap(void          * addr,
+           size_t          length,
+           hio_segment_t * seg)
 {
+    xemem_remove(seg->segid);
     return munmap(addr, length);
 }
+LIBHIO_STUB3(hio_munmap, int, void *, size_t, hio_segment_t *);
 
 static int
 hio_ioctl(int              fd,
@@ -114,15 +102,7 @@ hio_ioctl(int              fd,
 {
     return ioctl(fd, request, argp);
 }
-
-/* Define libhio handler functions */
-LIBHIO_STUB2(hio_open, int, const char *, int);
-LIBHIO_STUB1(hio_close, int, int);
-LIBHIO_STUB3(hio_read, ssize_t, int, void *, size_t);
-LIBHIO_STUB3(hio_write, ssize_t, int, const void *, size_t);
-LIBHIO_STUB6(hio_mmap, void *, void *, size_t, int, int, int, off_t);
-LIBHIO_STUB2(hio_munmap, int, void *, size_t);
-LIBHIO_STUB3(hio_ioctl, int, int, int, char *);
+LIBHIO_STUB5(hio_ioctl, int, int, int, char *, hio_segment_t ** , uint32_t *);
 
 
 static int

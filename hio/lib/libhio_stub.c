@@ -883,64 +883,19 @@ static int
 __setup_hio_response(pet_xml_t         xml_spec,
                      int               cmd_status,
                      hio_ret_t         cb_ret,
-                     hio_segment_t   * seg_list,
-                     uint32_t          nr_segs,
                      struct hio_cmd  * hio_cmd,
                      struct hio_cmd ** hio_resp)
 {
-    pet_xml_t xml_seg     = PET_INVALID_XML;
-    char *    xml_str     = NULL;
-    char      tmp_ptr[64] = {0};
-    int       status      = 0;
-    uint32_t  i           = 0;
+    char * xml_str     = NULL;
+    char   tmp_ptr[64] = {0};
+    int    status      = 0;
 
     /* Add tag for ret */
     snprintf(tmp_ptr, 64, "%li", (intptr_t)cb_ret);
     status = pet_xml_add_val(xml_spec, "ret", tmp_ptr);
     if (status != 0) {
         ERROR("Could not add ret tag to xml spec\n");
-        return -1;
-    }
-
-    /* Add nr_segs tag */
-    snprintf(tmp_ptr, 64, "%u", nr_segs);
-    status = pet_xml_add_val(xml_spec, "nr_segs", tmp_ptr);
-    if (status != 0) {
-        ERROR("Could not add nr_segs tag to xml spec\n");
         return -HIO_SERVER_ERROR;
-    }
-
-    /* Add subtree for each seg */
-    for (i = 0; i < nr_segs; i++) {
-        xml_seg = pet_xml_add_subtree_tail(xml_spec, "seg");
-        if (xml_seg == PET_INVALID_XML) {
-            ERROR("Could not add seg subtree to xml spec\n");
-            return -HIO_SERVER_ERROR;
-        }
-
-        /* Segid */
-        snprintf(tmp_ptr, 64, "%li", seg_list[i].segid);
-        status = pet_xml_add_val(xml_seg, "segid", tmp_ptr);
-        if (status != 0) {
-            ERROR("Could not add segid to seg subtree in xml spec\n");
-            return -HIO_SERVER_ERROR;
-        }
-
-        /* Size */
-        snprintf(tmp_ptr, 64, "%lu", seg_list[i].size);
-        status = pet_xml_add_val(xml_seg, "size", tmp_ptr);
-        if (status != 0) {
-            ERROR("Could not add size to seg subtree in xml spec\n");
-            return -HIO_SERVER_ERROR;
-        }
-
-        /* Vaddr */
-        snprintf(tmp_ptr, 64, "%lu", (uint64_t)seg_list[i].vaddr);
-        status = pet_xml_add_val(xml_seg, "vaddr", tmp_ptr);
-        if (status != 0) {
-            ERROR("Could not add vaddr to seg subtree in xml spec\n");
-            return -HIO_SERVER_ERROR;
-        }
     }
 
     /* Format the new command */
@@ -967,11 +922,8 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     hio_arg_t * args     = NULL;
     int         status   = 0;
 
-    /* Callback parameters */
-    hio_cb_t        cb;
-    hio_ret_t       cb_ret;
-    hio_segment_t * seg_list = NULL;
-    uint32_t        nr_segs  = 0;
+    hio_cb_t  cb;
+    hio_ret_t cb_ret;
 
     /* This mallocs a new spec str that needs to be freed */
     xml_spec = pet_xml_parse_str(hio_cmd->xml_str);
@@ -1028,14 +980,14 @@ __process_hio_command(struct hio_cmd *  hio_cmd,
     }
     
     /* Invoke callback */
-    status = cb(argc, args, &cb_ret, &seg_list, &nr_segs);
+    status = cb(argc, args, &cb_ret);
     if (status != HIO_SUCCESS) {
         ERROR("Cannot process HIO command: could not invoke callback\n");
         goto out2;
     }
 
     /* Setup the response structure and segment list */
-    status = __setup_hio_response(xml_spec, status, cb_ret, seg_list, nr_segs, hio_cmd, hio_resp);
+    status = __setup_hio_response(xml_spec, status, cb_ret, hio_cmd, hio_resp);
     if (status != 0) {
         ERROR("Cannot process HIO command: cannot setup response structure\n");
     }
