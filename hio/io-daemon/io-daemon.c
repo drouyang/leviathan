@@ -201,7 +201,7 @@ main(int     argc,
         int fd;
         ssize_t bytes;
         off_t offset;
-        void * buf[PAGE_SIZE * 10];
+        char buf[PAGE_SIZE * 10];
 
         fd = hio_open(file_name, O_RDONLY);
         if (hio_status != HIO_SUCCESS || fd < 0) { 
