@@ -540,6 +540,9 @@ __app_stub(hobbes_id_t enclave_id)
 	    ERROR("Error initializing HIO app\n");
 	    goto hio_init_out;
 	}
+
+	/* Add the stub-name to the app's envp */
+	asprintf(&envp, "%s STUB_NAME=%s", envp, stub_name);
     }
 
     /* Create app */
