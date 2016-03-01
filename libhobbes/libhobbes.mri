@@ -2,12 +2,15 @@ create libhobbes.a
 addmod xemem.o
 addmod hobbes.o
 addmod hobbes_db.o
+addmod hobbes_sys_db.o
 addmod hobbes_cmd_queue.o
 addmod hobbes_enclave.o
 addmod hobbes_app.o
 addmod hobbes_file.o
-addmod hobbes_memory.o
+addmod hobbes_system.o
 addmod hobbes_util.o
+addmod hobbes_notifier.o
+addmod pmi.o
 addlib ../xpmem/lib/libxpmem.a
 addlib ../whitedb-0.7.3/Main/.libs/libwgdb.a
 addlib ../petlib/petlib.a

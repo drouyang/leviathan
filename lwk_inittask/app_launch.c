@@ -895,7 +895,7 @@ launch_lwk_app(hobbes_id_t   hpid,
 
 	    start_state[rank].task_id  = ANY_ID;
 	    start_state[rank].cpu_id   = ANY_ID; /* Why does this not work if set to 'cpu'? */
-	    start_state[rank].user_id  = 1;
+	    start_state[rank].user_id  = 0;
 	    start_state[rank].group_id = 1;
 
 	    sprintf(start_state[rank].task_name, "%s-%d", name, rank);
