@@ -363,15 +363,11 @@ sinhim.sin_family = 0;
 	}
 	if( cput <= 0.0 )  cput = 0.001;
 	if( realt <= 0.0 )  realt = 0.001;
-	fprintf(stdout,
-		"ttcp%s: %ld bytes in %.2f real seconds = %.2f KB/sec +++\n",
-		trans?"-t":"-r",
-		nbytes, realt, ((double)nbytes)/realt/1024 );
 	if (verbose) {
 	    fprintf(stdout,
-		"ttcp%s: %ld bytes in %.2f CPU seconds = %.2f KB/cpu sec\n",
+		"ttcp%s: %ld bytes in %.2f CPU seconds = %.2f MB/cpu sec\n",
 		trans?"-t":"-r",
-		nbytes, cput, ((double)nbytes)/cput/1024 );
+		nbytes, cput, ((double)nbytes)/cput/1024/1024 );
 	}
 	fprintf(stdout,
 		"ttcp%s: %d I/O calls, msec/call = %.2f, calls/sec = %.2f\n",
@@ -386,6 +382,14 @@ sinhim.sin_family = 0;
 		trans?"-t":"-r",
 		buf);
 	}
+	fprintf(stdout,
+		"ttcp%s: %ld MB in %.2f real seconds\n",
+		trans?"-t":"-r",
+		nbytes/1024/1024, realt);
+	fprintf(stdout,
+		"ttcp%s: Throughput: %.2f MB/sec\n",
+		trans?"-t":"-r",
+		((double)nbytes)/realt/1024/1024 );
 	exit(0);
 
 usage:
