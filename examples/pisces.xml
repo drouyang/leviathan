@@ -4,7 +4,7 @@
     <cmd_line>console=pisces</cmd_line>
 
     <boot_env numa="0">
-       <cpu>2</cpu>
+       <cpu>1</cpu>
        <memory size="128"></memory>
     </boot_env>
    
@@ -17,13 +17,12 @@
         <block>2</block>
         <node>1</node>
     </memory>
+-->
     
     <cpus>
-        <cores numa="1">4</cores>
         <core>2</core>
     </cpus>
 
--->
 <!--
     <files>
 

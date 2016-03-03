@@ -51,12 +51,32 @@ static char RCSid[] = "ttcp.c $Revision: 1.2 $";
 #include <netdb.h>
 #include <sys/time.h>		/* struct timeval */
 
+#include <sys/syscall.h>
+#include <lwk/aspace.h>
+#include <lwk/pmem.h>
+#include <xemem.h>
+#include <libhio.h>
+
+/* Use this format if each rank specifies its own HIO calls */
+/*             fn name,   cmd,        ret, params ...       */
+LIBHIO_CLIENT2(hio_open,   __NR_open,   int, const char *, int);
+LIBHIO_CLIENT1(hio_close,  __NR_close,  int, int);
+LIBHIO_CLIENT3(hio_read,   __NR_read,   ssize_t, int, void *, size_t);
+LIBHIO_CLIENT3(hio_write,  __NR_write,  ssize_t, int, const void *, size_t);
+LIBHIO_CLIENT7(hio_mmap,   __NR_mmap,   void *, void *, size_t, int, int, int, off_t, hio_segment_t *);
+LIBHIO_CLIENT3(hio_munmap, __NR_munmap, int, void *, size_t, hio_segment_t *);
+
+LIBHIO_CLIENT3(hio_socket, __NR_socket, int, int, int, int);
+LIBHIO_CLIENT3(hio_bind,   __NR_bind, int, int, const struct sockaddr *, socklen_t);
+LIBHIO_CLIENT2(hio_listen, __NR_listen,   int, int, int);
+LIBHIO_CLIENT3(hio_accept, __NR_accept, int, int, const struct sockaddr *, socklen_t *);
+LIBHIO_CLIENT3(hio_connect,__NR_connect, int, int, const struct sockaddr *, socklen_t);
+
+extern int hio_status;
+
 #if defined(SYSV)
 #include <sys/times.h>
 #include <sys/param.h>
-struct rusage {
-    struct timeval ru_utime, ru_stime;
-};
 #define RUSAGE_SELF 0
 #else
 #include <sys/resource.h>
@@ -69,9 +89,9 @@ struct sockaddr_in frominet;
 int domain, fromlen;
 int fd;				/* fd of network socket */
 
-int buflen = 8 * 1024;		/* length of buffer */
+unsigned long buflen = 2 * 1024 * 1024;	/* length of buffer */
 char *buf;			/* ptr to dynamic buffer */
-int nbuf = 2 * 1024;		/* number of buffers to send in sinkmode */
+unsigned long nbuf = 2 * 1024;		/* number of buffers to send in sinkmode */
 
 int bufoffset = 0;		/* align buffer to this */
 int bufalign = 16*1024;		/* modulo this */
@@ -121,8 +141,8 @@ unsigned long nbytes;		/* bytes on net */
 unsigned long numCalls;		/* # of I/O system calls */
 
 void prep_timer();
-double read_timer();
-double cput, realt;		/* user, real time (seconds) */
+void  read_timer();
+unsigned long delta_ms;
 
 void
 sigpipe()
@@ -135,7 +155,33 @@ char **argv;
 {
 	unsigned long addr_tmp;
 
-	if (argc < 2) goto usage;
+#ifdef LWK
+	//if (argc < 2) goto usage;
+	char * pmi_rank = getenv("PMI_RANK");
+	char * hio_name = getenv("STUB_NAME");
+	int    rank = -1;
+	int    status;
+
+	if (pmi_rank == NULL) {
+		printf("No PMI_RANK in env. assuming rank 0\n");
+		rank = 0;
+	} else {
+		rank = atoi(pmi_rank);
+	}
+
+	if (hio_name == NULL) {
+		printf("No STUB_NAME in env. exiting\n");
+		return -1;
+	}
+
+	sleep(2);
+	
+	status = libhio_client_init(hio_name, rank);
+	if (status != 0) { 
+		printf("Failed to init HIO client\n");
+		return -1;
+	}
+#endif
 
 	argv++; argc--;
 	while( argc>0 && argv[0][0] == '-' )  {
@@ -196,7 +242,7 @@ char **argv;
 	if(trans)  {
 		/* xmitr */
 		if (argc != 1) goto usage;
-		bzero((char *)&sinhim, sizeof(sinhim));
+		memset((char *)&sinhim, 0, sizeof(sinhim));
 		host = argv[0];
 		if (atoi(host) > 0 )  {
 			/* Numeric */
@@ -211,7 +257,7 @@ char **argv;
 			if ((addr=gethostbyname(host)) == NULL)
 				err("bad hostname");
 			sinhim.sin_family = addr->h_addrtype;
-			bcopy(addr->h_addr,(char*)&addr_tmp, addr->h_length);
+			memset((char *)&addr_tmp, addr->h_addr, addr->h_length);
 #if defined(cray)
 			sinhim.sin_addr = addr_tmp;
 #else
@@ -235,30 +281,32 @@ char **argv;
 	if (bufalign != 0)
 		buf +=(bufalign - ((int)buf % bufalign) + bufoffset) % bufalign;
 
-	if (trans) {
 	    fprintf(stdout,
-	    "ttcp-t: buflen=%d, nbuf=%d, align=%d/+%d, port=%d  %s  -> %s\n",
-		buflen, nbuf, bufalign, bufoffset, port,
-		udp?"udp":"tcp",
-		argv[0]);
-	} else {
-	    fprintf(stdout,
-	    "ttcp-r: buflen=%d, nbuf=%d, align=%d/+%d, port=%d  %s\n",
-		buflen, nbuf, bufalign, bufoffset, port,
+	    "ttcp-t: buflen=%d KB, nbuf=%d, align=%d/+%d, port=%d  %s\n",
+		buflen/1024, nbuf, bufalign, bufoffset, port,
 		udp?"udp":"tcp");
-	}
 
+#ifdef LWK
+	if ((fd = hio_socket(AF_INET, udp?SOCK_DGRAM:SOCK_STREAM, 0)) < 0)
+#else 
 	if ((fd = socket(AF_INET, udp?SOCK_DGRAM:SOCK_STREAM, 0)) < 0)
+#endif
 		err("socket");
 	mes("socket");
+	printf("socket fd = %d\n", fd);
 
-	if (bind(fd, &sinme, sizeof(sinme)) < 0)
+#ifdef LWK
+	if (hio_bind(fd, (const struct sockaddr *)&sinme, sizeof(sinme)) < 0)
+#else 
+	if (bind(fd, (const struct sockaddr *)&sinme, sizeof(sinme)) < 0)
+#endif
 		err("bind");
+	mes("bind");
 
 	if (!udp)  {
-	    signal(SIGPIPE, sigpipe);
+	    //signal(SIGPIPE, sigpipe);
 	    if (trans) {
-		/* We are the client if transmitting */
+		/* CLIENT */
 		if (options || so_rcvbuf || so_sndbuf)  {
 		        set_options(options);
 		}
@@ -271,18 +319,21 @@ char **argv;
 			mes("nodelay");
 		}
 
-#if 0
-/* Solaris fix */
-sinhim.sin_family = 0;
+#ifdef LWK
+		if(hio_connect(fd, (const struct sockaddr *)&sinhim, sizeof(sinhim) ) < 0)
+#else
+		if(connect(fd, (const struct sockaddr *)&sinhim, sizeof(sinhim) ) < 0)
 #endif
-		if(connect(fd, &sinhim, sizeof(sinhim) ) < 0)
 			err("connect");
 		mes("connect");
 	    } else {
-		/* otherwise, we are the server and 
-	         * should listen for the connections
-	         */
+		/* SERVER */
+#ifdef LWK
+		hio_listen(fd,0);   /* allow a queue of 0 */
+#else
 		listen(fd,0);   /* allow a queue of 0 */
+#endif
+		mes("listen");
 #if 0
 /* Solaris fix */
 		listen(fd, 1);   /* allow a queue of 0 */
@@ -295,8 +346,15 @@ sinhim.sin_family = 0;
 		fromlen = sizeof(frominet);
 		domain = AF_INET;
 
-		if((fd=accept(fd, &frominet, &fromlen) ) < 0)
+#ifdef LWK
+		if((fd=hio_accept(fd, (const struct sockaddr *)&frominet, &fromlen) ) < 0)
+#else
+		if((fd=accept(fd, (const struct sockaddr *)&frominet, &fromlen) ) < 0)
+#endif
 			err("accept");
+		mes("accept");
+		printf("accept fd = %d\n", fd);
+/*
 		{ struct sockaddr_in peer;
 		  int peerlen = sizeof(peer);
 		  if (getpeername(fd, (struct sockaddr_in *) &peer, 
@@ -309,13 +367,16 @@ sinhim.sin_family = 0;
 		  fprintf(stderr,"ttcp-r: accept from %s\n", 
 			inet_ntoa(peer.sin_addr));
 		}
+*/
 	    }
 	}
 	prep_timer();
 	errno = 0;
-	if (sinkmode) {      
+
+	{      
 		register int cnt;
 		if (trans)  {
+			// Client
 			pattern( buf, buflen );
 			if(udp)  (void)Nwrite( fd, buf, 4 ); /* rcvr start */
 			while (nbuf-- && Nwrite(fd,buf,buflen) == buflen)
@@ -323,6 +384,7 @@ sinhim.sin_family = 0;
 			if(udp)  (void)delay( 100000 );
 			if(udp)  (void)Nwrite( fd, buf, 4 ); /* rcvr end */
 		} else {
+			// Server
 			if (udp) {
 			    while ((cnt=Nread(fd,buf,buflen)) > 0)  {
 				    static int going = 0;
@@ -341,55 +403,22 @@ sinhim.sin_family = 0;
 			    }
 			}
 		}
-	} else {
-		register int cnt;
-		if (trans)  {
-			while((cnt=read(0,buf,buflen)) > 0 &&
-			    Nwrite(fd,buf,cnt) == cnt)
-				nbytes += cnt;
-		}  else  {
-			while((cnt=Nread(fd,buf,buflen)) > 0 &&
-			    write(1,buf,cnt) == cnt)
-				nbytes += cnt;
-		}
-	}
+	} 
+
 	if(errno) err("IO");
-	(void)read_timer(stats,sizeof(stats));
+	read_timer();
 	if(udp&&trans)  {
 		(void)Nwrite( fd, buf, 4 ); /* rcvr end */
 		(void)Nwrite( fd, buf, 4 ); /* rcvr end */
 		(void)Nwrite( fd, buf, 4 ); /* rcvr end */
 		(void)Nwrite( fd, buf, 4 ); /* rcvr end */
 	}
-	if( cput <= 0.0 )  cput = 0.001;
-	if( realt <= 0.0 )  realt = 0.001;
-	if (verbose) {
-	    fprintf(stdout,
-		"ttcp%s: %ld bytes in %.2f CPU seconds = %.2f MB/cpu sec\n",
+	fprintf(stdout, "ttcp%s: %ld MB (%ld KB) in %lld ms\n",
 		trans?"-t":"-r",
-		nbytes, cput, ((double)nbytes)/cput/1024/1024 );
-	}
-	fprintf(stdout,
-		"ttcp%s: %d I/O calls, msec/call = %.2f, calls/sec = %.2f\n",
+		nbytes/1024/1024, nbytes/1024, delta_ms);
+	fprintf(stdout, "ttcp%s: Throughput: %f MB/sec\n",
 		trans?"-t":"-r",
-		numCalls,
-		1024.0 * realt/((double)numCalls),
-		((double)numCalls)/realt);
-	fprintf(stdout,"ttcp%s: %s\n", trans?"-t":"-r", stats);
-	if (verbose) {
-	    fprintf(stdout,
-		"ttcp%s: buffer address %#x\n",
-		trans?"-t":"-r",
-		buf);
-	}
-	fprintf(stdout,
-		"ttcp%s: %ld MB in %.2f real seconds\n",
-		trans?"-t":"-r",
-		nbytes/1024/1024, realt);
-	fprintf(stdout,
-		"ttcp%s: Throughput: %.2f MB/sec\n",
-		trans?"-t":"-r",
-		((double)nbytes)/realt/1024/1024 );
+		(nbytes/1024.0/1024.0)/(delta_ms/1024.0));
 	exit(0);
 
 usage:
@@ -397,8 +426,7 @@ usage:
 	exit(1);
 }
 
-err(s)
-char *s;
+void err(char *s)
 {
 	fprintf(stderr,"ttcp%s: ", trans?"-t":"-r");
 	perror(s);
@@ -406,15 +434,12 @@ char *s;
 	exit(1);
 }
 
-mes(s)
-char *s;
+void mes(char *s)
 {
 	fprintf(stderr,"ttcp%s: %s\n", trans?"-t":"-r", s);
 }
 
-pattern( cp, cnt )
-register char *cp;
-register int cnt;
+void pattern(char *cp, int cnt)
 {
 	register char c;
 	c = 0;
@@ -425,207 +450,21 @@ register int cnt;
 }
 
 
-static struct	timeval time0;	/* Time at which timing started */
-static struct	rusage ru0;	/* Resource utilization at the start */
+static struct	timeval start;	/* Time at which timing started */
 
-static void prusage();
-static void tvadd();
 static void tvsub();
-static void psecs();
 
-#if defined(SYSV)
-/*ARGSUSED*/
-static
-getrusage(ignored, ru)
-    int ignored;
-    register struct rusage *ru;
-{
-    struct tms buf;
-
-    times(&buf);
-
-    /* Assumption: HZ <= 2147 (LONG_MAX/1000000) */
-    ru->ru_stime.tv_sec  = buf.tms_stime / HZ;
-    ru->ru_stime.tv_usec = ((buf.tms_stime % HZ) * 1000000) / HZ;
-    ru->ru_utime.tv_sec  = buf.tms_utime / HZ;
-    ru->ru_utime.tv_usec = ((buf.tms_utime % HZ) * 1000000) / HZ;
+void prep_timer() {
+	gettimeofday(&start, (struct timezone *)0);
 }
 
-#if !defined(sgi)
-/*ARGSUSED*/
-static 
-gettimeofday(tp, zp)
-    struct timeval *tp;
-    struct timezone *zp;
-{
-    tp->tv_sec = time(0);
-    tp->tv_usec = 0;
-}
-#endif
-#endif SYSV
-
-/*
- *			P R E P _ T I M E R
- */
-void
-prep_timer()
-{
-	gettimeofday(&time0, (struct timezone *)0);
-	getrusage(RUSAGE_SELF, &ru0);
-}
-
-/*
- *			R E A D _ T I M E R
- * 
- */
-double
-read_timer(str,len)
-char *str;
-{
-	struct timeval timedol;
-	struct rusage ru1;
-	struct timeval td;
-	struct timeval tend, tstart;
-	char line[132];
-
-	getrusage(RUSAGE_SELF, &ru1);
-	gettimeofday(&timedol, (struct timezone *)0);
-	prusage(&ru0, &ru1, &timedol, &time0, line);
-	(void)strncpy( str, line, len );
-
-	/* Get real time */
-	tvsub( &td, &timedol, &time0 );
-	realt = td.tv_sec + ((double)td.tv_usec) / 1000000;
-
-	/* Get CPU time (user+sys) */
-	tvadd( &tend, &ru1.ru_utime, &ru1.ru_stime );
-	tvadd( &tstart, &ru0.ru_utime, &ru0.ru_stime );
-	tvsub( &td, &tend, &tstart );
-	cput = td.tv_sec + ((double)td.tv_usec) / 1000000;
-	if( cput < 0.00001 )  cput = 0.00001;
-	return( cput );
-}
-
-static void
-prusage(r0, r1, e, b, outp)
-	register struct rusage *r0, *r1;
-	struct timeval *e, *b;
-	char *outp;
-{
+void read_timer() {
+	struct timeval now;
 	struct timeval tdiff;
-	register time_t t;
-	register char *cp;
-	register int i;
-	int ms;
 
-	t = (r1->ru_utime.tv_sec-r0->ru_utime.tv_sec)*100+
-	    (r1->ru_utime.tv_usec-r0->ru_utime.tv_usec)/10000+
-	    (r1->ru_stime.tv_sec-r0->ru_stime.tv_sec)*100+
-	    (r1->ru_stime.tv_usec-r0->ru_stime.tv_usec)/10000;
-	ms =  (e->tv_sec-b->tv_sec)*100 + (e->tv_usec-b->tv_usec)/10000;
-
-#define END(x)	{while(*x) x++;}
-#if defined(SYSV)
-	cp = "%Uuser %Ssys %Ereal %P";
-#else
-	cp = "%Uuser %Ssys %Ereal %P %Xi+%Dd %Mmaxrss %F+%Rpf %Ccsw";
-#endif
-	for (; *cp; cp++)  {
-		if (*cp != '%')
-			*outp++ = *cp;
-		else if (cp[1]) switch(*++cp) {
-
-		case 'U':
-			tvsub(&tdiff, &r1->ru_utime, &r0->ru_utime);
-			sprintf(outp,"%d.%01d", tdiff.tv_sec, tdiff.tv_usec/100000);
-			END(outp);
-			break;
-
-		case 'S':
-			tvsub(&tdiff, &r1->ru_stime, &r0->ru_stime);
-			sprintf(outp,"%d.%01d", tdiff.tv_sec, tdiff.tv_usec/100000);
-			END(outp);
-			break;
-
-		case 'E':
-			psecs(ms / 100, outp);
-			END(outp);
-			break;
-
-		case 'P':
-			sprintf(outp,"%d%%", (int) (t*100 / ((ms ? ms : 1))));
-			END(outp);
-			break;
-
-#if !defined(SYSV)
-		case 'W':
-			i = r1->ru_nswap - r0->ru_nswap;
-			sprintf(outp,"%d", i);
-			END(outp);
-			break;
-
-		case 'X':
-			sprintf(outp,"%d", t == 0 ? 0 : (r1->ru_ixrss-r0->ru_ixrss)/t);
-			END(outp);
-			break;
-
-		case 'D':
-			sprintf(outp,"%d", t == 0 ? 0 :
-			    (r1->ru_idrss+r1->ru_isrss-(r0->ru_idrss+r0->ru_isrss))/t);
-			END(outp);
-			break;
-
-		case 'K':
-			sprintf(outp,"%d", t == 0 ? 0 :
-			    ((r1->ru_ixrss+r1->ru_isrss+r1->ru_idrss) -
-			    (r0->ru_ixrss+r0->ru_idrss+r0->ru_isrss))/t);
-			END(outp);
-			break;
-
-		case 'M':
-			sprintf(outp,"%d", r1->ru_maxrss/2);
-			END(outp);
-			break;
-
-		case 'F':
-			sprintf(outp,"%d", r1->ru_majflt-r0->ru_majflt);
-			END(outp);
-			break;
-
-		case 'R':
-			sprintf(outp,"%d", r1->ru_minflt-r0->ru_minflt);
-			END(outp);
-			break;
-
-		case 'I':
-			sprintf(outp,"%d", r1->ru_inblock-r0->ru_inblock);
-			END(outp);
-			break;
-
-		case 'O':
-			sprintf(outp,"%d", r1->ru_oublock-r0->ru_oublock);
-			END(outp);
-			break;
-		case 'C':
-			sprintf(outp,"%d+%d", r1->ru_nvcsw-r0->ru_nvcsw,
-				r1->ru_nivcsw-r0->ru_nivcsw );
-			END(outp);
-			break;
-#endif !SYSV
-		}
-	}
-	*outp = '\0';
-}
-
-static void
-tvadd(tsum, t0, t1)
-	struct timeval *tsum, *t0, *t1;
-{
-
-	tsum->tv_sec = t0->tv_sec + t1->tv_sec;
-	tsum->tv_usec = t0->tv_usec + t1->tv_usec;
-	if (tsum->tv_usec > 1000000)
-		tsum->tv_sec++, tsum->tv_usec -= 1000000;
+	gettimeofday(&now, NULL);
+	tvsub(&tdiff, &now, &start);
+	delta_ms = tdiff.tv_sec * 1000 + tdiff.tv_usec/1024;
 }
 
 /*
@@ -659,45 +498,22 @@ int options;
 #endif
 }
 
-static void
-tvsub(tdiff, t1, t0)
-	struct timeval *tdiff, *t1, *t0;
+static void tvsub(struct timeval *tdiff, struct timeval *t1, struct timeval *t0)
 {
 
 	tdiff->tv_sec = t1->tv_sec - t0->tv_sec;
 	tdiff->tv_usec = t1->tv_usec - t0->tv_usec;
-	if (tdiff->tv_usec < 0)
-		tdiff->tv_sec--, tdiff->tv_usec += 1000000;
-}
-
-static void
-psecs(l,cp)
-long l;
-register char *cp;
-{
-	register int i;
-
-	i = l / 3600;
-	if (i) {
-		sprintf(cp,"%d:", i);
-		END(cp);
-		i = l % 3600;
-		sprintf(cp,"%d%d", (i/60) / 10, (i/60) % 10);
-		END(cp);
-	} else {
-		i = l;
-		sprintf(cp,"%d", i / 60);
-		END(cp);
+	if (tdiff->tv_usec < 0) {
+		tdiff->tv_sec--; 
+		tdiff->tv_usec += 1000000;
 	}
-	i %= 60;
-	*cp++ = ':';
-	sprintf(cp,"%d%d", i / 10, i % 10);
 }
+
 
 /*
  *			N R E A D
  */
-Nread( fd, buf, count )
+int Nread(int fd, char *buf, int count)
 {
 	struct sockaddr_in from;
 	int len = sizeof(from);
@@ -709,7 +525,11 @@ Nread( fd, buf, count )
 		if( b_flag )
 			cnt = mread( fd, buf, count );	/* fill buf */
 		else {
+#ifdef LWK
+			cnt = hio_read( fd, buf, count );
+#else
 			cnt = read( fd, buf, count );
+#endif
 			numCalls++;
 		}
 	}
@@ -719,7 +539,7 @@ Nread( fd, buf, count )
 /*
  *			N W R I T E
  */
-Nwrite( fd, buf, count )
+int Nwrite(int fd, char *buf, int count)
 {
 	register int cnt;
 	if( udp )  {
@@ -780,25 +600,4 @@ unsigned	n;
 	 } while(count < n);
 
 	return((int)count);
-}
-
-/*
-bcopy (unsigned char *src, unsigned char *dst, int len)
-*/
-bcopy (src, dst, len)
-unsigned char *src;
-unsigned char *dst;
-int len;
-{
-	memcpy (dst, src, len);
-}
-
-/*
-bzero (unsigned char *addr, int len)
-*/
-bzero (addr, len)
-unsigned char *addr;
-int len;
-{
-	memset (addr, 0, len);
 }

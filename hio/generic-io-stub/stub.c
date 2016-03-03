@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 #include <libhio.h>
 #include <xemem.h>
@@ -104,6 +105,59 @@ hio_ioctl(int              fd,
 }
 LIBHIO_STUB5(hio_ioctl, int, int, int, char *, hio_segment_t ** , uint32_t *);
 
+static int 
+hio_socket(int 	domain, 
+           int 	type, 
+           int 	protocol)
+{
+	return socket(domain, type, protocol);
+
+}
+LIBHIO_STUB3(hio_socket, int, int, int, int);
+
+static int 
+hio_bind(int 			  sockfd, 
+     const struct sockaddr 	* addr,
+     socklen_t 			  addrlen)
+{
+	int ret = bind(sockfd, addr, addrlen);
+	fprintf(stderr, "bind ret: %d\n", ret);
+	fprintf(stderr, "errno: %d\n", errno);
+	return ret;
+}
+LIBHIO_STUB3(hio_bind, int, int, const struct sockaddr *, socklen_t);
+
+
+static int 
+hio_listen(int 		sockfd, 
+	   int 		backlog)
+{
+	return listen(sockfd, backlog);
+}
+LIBHIO_STUB2(hio_listen, int, int, int);
+
+
+static int 
+hio_accept(int 			  sockfd, 
+	   struct sockaddr  	* addr, 
+	   socklen_t 		* addrlen) 
+{
+	return accept(sockfd, addr, addrlen);
+
+}
+LIBHIO_STUB3(hio_accept, int, int, struct sockaddr *, socklen_t *);
+
+
+static int 
+hio_connect(int 			   sockfd, 
+	    const struct sockaddr 	 * addr,
+	    socklen_t	 		   addrlen)
+{
+	return connect(sockfd, addr, addrlen);
+
+}
+LIBHIO_STUB3(hio_connect,int, int, const struct sockaddr *, socklen_t);
+
 
 static int
 libhio_register_stub_fns(void)
@@ -135,6 +189,26 @@ libhio_register_stub_fns(void)
         return -1;
 
     status = libhio_register_stub_fn(__NR_ioctl, hio_ioctl);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_socket, hio_socket);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_bind, hio_bind);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_listen, hio_listen);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_accept, hio_accept);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_connect, hio_connect);
     if (status)
         return -1;
 

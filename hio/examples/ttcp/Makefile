@@ -1,7 +1,7 @@
 LEVIATHAN		= $(PWD)/../../../
 HIO			= $(LEVIATHAN)/hio/
 
-CFLAGS   		= -g -W -Wall -Werror \
+CFLAGS   		= -g \
 				-Wno-nonnull -Wno-unused-parameter
 
 LDFLAGS  		= -static
@@ -14,16 +14,15 @@ CFLAGS          = -I$(HIO)/include -I$(LEVIATHAN)/libhobbes -I$(LEVIATHAN)/petli
 LDFLAGS         = -L$(HIO)/lib -lhio_client -L$(LEVIATHAN)/libhobbes -lhobbes \
 				  -L$(LEVIATHAN)/kitten/user/install/lib -llwk -lm
 
-SOURCES			= ttcp.c
-TARGET			= ttcp
-
-
-% : %.c
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+TARGET=ttcp ttcp-linux
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
+ttcp: ttcp.c
+	$(CC) -DLWK $(CFLAGS) $< -o $@ $(LDFLAGS)
+
+ttcp-linux: ttcp.c
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET) *.o

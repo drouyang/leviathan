@@ -46,5 +46,6 @@ export HOBBES_ENCLAVE_ID=0
 export HOBBES_APP_ID=0
 
 echo "Launching Leviathan Node Manager."
-$LEVIATHAN_PATH/lnx_inittask/lnx_init ${@:1} &
+#$LEVIATHAN_PATH/lnx_inittask/lnx_init ${@:1} &
+$LEVIATHAN_PATH/lnx_inittask/lnx_init --mem=128 --numa=0 &
 echo $! > leviathan.pid
