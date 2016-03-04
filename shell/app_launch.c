@@ -79,7 +79,7 @@ static void usage() {
 	   " Options: \n"						                                   \
 	   "\t[-np <ranks>]                  (default: 1)        : Number of ranks  \n"                    \
 	   "\t[--cpulist=<cpus>]             (default: 0,1,2...) : comma separated list of target CPUs \n" \
-	   "\t[--use_large_pages]            (default: n)        : Use large pages  \n"                    \
+	   "\t[--use-large-pages]            (default: n)        : Use large pages  \n"                    \
 	   "\t[--use-smartmap]               (default: n)        : Use smartmap     \n"                    \
 	   "\t[--no-prealloc-mem]            (default: n)        : Allocate memory from target enclave instead of the shell \n" \
 	   "\t[--prealloc-numa]              (default: 0)        : NUMA node for memory preallocation \n"  \
