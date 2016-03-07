@@ -1,0 +1,33 @@
+execve("././ttcp", ["././ttcp", "-t", "-l65536", "-n16384", "127.0.0.1"], [/* 25 vars */]) = 0
+uname({sys="Linux", node="mac-vm.mac-air", ...}) = 0
+stat("/etc/sysconfig/64bit_strstr_via_64bit_strstr_sse2_unaligned", 0x7fff1e8f4a80) = -1 ENOENT (No such file or directory)
+brk(0)                                  = 0xb28000
+brk(0xb291c0)                           = 0xb291c0
+arch_prctl(ARCH_SET_FS, 0xb28880)       = 0
+brk(0xb4a1c0)                           = 0xb4a1c0
+brk(0xb4b000)                           = 0xb4b000
+fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 2), ...}) = 0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fca35f95000
+write(1, "ttcp-t: buflen=65536, nbuf=16384"..., 79) = 79
+socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 3
+write(2, "ttcp-t: socket\n", 15ttcp-t: socket
+)        = 15
+bind(3, {sa_family=AF_UNSPEC, sa_data="\0\0\0\0\0\0\0\0\0\0\0\0\0\0"}, 16) = 0
+rt_sigaction(SIGPIPE, {0x401070, [PIPE], SA_RESTORER|SA_RESTART, 0x403510}, {SIG_DFL, [], 0}, 8) = 0
+connect(3, {sa_family=AF_INET, sin_port=htons(5001), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+write(2, "ttcp-t: connect\n", 16ttcp-t: connect
+)       = 16
+gettimeofday({1456826909, 185888}, NULL) = 0
+getrusage(RUSAGE_SELF, {ru_utime={0, 0}, ru_stime={0, 671}, ...}) = 0
+write(3, " !\"#$%&'()*+,-./0123456789:;<=>?"..., 65536) = 65536
+...
+write(3, " !\"#$%&'()*+,-./0123456789:;<=>?"..., 65536) = 65536
+write(3, " !\"#$%&'()*+,-./0123456789:;<=>?"..., 65536) = 65536
+getrusage(RUSAGE_SELF, {ru_utime={0, 9718}, ru_stime={0, 221581}, ...}) = 0
+gettimeofday({1456826909, 789706}, NULL) = 0
+write(1, "ttcp-t: 16384 I/O calls, msec/ca"..., 64) = 64
+write(1, "ttcp-t: 0.0user 0.2sys 0:00real "..., 70) = 70
+write(1, "ttcp-t: 1024 MB in 0.60 real sec"..., 37) = 37
+write(1, "ttcp-t: Throughput: 1695.88 MB/s"..., 35) = 35
+exit_group(0)                           = ?
++++ exited with 0 +++
