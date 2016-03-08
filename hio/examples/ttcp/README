@@ -1,5 +1,0 @@
-https://sourceforge.net/projects/ttcp/
-
-This is an update to the original public-domain ttcp TCP throughput tester. It is updated to support modern Solaris, NetBSD, and IPv6.
-
-git clone git://git.code.sf.net/p/ttcp/code ttcp-code
