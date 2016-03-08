@@ -51,11 +51,35 @@ void Init(ArgStruct *p, int* pargc, char*** pargv)
    p->prot.sndbufsz = p->prot.rcvbufsz = 0;
    p->tr = 0;     /* The transmitter will be set using the -h host flag. */
    p->rcv = 1;
+
+	char * pmi_rank = getenv("PMI_RANK");
+	char * hio_name = getenv("STUB_NAME");
+	int    rank = -1;
+	int    status;
+
+	if (pmi_rank == NULL) {
+		printf("No PMI_RANK in env. assuming rank 0\n");
+		rank = 0;
+	} else {
+		rank = atoi(pmi_rank);
+	}
+
+	if (hio_name == NULL) {
+		printf("No STUB_NAME in env. exiting\n");
+		exit(-1);
+	}
+
+	sleep(2);
+	
+	status = libhio_client_init(hio_name, rank);
+	if (status != 0) { 
+		printf("Failed to init HIO client\n");
+		exit(-1);
+	}
 }
 
 void Setup(ArgStruct *p)
 {
- printf("setup\n");
 
  int one = 1;
  int sockfd;
@@ -80,7 +104,6 @@ void Setup(ArgStruct *p)
  bzero((char *) lsin1, sizeof(*lsin1));
  bzero((char *) lsin2, sizeof(*lsin2));
 
- printf("before socket\n");
  if ( (sockfd = hio_socket(socket_family, SOCK_STREAM, 0)) < 0){ 
    printf("NetPIPE: can't open stream socket! errno=%d\n", errno);
    exit(-4);
@@ -101,7 +124,6 @@ void Setup(ArgStruct *p)
    printf("NetPIPE: setsockopt: TCP_NODELAY failed! errno=%d\n", errno);
    exit(556);
  }
- printf("setsockopt %d TCP_NODELAY\n", sockfd);
 
    /* If requested, set the send and receive buffer sizes */
 
@@ -114,7 +136,6 @@ void Setup(ArgStruct *p)
           printf("You may have asked for a buffer larger than the system can handle\n");
           exit(556);
      }
-     printf("setsockopt %d SO_SNDBUF\n", sockfd);
      if(hio_setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &(p->prot.rcvbufsz), 
                                        sizeof(p->prot.rcvbufsz)) < 0)
      {
@@ -122,19 +143,20 @@ void Setup(ArgStruct *p)
           printf("You may have asked for a buffer larger than the system can handle\n");
           exit(556);
      }
-     printf("setsockopt %d SO_SNDBUF and SO_RCVBUF\n", sockfd);
  }
  hio_getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF,
                  (char *) &send_size, (void *) &sizeofint);
  hio_getsockopt(sockfd, SOL_SOCKET, SO_RCVBUF,
                  (char *) &recv_size, (void *) &sizeofint);
- printf("getsockopt %d SO_SNDBUF and SO_RCVBUF\n", sockfd);
+ printf("getsockopt %d: SO_SNDBUF %d bytes and SO_RCVBUF %d bytes\n", 
+		 sockfd, send_size, recv_size);
  
+/*
  if(!doing_reset) {
-   fprintf(stderr,"Send and receive buffers are %d and %d bytes\n",
-           send_size, recv_size);
+   fprintf(stderr, "Send and receive buffers are %d and %d bytes\n", send_size, recv_size);
    fprintf(stderr, "(A bug in Linux doubles the requested buffer sizes)\n");
  }
+*/
 
  if( p->tr ) {                             /* Primary transmitter */
 
@@ -180,7 +202,6 @@ void Setup(ArgStruct *p)
  }
  p->upper = send_size + recv_size;
 
- printf("before establish\n");
  establish(p);                               /* Establish connections */
 
 }   

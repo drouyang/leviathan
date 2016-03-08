@@ -78,7 +78,6 @@ int main(int argc, char **argv)
        function that requires argc and argv */
 
 
-    printf("Before Init\n");
     Init(&args, &argc, &argv);   /* This will set args.tr and args.rcv */
 
     args.preburst = 0; /* Default to not bursting preposted receives */
@@ -494,9 +493,7 @@ int main(int argc, char **argv)
    }
    args.nbuff = TRIALS;
 
-   printf("Before Setup\n");
    Setup(&args);
-   printf("After Setup\n");
 
    if( args.bidir && end > args.upper ) {
       end = args.upper;
@@ -538,7 +535,6 @@ int main(int argc, char **argv)
 
       /* Test the timing to set tlast for the first test */
 
-   printf("Before Malloc\n");
    args.bufflen = start;
    MyMalloc(&args, args.bufflen, 0, 0);
    InitBufferData(&args, args.bufflen, 0, 0);
@@ -549,7 +545,6 @@ int main(int argc, char **argv)
    args.s_ptr = args.s_buff_orig = args.s_buff;
       
    AfterAlignmentInit(&args);  /* MPI-2 needs this to create a window */
-   printf("After Malloc\n");
 
    /* Infiniband requires use of asynchronous communications, so we need
     * the PrepareToReceive calls below
@@ -557,7 +552,6 @@ int main(int argc, char **argv)
    if( asyncReceive )
       PrepareToReceive(&args);
    
-   printf("Before Sync\n");
    Sync(&args);    /* Sync to prevent race condition in armci module */
 
    /* For simplicity's sake, even if the real test below will be done in
@@ -585,7 +579,6 @@ int main(int argc, char **argv)
    /* Sync up and Reset before freeing the buffers */
 
    Sync(&args); 
-   printf("After Sync\n");
 
    Reset(&args);
    
