@@ -5,8 +5,15 @@ petlib
 kitten
 whitedb-0.7.3
 *.o
+*.a
 libhobbes/libhobbes.a
 lwk_inittask/lwk_init
 lnx_inittask/lnx_init
 shell/hobbes
 examples/apps/pmi/test_pmi_hello
+tags
+hio/generic-io-stub/stub
+hio/io-daemon/io-daemon
+hio/test-app/app
+gui_demo/hobbes-gui
+leviathan.pid
