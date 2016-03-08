@@ -1,1 +1,1 @@
-./NPtcp -h localhost > nptcp.log
+./NPtcp -h localhost
