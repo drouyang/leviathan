@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
+#include <fcntl.h>
 
 #include <libhio.h>
 #include <xemem.h>
@@ -120,10 +122,7 @@ hio_bind(int 			  sockfd,
      const struct sockaddr 	* addr,
      socklen_t 			  addrlen)
 {
-	int ret = bind(sockfd, addr, addrlen);
-	fprintf(stderr, "bind ret: %d\n", ret);
-	fprintf(stderr, "errno: %d\n", errno);
-	return ret;
+	return bind(sockfd, addr, addrlen);
 }
 LIBHIO_STUB3(hio_bind, int, int, const struct sockaddr *, socklen_t);
 
@@ -158,6 +157,44 @@ hio_connect(int 			   sockfd,
 }
 LIBHIO_STUB3(hio_connect,int, int, const struct sockaddr *, socklen_t);
 
+static int 
+hio_getsockopt(int 		sockfd, 
+               int              level, 
+               int              optname, 
+               void            *optval,
+               socklen_t       *optlen) {
+	return getsockopt(sockfd, level, optname, optval, optlen);
+}
+LIBHIO_STUB5(hio_getsockopt, int, int, int, int, void *, socklen_t *);
+
+static int hio_setsockopt(int		sockfd, 
+                          int           level, 
+                          int           optname,
+                          const void   *optval, 
+                          socklen_t     optlen) {
+	return setsockopt(sockfd, level, optname, optval, optlen);
+}
+LIBHIO_STUB5(hio_setsockopt, int, int, int, int, void *, socklen_t);
+
+static int hio_fcntl3(int fd, int cmd, int val) {
+	return fcntl(fd, cmd, val);
+}
+LIBHIO_STUB3(hio_fcntl3, int, int, int, int);
+
+static int hio_epoll_create1(int flags) {
+	return epoll_create1(flags);
+}
+LIBHIO_STUB1(hio_epoll_create1, int, int);
+
+static int hio_epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+	return epoll_ctl(epfd, op, fd, event);
+}
+LIBHIO_STUB4(hio_epoll_ctl, int, int, int, int, struct epoll_event *);
+
+static int hio_epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
+	return epoll_wait(epfd, events, maxevents, timeout);
+}
+LIBHIO_STUB4(hio_epoll_wait, int, int, struct epoll_event *, int, int);
 
 static int
 libhio_register_stub_fns(void)
@@ -211,6 +248,25 @@ libhio_register_stub_fns(void)
     status = libhio_register_stub_fn(__NR_connect, hio_connect);
     if (status)
         return -1;
+
+    status = libhio_register_stub_fn(__NR_getsockopt, hio_getsockopt);
+    if (status)
+        return -1;
+
+    status = libhio_register_stub_fn(__NR_setsockopt, hio_setsockopt);
+    if (status) return -1;
+
+    status = libhio_register_stub_fn(__NR_fcntl, hio_fcntl3);
+    if (status) return -1;
+
+    status = libhio_register_stub_fn(__NR_epoll_create1, hio_epoll_create1);
+    if (status) return -1;
+
+    status = libhio_register_stub_fn(__NR_epoll_ctl, hio_epoll_ctl);
+    if (status) return -1;
+
+    status = libhio_register_stub_fn(__NR_epoll_wait, hio_epoll_wait);
+    if (status) return -1;
 
     return 0;
 }

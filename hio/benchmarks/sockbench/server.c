@@ -47,12 +47,12 @@ static int create_and_bind (void) {
 	serverAddr.sin_addr.s_addr = INADDR_ANY;
 	serverAddr.sin_port = htons( PORTNUM );
 
-	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	if ((fd = syscall_ops.socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("error: socket");
 		return -1;
 	}
 
-	if (bind(fd, 
+	if (syscall_ops.bind(fd, 
 		(const struct sockaddr *)&serverAddr, 
 		sizeof(serverAddr)) < 0) {
 		printf("error: bind");
@@ -66,18 +66,20 @@ int main (int argc, char *argv[]) {
   int sfd, s;
   int efd;
   struct epoll_event event;
-  struct epoll_event *events;
+  //struct epoll_event *events;
+  struct epoll_event events[MAXEVENTS];
 
 #ifdef LWK
   if (hio_init() < 0) {
       perror ("hio_init");
       abort ();
   }
+  printf("Init hio operations\n");
 #endif
 
   sfd = create_and_bind();
-  if (sfd == -1) abort ();
-  printf("Listening at port %d\n", PORTNUM);
+  if (sfd == -1) abort();
+  printf("Listening at socket %d port %d\n", sfd, PORTNUM);
 
   s = make_socket_non_blocking (sfd);
   if (s == -1) abort ();
@@ -105,7 +107,7 @@ int main (int argc, char *argv[]) {
     }
 
   /* Buffer where events are returned */
-  events = calloc (MAXEVENTS, sizeof event);
+  //events = calloc (MAXEVENTS, sizeof event);
 
   /* The event loop */
   while (1) {
@@ -139,6 +141,7 @@ int main (int argc, char *argv[]) {
                              connections. */
                           break;
 		      } else {
+			  printf("accept error %d\n", sfd);
                           perror ("accept");
                           break;
 		      }
@@ -171,6 +174,7 @@ int main (int argc, char *argv[]) {
                   ssize_t count;
                   char buf[512];
 
+		  printf("read at %d, 0x%p, %d\n", events[i].data.fd, buf, sizeof buf);
                   count = syscall_ops.read (events[i].data.fd, buf, sizeof buf);
                   if (count == -1) {
                       /* If errno == EAGAIN, that means we have read all
@@ -207,7 +211,7 @@ int main (int argc, char *argv[]) {
       }
   }
 
-  free (events);
+  //free (events);
   syscall_ops.close (sfd);
 
   return EXIT_SUCCESS;

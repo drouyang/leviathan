@@ -18,7 +18,7 @@ LIBHIO_CLIENT3(hio_munmap, __NR_munmap, int, void *, size_t, hio_segment_t *);
 LIBHIO_CLIENT3(hio_socket, __NR_socket, int, int, int, int);
 LIBHIO_CLIENT3(hio_bind,   __NR_bind, int, int, const struct sockaddr *, socklen_t);
 LIBHIO_CLIENT2(hio_listen, __NR_listen,   int, int, int);
-LIBHIO_CLIENT3(hio_accept, __NR_accept, int, int, const struct sockaddr *, socklen_t *);
+LIBHIO_CLIENT3(hio_accept, __NR_accept, int, int, struct sockaddr *, socklen_t *);
 LIBHIO_CLIENT3(hio_connect,__NR_connect, int, int, const struct sockaddr *, socklen_t);
 LIBHIO_CLIENT3(hio_fcntl3, __NR_fcntl, int, int, int, int);
 LIBHIO_CLIENT1(hio_epoll_create1,  __NR_epoll_create1,  int, int);

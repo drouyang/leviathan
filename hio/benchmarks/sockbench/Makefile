@@ -14,16 +14,15 @@ LDFLAGS         = -L$(HIO)/lib -lhio_client -L$(LEVIATHAN)/libhobbes -lhobbes \
 				  -L$(LEVIATHAN)/kitten/user/install/lib -llwk -lm
 
 SOURCES=server.c hio.c
-OBJECTS=$(SOURCES:.c=.o)
-EXECUTABLE=sockbench sockbench-lwk
+EXECUTABLES=sockbench sockbench-lwk
 
-all: $(SOURCES) $(EXECUTABLE)
+all: $(EXECUTABLES)
     
-sockbench: $(OBJECTS) 
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS) 
+sockbench: $(SOURCES) 
+	$(CC) $(CFLAGS) $(SOURCES) -o $@ $(LDFLAGS) 
 
 sockbench-lwk: $(OBJECTS) 
-	$(CC) -DLWK $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS) 
+	$(CC) -DLWK $(CFLAGS) $(SOURCES) -o $@ $(LDFLAGS) 
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f $(EXECUTABLES) *.o
