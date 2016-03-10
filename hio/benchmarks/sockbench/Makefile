@@ -13,7 +13,7 @@ CFLAGS          = -I$(HIO)/include -I$(LEVIATHAN)/libhobbes -I$(LEVIATHAN)/petli
 LDFLAGS         = -L$(HIO)/lib -lhio_client -L$(LEVIATHAN)/libhobbes -lhobbes \
 				  -L$(LEVIATHAN)/kitten/user/install/lib -llwk -lm
 
-SOURCES=server.c hio.c
+SOURCES=epollserver.c hio.c
 EXECUTABLES=sockbench sockbench-lwk
 
 all: $(EXECUTABLES)
