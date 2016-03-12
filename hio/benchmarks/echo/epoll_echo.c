@@ -54,7 +54,7 @@ static int create_and_bind (void) {
 	}
 
 	// lose the pesky "address already in use" error message
-	syscall_ops.setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	syscall_ops.setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	if (syscall_ops.bind(fd, 
 		(const struct sockaddr *)&serverAddr, 
