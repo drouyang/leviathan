@@ -97,7 +97,7 @@ int main(void)
     if (listener == -1) abort();
 
     // listen
-    s = syscall_ops.listen(listener, 10);
+    s = syscall_ops.listen(listener, SOMAXCONN);
     if (s == -1) {
 	    perror ("listen");
 	    abort ();
@@ -153,6 +153,11 @@ int main(void)
                         close(i); // bye!
                         FD_CLR(i, &master); // remove from master set
                     } else {
+		        // echo
+			if (syscall_ops.write(i, buf, nbytes) == -1) {
+			    perror("echo");
+			}
+#if 0
                         // we got some data from a client
                         for(j = 0; j <= fdmax; j++) {
                             // send to everyone!
@@ -165,6 +170,7 @@ int main(void)
                                 }
                             }
                         }
+#endif
                     }
                 } // END handle data from client
             } // END got new incoming connection
