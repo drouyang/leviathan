@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/select.h>
 #include <fcntl.h>
 
 #include <libhio.h>
@@ -196,6 +197,12 @@ static int hio_epoll_wait(int epfd, struct epoll_event *events, int maxevents, i
 }
 LIBHIO_STUB4(hio_epoll_wait, int, int, struct epoll_event *, int, int);
 
+static int hio_select(int nfds, fd_set *readfds, fd_set *writefds,
+           fd_set *exceptfds, struct timeval *timeout) {
+	return select(nfds, readfds, writefds, exceptfds, timeout);
+}
+LIBHIO_STUB5(hio_select, int, int, fd_set *, fd_set *, fd_set *, struct timeval *);
+
 static int
 libhio_register_stub_fns(void)
 {
@@ -266,6 +273,9 @@ libhio_register_stub_fns(void)
     if (status) return -1;
 
     status = libhio_register_stub_fn(__NR_epoll_wait, hio_epoll_wait);
+    if (status) return -1;
+
+    status = libhio_register_stub_fn(__NR_select, hio_select);
     if (status) return -1;
 
     return 0;

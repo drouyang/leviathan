@@ -5,7 +5,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/select.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 extern int hio_status;
 extern struct syscall_ops_t syscall_ops;
@@ -23,6 +25,12 @@ struct syscall_ops_t {
 	int (*epoll_ctl)(int epfd, int op, int fd, struct epoll_event *event);
 	int (*epoll_wait)(int epfd, struct epoll_event *events,
 			int maxevents, int timeout);
+	int (*getsockopt)(int sockfd, int level, int optname,
+			void *optval, socklen_t *optlen);
+	int (*setsockopt)(int sockfd, int level, int optname,
+			const void *optval, socklen_t optlen);
+	int (*select)(int nfds, fd_set *readfds, fd_set *writefds, 
+			fd_set *exceptfds, struct timeval *timeout);
 };
 
 int hio_init(void);

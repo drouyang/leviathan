@@ -42,6 +42,7 @@ static int make_socket_non_blocking (int sfd)
 
 static int create_and_bind (void) {
 	int fd;
+	int yes=1;        // for setsockopt() SO_REUSEADDR, below
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -51,6 +52,9 @@ static int create_and_bind (void) {
 		printf("error: socket");
 		return -1;
 	}
+
+	// lose the pesky "address already in use" error message
+	syscall_ops.setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	if (syscall_ops.bind(fd, 
 		(const struct sockaddr *)&serverAddr, 

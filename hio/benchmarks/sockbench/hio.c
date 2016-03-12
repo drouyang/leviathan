@@ -24,6 +24,9 @@ LIBHIO_CLIENT3(hio_fcntl3, __NR_fcntl, int, int, int, int);
 LIBHIO_CLIENT1(hio_epoll_create1,  __NR_epoll_create1,  int, int);
 LIBHIO_CLIENT4(hio_epoll_ctl, __NR_epoll_ctl, int, int, int, int, struct epoll_event *);
 LIBHIO_CLIENT4(hio_epoll_wait, __NR_epoll_wait, int, int, struct epoll_event *, int, int);
+LIBHIO_CLIENT5(hio_getsockopt, __NR_getsockopt, int, int, int, int, void *, socklen_t *);
+LIBHIO_CLIENT5(hio_setsockopt, __NR_setsockopt, int, int, int, int, const void *, socklen_t);
+LIBHIO_CLIENT5(hio_select, __NR_select, int, int, fd_set *, fd_set *, fd_set *, struct timeval *);
 
 struct syscall_ops_t syscall_ops = {
 	.close = close,
@@ -36,7 +39,10 @@ struct syscall_ops_t syscall_ops = {
 	.fcntl3 = (int (*)(int, int, int))fcntl,
 	.epoll_create1 = epoll_create1,
 	.epoll_ctl = epoll_ctl,
-	.epoll_wait = epoll_wait
+	.epoll_wait = epoll_wait,
+	.getsockopt = getsockopt,
+	.setsockopt = setsockopt,
+	.select = select
 };
 
 int hio_init(void) {
@@ -76,4 +82,7 @@ int hio_init(void) {
 	syscall_ops.epoll_create1 = hio_epoll_create1;
 	syscall_ops.epoll_ctl = hio_epoll_ctl;
 	syscall_ops.epoll_wait = hio_epoll_wait;
+	syscall_ops.getsockopt = hio_getsockopt;
+	syscall_ops.setsockopt = hio_setsockopt;
+	syscall_ops.select = hio_select;
 }
