@@ -181,22 +181,30 @@ bool ProtocolBinary::handle_response(evbuffer *input, bool &done) {
   int targetLen = 24 + ntohl(h->body_len);
   if (length < targetLen) return false;
 
-  // If something other than success, count it as a miss
-  if (h->opcode == CMD_GET && h->status) {
-      conn->stats.get_misses++;
-  }
-
-  if (unlikely(h->opcode == CMD_SASL)) {
-    if (h->status == RESP_OK) {
-      V("SASL authentication succeeded");
-    } else {
-      DIE("SASL authentication failed");
-    }
-  }
-
   evbuffer_drain(input, targetLen);
   conn->stats.rx_bytes += targetLen;
   done = true;
   return true;
 }
 
+/**
+ * Send a Echo set request.
+ */
+int ProtocolEcho::send_msg(const char* buf, int len) {
+  bufferevent_write(bev, buf, len);
+  return len;
+}
+
+/**
+ * Tries to consume a binary response (in its entirety) from an evbuffer.
+ *
+ * @param input evBuffer to read response from
+ * @return  true if consumed, false if not enough data in buffer.
+ */
+bool ProtocolEcho::handle_response(evbuffer *input, bool &done) {
+  int length = evbuffer_get_length(input);
+  evbuffer_drain(input, length);
+  conn->stats.rx_bytes += length;
+  done = true;
+  return true;
+}

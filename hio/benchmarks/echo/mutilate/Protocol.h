@@ -20,6 +20,7 @@ public:
   virtual bool setup_connection_r(evbuffer* input) = 0;
   virtual int  get_request(const char* key) = 0;
   virtual int  set_request(const char* key, const char* value, int len) = 0;
+  virtual int  send_msg(const char* buf, int len) = 0;
   virtual bool handle_response(evbuffer* input, bool &done) = 0;
 
 protected:
@@ -39,11 +40,12 @@ public:
 
   virtual bool setup_connection_w() { return true; }
   virtual bool setup_connection_r(evbuffer* input) { return true; }
+  virtual int  send_msg(const char* buf, int len) { return 0; }
   virtual int  get_request(const char* key);
   virtual int  set_request(const char* key, const char* value, int len);
   virtual bool handle_response(evbuffer* input, bool &done);
 
-private:
+protected:
   enum read_fsm {
     IDLE,
     WAITING_FOR_GET,
@@ -63,9 +65,26 @@ public:
 
   virtual bool setup_connection_w();
   virtual bool setup_connection_r(evbuffer* input);
+  virtual int  send_msg(const char* buf, int len) { return 0; }
   virtual int  get_request(const char* key);
   virtual int  set_request(const char* key, const char* value, int len);
   virtual bool handle_response(evbuffer* input, bool &done);
 };
+
+class ProtocolEcho : public ProtocolBinary {
+public:
+  ProtocolEcho(options_t opts, Connection* conn, bufferevent* bev):
+    ProtocolBinary(opts, conn, bev) {};
+
+  ~ProtocolEcho() {};
+
+  virtual bool setup_connection_w() { return true; }
+  virtual bool setup_connection_r(evbuffer* input) { return true; }
+  virtual int  get_request(const char* key) {return 0;}
+  virtual int  set_request(const char* key, const char* value, int len) {return 0;}
+  virtual int  send_msg(const char* buf, int len);
+  virtual bool handle_response(evbuffer* input, bool &done);
+};
+
 
 #endif

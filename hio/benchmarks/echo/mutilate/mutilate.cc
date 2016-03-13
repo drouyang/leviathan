@@ -369,7 +369,7 @@ string name_to_ipaddr(string host) {
     DIE("strtok(.., \":\") failed to parse %s", host.c_str());
 
   string hostname = h_ptr;
-  string port = "11211";
+  string port = "3369";
   if (p_ptr) port = p_ptr;
 
   struct evutil_addrinfo hints;
@@ -809,7 +809,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
     if (h_ptr == NULL) DIE("strtok(.., \":\") failed to parse %s", s.c_str());
 
     string hostname = h_ptr;
-    string port = "11211";
+    string port = "3369";
     if (p_ptr) port = p_ptr;
 
     delete[] s_copy;
@@ -1084,6 +1084,7 @@ void args_to_options(options_t* options) {
   options->depth = args.depth_arg;
   options->no_nodelay = args.no_nodelay_given;
   options->noload = args.noload_given;
+  options->noload = true;
   options->iadist = get_distribution(args.iadist_arg);
   strcpy(options->ia, args.iadist_arg);
   options->warmup = args.warmup_given ? args.warmup_arg : 0;

@@ -46,14 +46,11 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
   bufferevent_setcb(bev, bev_read_cb, bev_write_cb, bev_event_cb, this);
   bufferevent_enable(bev, EV_READ | EV_WRITE);
 
-  /*
   if (options.binary) {
     prot = new ProtocolBinary(options, this, bev);
   } else {
     prot = new ProtocolAscii(options, this, bev);
   }
-  */
-  prot = new ProtocolEcho(options, this, bev);
 
   if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
                                           hostname.c_str(),
@@ -104,7 +101,6 @@ void Connection::set_priority(int pri) {
  * Load any required test data onto the server.
  */
 void Connection::start_loading() {
-  /*
   read_state = LOADING;
   loader_issued = loader_completed = 0;
 
@@ -117,14 +113,12 @@ void Connection::start_loading() {
     issue_set(key, &random_char[index], valuesize->generate());
     loader_issued++;
   }
-  */
 }
 
 /**
  * Issue either a get or set request to the server according to our probability distribution.
  */
 void Connection::issue_something(double now) {
-  /*
   char key[256];
   // FIXME: generate key distribution here!
   string keystr = keygen->generate(lrand48() % options.records);
@@ -136,41 +130,12 @@ void Connection::issue_something(double now) {
   } else {
     issue_get(key, now);
   }
-  */
-  uint64_t buffersize = atoi(options.valuesize);
-  char *buf = (char *)malloc(buffersize);
-  issue_msg(buf, buffersize, now);
-  free(buf);
-}
-
-/**
- * Issue a set request to the server.
- */
-void Connection::issue_msg(const char* buf, int length, double now) {
-  Operation op;
-  int l;
-
-#if HAVE_CLOCK_GETTIME
-  op.start_time = get_time_accurate();
-#else
-  if (now == 0.0) op.start_time = get_time();
-  else op.start_time = now;
-#endif
-
-  op.type = Operation::SET;
-  op_queue.push(op);
-
-  if (read_state == IDLE) read_state = WAITING_FOR_SET;
-  //l = prot->set_request(key, value, length);
-  l = prot->send_msg(buf, length);
-  if (read_state != LOADING) stats.tx_bytes += l;
 }
 
 /**
  * Issue a get request to the server.
  */
 void Connection::issue_get(const char* key, double now) {
-  /*
   Operation op;
   int l;
 
@@ -197,7 +162,6 @@ void Connection::issue_get(const char* key, double now) {
   if (read_state == IDLE) read_state = WAITING_FOR_GET;
   l = prot->get_request(key);
   if (read_state != LOADING) stats.tx_bytes += l;
-  */
 }
 
 /**
@@ -205,7 +169,6 @@ void Connection::issue_get(const char* key, double now) {
  */
 void Connection::issue_set(const char* key, const char* value, int length,
                            double now) {
-  /*
   Operation op;
   int l;
 
@@ -222,7 +185,6 @@ void Connection::issue_set(const char* key, const char* value, int length,
   if (read_state == IDLE) read_state = WAITING_FOR_SET;
   l = prot->set_request(key, value, length);
   if (read_state != LOADING) stats.tx_bytes += l;
-  */
 }
 
 /**
