@@ -585,7 +585,7 @@ int main(int argc, char **argv) {
   if (!args.scan_given && !args.loadonly_given) {
     stats.print_header();
     //stats.print_stats("read",   stats.get_sampler);
-    stats.print_stats("update", stats.set_sampler);
+    stats.print_stats("echo", stats.set_sampler);
     stats.print_stats("op_q",   stats.op_sampler);
 
     int total = stats.gets + stats.sets;
