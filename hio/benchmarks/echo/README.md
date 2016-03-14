@@ -2,10 +2,15 @@
 Author: Jiannan Ouyang <ouyang@cs.pitt.edu>
 Date: 03/2016
 
-== Server ==
+== Usage ==
+* server side: $./echo
+* client side: $./mutilate/mutilate --server 136.142.119.102 --valuesize=1024000 --threads=10 --affinity -t 5
 
-select based implementation: select-echo.c
-epoll based implementation: epoll-echo.c (developing)
+== Server ==
+Receive a message, and respond "Done".
+
+select based implementation: echo.c
+epoll based implementation: epoll-echo.c (not working with HIO)
 
 == Client ==
 
@@ -38,4 +43,3 @@ args.lambda_mul);
 
 ** everyone executes do_mutilate(), which calls Connection->actions()
 
-== Usage ==

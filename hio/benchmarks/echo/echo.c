@@ -5,6 +5,7 @@
 */
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -77,13 +78,20 @@ int main(void)
     struct sockaddr_storage remoteaddr; // client address
     socklen_t addrlen;
 
-    char buf[256];    // buffer for client data
     int nbytes;
 
     char remoteIP[INET6_ADDRSTRLEN];
 
     int i, j, rv;
+    int len;
+    char *buf = NULL;
 
+    buf =(char *)malloc(4096);
+    int buflen = 4096;
+    if (buf == NULL) {
+	    perror("init malloc");
+	    abort();
+    }
 
 #ifdef LWK
     if (hio_init() < 0) {
@@ -133,7 +141,7 @@ int main(void)
                         if (newfd > fdmax) {    // keep track of the max
                             fdmax = newfd;
                         }
-			printf("selectserver: new connection from %s on " "socket %d\n",
+			printf("[INFO] new connection from %s on " "socket %d\n",
 				inet_ntop(remoteaddr.ss_family, 
 					&(((struct sockaddr_in*)&remoteaddr)->sin_addr),
 					remoteIP, 
@@ -141,37 +149,61 @@ int main(void)
 				newfd);
                     }
                 } else {
-                    // handle data from a client
-                    if ((nbytes = syscall_ops.read(i, buf, sizeof buf)) <= 0) {
-                        // got error or connection closed by client
-                        if (nbytes == 0) {
-                            // connection closed
-                            printf("selectserver: socket %d hung up\n", i);
-                        } else {
-                            perror("recv");
-                        }
-                        close(i); // bye!
-                        FD_CLR(i, &master); // remove from master set
-                    } else {
-		        // echo
-			if (syscall_ops.write(i, buf, nbytes) == -1) {
-			    perror("echo");
+#define HEADER_SIZE 4
+			// handle data from a client
+			nbytes = syscall_ops.read(i, buf, HEADER_SIZE);
+			if (nbytes < HEADER_SIZE) {
+				if (nbytes < 0) perror("read header");
+				printf("[INFO] socket hung up in read header: %d\n", i);
+				close(i); // bye!
+				FD_CLR(i, &master); // remove from master set
+				break;
 			}
-#if 0
-                        // we got some data from a client
-                        for(j = 0; j <= fdmax; j++) {
-                            // send to everyone!
-                            if (FD_ISSET(j, &master)) {
-                                // except the listener and ourselves
-                                if (j != listener && j != i) {
-                                    if (syscall_ops.write(j, buf, nbytes) == -1) {
-                                        perror("send");
-                                    }
-                                }
-                            }
-                        }
-#endif
-                    }
+
+			len = ntohl(*(int *)buf);
+			//printf("len %d\n", len);
+			
+			// dynamic heap allocation
+			if (len > buflen) {
+				if (buf != NULL) free(buf);
+				buf == (char *)malloc(len*2);
+				buflen = len * 2;
+				if (buf == NULL) {
+					perror("malloc");
+					abort();
+				}
+			}
+
+			int left = len;
+			nbytes = 0;
+			while (left > 0) {
+				//printf("%d bytes left\n", left);
+				nbytes = syscall_ops.read(i, buf, left);
+				if (nbytes <= 0) {
+					if (nbytes < 0) perror("read data");
+					printf("[INFO] socket hung up in read data: %d\n", i);
+					//printf("%d: received %d bytes, nbytes %d\n", i, len+HEADER_SIZE, nbytes);
+					close(i); // bye!
+					FD_CLR(i, &master); // remove from master set
+					break;
+				} 
+				left = len - nbytes;
+				//printf("len %d, nbytes %d, %d bytes left\n", len, nbytes, left);
+			}
+			if (nbytes <= 0) {
+				//printf("break %d\n", i);
+				break;
+			}
+
+			//printf("%d: received %d bytes, nbytes %d\n", i, len+HEADER_SIZE, nbytes);
+			nbytes = syscall_ops.write(i, "Done", 5);
+			if (nbytes <= 0) {
+				if (nbytes < 0) perror("write");
+				printf("[INFO] socket hung up in write: %d\n", i);
+				close(i); // bye!
+				FD_CLR(i, &master); // remove from master set
+			} 
+			//printf("write 5 bytes\n");
                 } // END handle data from client
             } // END got new incoming connection
         } // END looping through file descriptors
