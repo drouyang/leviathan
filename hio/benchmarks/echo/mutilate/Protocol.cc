@@ -191,8 +191,10 @@ bool ProtocolBinary::handle_response(evbuffer *input, bool &done) {
  * Send a Echo set request.
  */
 int ProtocolEcho::send_msg(const char* buf, int len) {
+  int tmp = htonl(len);
+  bufferevent_write(bev, &tmp, sizeof(tmp));
   bufferevent_write(bev, buf, len);
-  return len;
+  return sizeof(tmp)+len;
 }
 
 /**
@@ -203,6 +205,7 @@ int ProtocolEcho::send_msg(const char* buf, int len) {
  */
 bool ProtocolEcho::handle_response(evbuffer *input, bool &done) {
   int length = evbuffer_get_length(input);
+  if (length < 5) return false;
   evbuffer_drain(input, length);
   conn->stats.rx_bytes += length;
   done = true;

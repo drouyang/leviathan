@@ -573,7 +573,8 @@ int main(int argc, char **argv) {
 
       go(servers, options, stats);
 
-      stats.print_stats("read", stats.get_sampler, false);
+      //stats.print_stats("read", stats.get_sampler, false);
+      stats.print_stats("echo", stats.set_sampler, false);
       printf(" %8.1f", stats.get_qps());
       printf(" %8d\n", q);
     }    
@@ -583,7 +584,7 @@ int main(int argc, char **argv) {
 
   if (!args.scan_given && !args.loadonly_given) {
     stats.print_header();
-    stats.print_stats("read",   stats.get_sampler);
+    //stats.print_stats("read",   stats.get_sampler);
     stats.print_stats("update", stats.set_sampler);
     stats.print_stats("op_q",   stats.op_sampler);
 
@@ -598,11 +599,11 @@ int main(int argc, char **argv) {
 
     printf("\n");
 
-    printf("Misses = %" PRIu64 " (%.1f%%)\n", stats.get_misses,
-           (double) stats.get_misses/stats.gets*100);
+    //printf("Misses = %" PRIu64 " (%.1f%%)\n", stats.get_misses,
+    //       (double) stats.get_misses/stats.gets*100);
 
-    printf("Skipped TXs = %" PRIu64 " (%.1f%%)\n\n", stats.skips,
-           (double) stats.skips / total * 100);
+    //printf("Skipped TXs = %" PRIu64 " (%.1f%%)\n\n", stats.skips,
+    //       (double) stats.skips / total * 100);
 
     printf("RX %10" PRIu64 " bytes : %6.1f MB/s\n",
            stats.rx_bytes,
