@@ -140,7 +140,7 @@ main(int argc, char ** argv, char * envp[])
     }
 
     /* Command Loop */
-    printf("Entering Command Loop\n");
+    printf("[init] Entering Command Loop\n");
 
     while (exit_leviathan == 0) {
 	int    i    = 0;

@@ -1421,13 +1421,13 @@ __alloc_span(hdb_db_t    db,
 
 	ret_addr = __get_mem_blk_addr(db, iter_blk);
 	    
-	printf("allocating span starting at %p\n", (void *)ret_addr);
+	//printf("Allocating span starting at %p\n", (void *)ret_addr);
 	/* Allocate N Blocks starting at iter_blk */
 	{
 	    
 	    for (i = 0; i < blk_span; i++) {
 		
-		printf("Allocating block %d of span\n", i);
+		//printf("Allocating block %d of span\n", i);
 		__alloc_block(db, iter_blk, enclave_id);
 		
 		iter_blk = __wg_get_record(db, iter_blk, HDB_MEM_NEXT_BLK);

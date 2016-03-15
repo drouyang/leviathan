@@ -90,9 +90,11 @@ hobbes_alloc_mem_block(hobbes_id_t enclave_id,
 {
     uintptr_t block_paddr = 0;
 
-    printf("Allocating %d blocks of memory\n", block_span);
+    //printf("Allocating %d blocks of memory\n", block_span);
 
     block_paddr = hdb_alloc_block(hobbes_master_db, enclave_id, numa_node, block_span);
+
+    printf("[libhobbes] Allocated %d blocks of memory at %p\n", block_span, (void *) block_paddr);
 
     return block_paddr;
 }

@@ -120,7 +120,7 @@ hnotif_signal(uint64_t evt_mask)
 	return -1;
     }
 
-    printf("notifying %d subscribers\n", subs_cnt);
+    printf("[libhobbes] notifying %d subscribers\n", subs_cnt);
     
     for (i = 0; i < subs_cnt; i++) {
 	xemem_signal_segid(segids[i]);

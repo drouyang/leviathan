@@ -153,7 +153,7 @@ int main(void)
 			// handle data from a client
 			nbytes = syscall_ops.read(i, buf, HEADER_SIZE);
 			if (nbytes < HEADER_SIZE) {
-				if (nbytes < 0) perror("read header");
+				if (nbytes < 0 && errno != ECONNRESET) perror("read header");
 				printf("[INFO] socket hung up in read header: %d\n", i);
 				close(i); // bye!
 				FD_CLR(i, &master); // remove from master set
@@ -180,7 +180,7 @@ int main(void)
 				//printf("%d bytes left\n", left);
 				nbytes = syscall_ops.read(i, buf, left);
 				if (nbytes <= 0) {
-					if (nbytes < 0) perror("read data");
+					if (nbytes < 0 && errno != ECONNRESET) perror("read data");
 					printf("[INFO] socket hung up in read data: %d\n", i);
 					//printf("%d: received %d bytes, nbytes %d\n", i, len+HEADER_SIZE, nbytes);
 					close(i); // bye!

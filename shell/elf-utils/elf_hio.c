@@ -256,11 +256,15 @@ get_binary_data_address_and_size(uint64_t    page_size,
 	if (p_entry->p_type == PT_LOAD) {
 	    uintptr_t start_addr = PAGE_ALIGN_DOWN(p_entry->p_vaddr, page_size);
 	    uintptr_t end_addr   = PAGE_ALIGN_UP(p_entry->p_vaddr + p_entry->p_memsz, page_size);
-
+            
 	    if (start_addr < min_address)
 		min_address = start_addr;
 
 	    max_address = end_addr;
+
+            printf("[ELF] Segment %d: [%p, %p], size %lld pages\n", 
+                i, (void *)start_addr, (void *)end_addr, 
+                (unsigned long long)((uint64_t)end_addr-(uint64_t)start_addr)/page_size);
 	}
     }
 

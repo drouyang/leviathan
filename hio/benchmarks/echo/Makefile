@@ -22,7 +22,7 @@ all: $(EXECUTABLES)
 echo: $(SOURCES) 
 	$(CC) $(CFLAGS) $(SOURCES) -o $@ $(LDFLAGS) 
 
-echo-lwk: $(OBJECTS) 
+echo-lwk: $(SOURCES) 
 	$(CC) -DLWK $(CFLAGS) $(SOURCES) -o $@ $(LDFLAGS) 
 
 clean:

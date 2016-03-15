@@ -252,7 +252,7 @@ hobbes_launch_app(hobbes_id_t       enclave_id,
 	return -1;
     }
 
-    printf("Launching Application\n");
+    printf("[libhobbes] Launching Application\n");
 
     cmd = hcq_cmd_issue(hcq, HOBBES_CMD_APP_LAUNCH, smart_strlen(spec_str) + 1, spec_str);
     

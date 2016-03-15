@@ -80,7 +80,7 @@ __launch_app(hcq_handle_t hcq,
 
     ret = launch_hobbes_lnx_app(xml_str);
 
-    printf("Returning from app launch (ret=%d)\n", ret);
+    printf("[init] Returning from app launch (ret=%d)\n", ret);
 out:
     hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;
@@ -104,7 +104,7 @@ __kill_app(hcq_handle_t hcq,
 
     ret = kill_hobbes_lnx_app(*hpid);
 
-    printf("Returning from app kill (ret=%d)\n", ret);
+    printf("[init] Returning from app kill (ret=%d)\n", ret);
 out:
     hcq_cmd_return(hcq, cmd, ret, 0, NULL);
     return 0;
@@ -386,7 +386,7 @@ __hcq_init( void )
 void 
 hobbes_exit( void ) 
 {
-    printf("Shutting down hobbes\n");
+    printf("[init] Shutting down hobbes\n");
 
     if (hcq != HCQ_INVALID_HANDLE) {
 	hcq_free_queue(hcq);
@@ -415,9 +415,9 @@ hobbes_init(void)
     //atexit(hobbes_exit);
     
     
-    printf("\tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());    
+    printf("[init] \tHobbes Enclave: %s\n", hobbes_get_my_enclave_name());    
 
-    printf("\tInitializing Hobbes Command Queue\n");
+    printf("[init] \tInitializing Hobbes Command Queue\n");
     hcq = __hcq_init();
 
     if (hcq == HCQ_INVALID_HANDLE) {
@@ -425,7 +425,7 @@ hobbes_init(void)
 	return -1;
     } 
 	
-    printf("\t...done\n");
+    printf("[init] \t...done\n");
 
     /* Register commands */
     hobbes_register_cmd(HOBBES_CMD_APP_LAUNCH, __launch_app);

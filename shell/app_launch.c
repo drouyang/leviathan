@@ -442,6 +442,20 @@ __app_stub(hobbes_id_t enclave_id)
     heap_size  = PAGE_ALIGN_UP(heap_size, page_size);
     stack_size = PAGE_ALIGN_UP(stack_size, page_size);
 
+    {
+        printf("[app_launch] Parsing App ELF:\n");
+        printf("[app_launch]     Text and Data: vaddr %p, size 0x%llx bytes (%lld pages)\n",
+            (void *)data_base_va, 
+            (unsigned long long) data_size,
+            (unsigned long long) data_size/page_size);
+        printf("[app_launch]     Heap size: 0x%llx bytes (%lld pages)\n", 
+            (unsigned long long) heap_size,
+            (unsigned long long) heap_size/page_size);
+        printf("[app_launch]     Stack size: 0x%llx bytes (%lld pages)\n", 
+            (unsigned long long) stack_size,
+            (unsigned long long) stack_size/page_size);
+    }
+
     enclave_type = hobbes_get_enclave_type(enclave_id);
     if (enclave_type == INVALID_ENCLAVE) {
 	ERROR("Invalid enclave type: cannot launch app\n");

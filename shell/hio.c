@@ -465,16 +465,16 @@ hobbes_init_hio_app(hobbes_id_t hio_app_id,
 	}
     }
 
-    printf("HIO region spec for stub:\n"
-	"\tData:\n"
-	"\t\tVA: [0x%lx, 0x%lx)\n"
-	"\t\tXEMEM segid: %li\n"
-	"\tHeap:\n"
-	"\t\tVA: [0x%lx, 0x%lx)\n"
-	"\t\tXEMEM segid: %li\n"
-	"\tStack:\n"
-	"\t\tVA: [0x%lx, 0x%lx)\n"
-	"\t\tXEMEM segid: %li\n",
+    printf("[app_launch] HIO region spec for stub:\n"
+	"[app_launch] \tText and Data:\n"
+	"[app_launch] \t\tVA: [0x%lx, 0x%lx)\n"
+	"[app_launch] \t\tXEMEM segid: %li\n"
+	"[app_launch] \tHeap:\n"
+	"[app_launch] \t\tVA: [0x%lx, 0x%lx)\n"
+	"[app_launch] \t\tXEMEM segid: %li\n"
+	"[app_launch] \tStack:\n"
+	"[app_launch] \t\tVA: [0x%lx, 0x%lx)\n"
+	"[app_launch] \t\tXEMEM segid: %li\n",
 	data_va, (data_va + data_size),
 	data_segid,
 	heap_va, (heap_va + heap_size),

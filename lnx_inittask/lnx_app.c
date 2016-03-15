@@ -197,7 +197,7 @@ launch_lnx_app(char	   * name,
 
     asprintf(&cmd_line, "%s %s %s", envp, exe_path, argv); 
 
-    printf("Launching app: %s\n", cmd_line);
+    printf("[init]     cmdline: %s\n", cmd_line);
 
     ret = __popen(cmd_line, &app_pid, &stdin_fd, &stdout_fd);
     free(cmd_line);
@@ -265,7 +265,7 @@ launch_hobbes_lnx_app(char * spec_str)
 	char        * hobbes_env  = NULL;	
 	char        * val_str     = NULL;
 
-	printf("App spec str = (%s)\n", spec_str);
+	//printf("[init] App spec str = (%s)\n", spec_str);
 
 	/* Executable Path Name */
 	val_str = pet_xml_get_val(spec, "path");
@@ -312,8 +312,8 @@ launch_hobbes_lnx_app(char * spec_str)
 	{
 	    int chars_written = 0;
 
-	    printf("Launching App (Hobbes AppID = %u) (EnclaveID=%d)\n", hpid,  hobbes_get_my_enclave_id() );
-	    printf("Application Name=%s\n", name);
+	    printf("[init] Launching App: %s\n", name);
+	    printf("[init]     Hobbes AppID = %u, EnclaveID = %d\n", hpid,  hobbes_get_my_enclave_id() );
 
 	    /* Hobbes enabled ENVP */
 	    chars_written = asprintf(&hobbes_env, 
