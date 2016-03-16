@@ -14,7 +14,11 @@ class Protocol {
 public:
   Protocol(options_t _opts, Connection* _conn, bufferevent* _bev):
     opts(_opts), conn(_conn), bev(_bev) {};
-  ~Protocol() {};
+  ~Protocol() {
+    struct evbuffer *input = bufferevent_get_input(bev);
+    int length = evbuffer_get_length(input);
+    evbuffer_drain(input, length);
+  };
 
   virtual bool setup_connection_w() = 0;
   virtual bool setup_connection_r(evbuffer* input) = 0;
