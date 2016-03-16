@@ -41,7 +41,11 @@ hio_read(int    fd,
          void * buf,
          size_t count)
 {
-    return read(fd, buf, count);
+    int ret = read(fd, buf, count);
+    if (ret < 0) {
+        fprintf(stderr, "Read fd %d failed with ret %d, errno %d\n", fd, ret, errno);
+    }
+    return ret;
 }
 LIBHIO_STUB3(hio_read, ssize_t, int, void *, size_t);
 
@@ -199,7 +203,21 @@ LIBHIO_STUB4(hio_epoll_wait, int, int, struct epoll_event *, int, int);
 
 static int hio_select(int nfds, fd_set *readfds, fd_set *writefds,
            fd_set *exceptfds, struct timeval *timeout) {
-	return select(nfds, readfds, writefds, exceptfds, timeout);
+    int ret = select(nfds, readfds, writefds, exceptfds, timeout);
+    if (ret < 0) {
+        fprintf(stderr, "select failed with ret %d, errno %d\n", ret, errno);
+    }
+/*
+    fprintf(stderr, "Select ready fds:");
+    int i;
+    for(i = 0; i <= nfds; i++) {
+        if (FD_ISSET(i, readfds)) { // we got one!!
+            fprintf(stderr, " %d", i);
+        }
+    }
+    fprintf(stderr, "\n");
+*/
+    return ret;
 }
 LIBHIO_STUB5(hio_select, int, int, fd_set *, fd_set *, fd_set *, struct timeval *);
 

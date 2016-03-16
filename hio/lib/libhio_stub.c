@@ -471,7 +471,7 @@ __reserve_lwk_aspace(void)
             -1, 0);
 
     if (lwk_reserve == MAP_FAILED) {
-        ERROR("Cannot reserve virtual LWK address space: %s."
+        ERROR("Cannot reserve virtual LWK address space: %s. "
             "Continuing as this is not catastrophic. You may want to check ulimit.\n", 
             strerror(errno));
         return 0;
