@@ -1,0 +1,10 @@
+*~
+*.symvers
+*.order
+*.mod.c
+*.cmd
+*.mod
+*.ko
+*.o
+linux_usr/hio
+tags
