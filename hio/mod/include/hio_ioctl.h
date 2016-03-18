@@ -7,5 +7,6 @@
 #define _HIO_IOCTL_H_
 
 #define HIO_IOCTL_REGISTER      3300
+#define HIO_IOCTL_DEREGISTER    3301
 
 #endif

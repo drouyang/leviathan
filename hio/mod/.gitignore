@@ -6,5 +6,6 @@
 *.mod
 *.ko
 *.o
+.exrc
 linux_usr/hio
 tags

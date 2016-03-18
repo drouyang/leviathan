@@ -49,7 +49,7 @@ stub_write(struct file        * filp,
     return 0;
 }
 
-
+// TODO: add blocking syscall commands
 static long 
 stub_ioctl(struct file  * filp,
 	      unsigned int   ioctl,
@@ -109,6 +109,32 @@ stub_register(struct hio_engine *hio_engine, int app_id)
         kfree(stub);
         return -1;
     }
+
+    if (insert_stub(hio_engine, app_id, stub) < 0) {
+        printk(KERN_ERR "Fails to insert stub\n");
+        cdev_del(&(stub->cdev));
+        kfree(stub);
+        return -1;
+    }
+
+    return 0;
+}
+
+int 
+stub_deregister(struct hio_engine *hio_engine, int app_id)
+{
+    struct hio_stub * stub = lookup_stub(hio_engine, app_id);
+    if (stub != NULL) {
+        remove_stub(hio_engine, app_id);
+        kfree(stub);
+    } else {
+        printk(KERN_WARNING "Trying to deregister a non-exisiting stub, app_id %d\n", 
+                app_id);
+    }
+
+    device_destroy(hio_class, stub->dev);
+    cdev_del(&(stub->cdev));
+    kfree(stub);
 
     return 0;
 }

@@ -25,6 +25,8 @@ int                      hio_major_num = 0;
 struct class           * hio_class     = NULL;
 static struct cdev       hio_cdev;  
 
+struct hio_engine * hio_engine = NULL;
+
 
 static int 
 device_open(struct inode * inode, 
@@ -74,9 +76,19 @@ device_ioctl(struct file  * filp,
 
     switch (ioctl) {
         // Given an ID, get an fd associated with the request queue of the ID
-        case HIO_IOCTL_REGISTER:
-            ret = stub_register(hio_engine, arg);
-            break;
+        case HIO_IOCTL_REGISTER: 
+            {
+                unsigned long id = arg;
+                ret = stub_register(hio_engine, id);
+                break;
+            }
+
+        case HIO_IOCTL_DEREGISTER:
+            {
+                unsigned long id = arg;
+                ret = stub_deregister(hio_engine, id);
+                break;
+            }
 
         default:
             printk(KERN_ERR "Invalid HIO IOCTL: %d\n", ioctl);
@@ -102,6 +114,18 @@ int
 hio_init(void) 
 {
     dev_t dev_num   = MKDEV(0, 0); // <major , minor> 
+
+    hio_engine = kmalloc(sizeof(struct hio_engine), GFP_KERNEL);
+    if (IS_ERR(hio_engine)) {
+        printk(KERN_ERR "Error alloc hio_engine\n");
+        return -1;
+    }
+    memset(hio_engine, 0, sizeof(struct hio_engine));
+
+    if (hio_engine_init(hio_engine) < 0) {
+        printk(KERN_ERR "Error init hio_engine\n");
+        return -1;
+    }
 
     if (alloc_chrdev_region(&dev_num, 0, MAX_STUBS + 1, "hio") < 0) {
         printk(KERN_ERR "Error allocating hio char device region\n");
