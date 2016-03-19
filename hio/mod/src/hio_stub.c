@@ -89,6 +89,9 @@ stub_register(struct hio_engine *hio_engine, int app_id)
 
     memset(stub, 0, sizeof(struct hio_stub));
 
+    spin_lock_init(&stub->syscall_ret_lock);
+    init_waitqueue_head(&stub->syscall_ret_waitq);
+
     stub->app_id       = app_id;
     stub->dev          = MKDEV(hio_major_num, app_id);
 

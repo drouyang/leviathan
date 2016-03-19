@@ -16,8 +16,10 @@
 #include <linux/stat.h>           /* perms */
 #include <linux/spinlock.h>
 #include <linux/sched.h>
+#include <linux/kthread.h>
 
-#define MAX_STUBS 1024
+#define MAX_STUBS           1024
+#define RINGBUFFER_SIZE     MAX_STUBS
 
 struct hio_syscall_cmd {
     int app_id;
@@ -50,17 +52,24 @@ struct hio_stub {
     struct cdev     cdev;
 };
 
+#define rb_syscall_is_empty(hio_engine) (1)
+#define rb_syscall_is_full(hio_engine)  (1)
+#define rb_ret_is_empty(hio_engine)     (1)
+#define rb_ret_is_full(hio_engine)      (1)
+
 struct hio_engine {
     // We could use hashmap here, but for now just use array
     // and use rank number as the key
     struct hio_stub *stub_lookup_table[MAX_STUBS];
 
-    spinlock_t                  syscall_rb_lock;
-    struct hio_syscall_cmd      syscall_rb[MAX_STUBS];
+    spinlock_t                  rb_lock;
+    struct hio_syscall_cmd      rb[RINGBUFFER_SIZE];
     int                         rb_syscall_produce_idx;     // shared, updated by hio client
     int                         rb_ret_consume_idx;         // client private
     int                         rb_syscall_consume_idx;     // engine private
     int                         rb_ret_produce_idx;         // shared, updated by hio engine
+
+    struct task_struct         *handler_thread;
 };
 
 
