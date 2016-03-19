@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
 
 #include "hio.h"
 #include "hio_ioctl.h"
@@ -49,7 +50,43 @@ stub_write(struct file        * filp,
     return 0;
 }
 
-// TODO: add blocking syscall commands
+static struct stub_syscall_t *
+stub_syscall_poll(struct hio_stub *stub) 
+{
+    wait_event_interruptible(stub->syscall_wq, stub->is_pending);
+    return stub->pending_syscall;
+}
+
+static int
+stub_syscall_ret(struct hio_stub *stub, struct stub_syscall_ret_t *syscall_ret) 
+{
+    int ret = 0;
+    struct hio_engine *engine = stub->hio_engine;
+    struct hio_cmd_t *hio_cmd;
+
+    if (engine->rb_ret_prod_idx == engine->rb_syscall_cons_idx) {
+        printk(KERN_ERR "No available rb slot for syscall_ret\n");
+        printk(KERN_ERR "Return syscall before handling???\n");
+        return -1;
+    }
+    // add ret to io_engine
+    spin_lock(&engine->lock);
+    hio_cmd = &engine->rb[engine->rb_ret_prod_idx];
+    hio_cmd->ret_val = syscall_ret->ret_val;
+    hio_cmd->errno = syscall_ret->errno;
+    engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
+    spin_unlock(&engine->lock);
+    
+    // clear pending
+    kfree(stub->pending_syscall);
+    spin_lock(&stub->lock);
+    stub->pending_syscall = NULL;
+    stub->is_pending = false;
+    spin_unlock(&stub->lock);
+
+    return ret;
+}
+
 static long 
 stub_ioctl(struct file  * filp,
 	      unsigned int   ioctl,
@@ -57,8 +94,53 @@ stub_ioctl(struct file  * filp,
 {
     void __user           * argp    = (void __user *)arg;
     struct hio_stub * stub = (struct hio_stub *)filp->private_data;
-    struct hio_engine * hio_engine = stub->hio_engine;
+    //struct hio_engine * hio_engine = stub->hio_engine;
     int ret = 0;
+    
+    switch (ioctl) {
+        // Given an ID, get an fd associated with the request queue of the ID
+        case HIO_STUB_SYSCALL_POLL: 
+            {
+                struct stub_syscall_t *syscall;
+
+                syscall = stub_syscall_poll(stub);
+                if (syscall == NULL) {
+                    printk(KERN_ERR "Error on syscall poll (app_id %d)\n", stub->app_id);
+                    ret = -EFAULT;
+                    break;
+                }
+
+                if (copy_to_user(argp, syscall, sizeof(struct stub_syscall_t))) {
+                    printk(KERN_ERR "Could not copy syscall to user space\n");
+                    ret = -EFAULT;
+                    break;
+                }
+                break;
+            }
+
+        case HIO_STUB_SYSCALL_RET:
+            {
+                struct stub_syscall_ret_t syscall_ret;
+                memset(&syscall_ret, 0, sizeof(struct stub_syscall_ret_t));
+                if (copy_from_user(&syscall_ret, argp, sizeof(struct stub_syscall_ret_t))) {
+                    printk(KERN_ERR "Could not copy syscall_ret from user space\n");
+                    ret = -EFAULT;
+                    break;
+                }
+                
+                if (stub_syscall_ret(stub, &syscall_ret) < 0) {
+                    printk(KERN_ERR "Failed to write syscall_ret to io_engine\n");
+                    ret = -EFAULT;
+                    break;
+                }
+
+                break;
+            }
+
+        default:
+            printk(KERN_ERR "Invalid Stub IOCTL: %d\n", ioctl);
+            ret = -EINVAL;
+    }
 
     return ret;
 }
@@ -89,8 +171,8 @@ stub_register(struct hio_engine *hio_engine, int app_id)
 
     memset(stub, 0, sizeof(struct hio_stub));
 
-    spin_lock_init(&stub->syscall_ret_lock);
-    init_waitqueue_head(&stub->syscall_ret_waitq);
+    spin_lock_init(&stub->lock);
+    init_waitqueue_head(&stub->syscall_wq);
 
     stub->app_id       = app_id;
     stub->dev          = MKDEV(hio_major_num, app_id);

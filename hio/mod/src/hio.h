@@ -19,9 +19,10 @@
 #include <linux/kthread.h>
 
 #define MAX_STUBS           1024
-#define RINGBUFFER_SIZE     MAX_STUBS
+#define HIO_RB_SIZE             MAX_STUBS
 
-struct hio_syscall_cmd {
+// transferred in the ringbuffer
+struct hio_cmd_t {
     int app_id;
     int syscall_nr;
     uint64_t arg0;
@@ -29,45 +30,56 @@ struct hio_syscall_cmd {
     uint64_t arg2;
     uint64_t arg3;
     uint64_t arg4;
-    uint64_t arg5;
+    uint64_t ret_val;
+    uint64_t errno;
 };
 
-struct hio_syscall_ret {
+
+// used in ioctls
+struct stub_syscall_t {
+    int app_id;
+    int syscall_nr;
+    uint64_t arg0;
+    uint64_t arg1;
+    uint64_t arg2;
+    uint64_t arg3;
+    uint64_t arg4;
+};
+
+
+// used in ioctls
+struct stub_syscall_ret_t {
     int app_id;
     int syscall_nr;
     int ret_val;
-    int ret_errno;
+    int errno;
 };
-
 
 struct hio_stub {
     int app_id;
     struct hio_engine *hio_engine;
 
-    spinlock_t                  syscall_ret_lock;
-    struct hio_syscall_cmd      syscall_ret; 
-    wait_queue_head_t           syscall_ret_waitq;
+    spinlock_t                  lock;
+    struct stub_syscall_t      *pending_syscall; 
+    bool                        is_pending;
+    wait_queue_head_t           syscall_wq;
 
     dev_t           dev; 
     struct cdev     cdev;
 };
 
-#define rb_syscall_is_empty(hio_engine) (1)
-#define rb_syscall_is_full(hio_engine)  (1)
-#define rb_ret_is_empty(hio_engine)     (1)
-#define rb_ret_is_full(hio_engine)      (1)
 
 struct hio_engine {
     // We could use hashmap here, but for now just use array
     // and use rank number as the key
     struct hio_stub *stub_lookup_table[MAX_STUBS];
 
-    spinlock_t                  rb_lock;
-    struct hio_syscall_cmd      rb[RINGBUFFER_SIZE];
-    int                         rb_syscall_produce_idx;     // shared, updated by hio client
-    int                         rb_ret_consume_idx;         // client private
-    int                         rb_syscall_consume_idx;     // engine private
-    int                         rb_ret_produce_idx;         // shared, updated by hio engine
+    spinlock_t                  lock;
+    struct hio_cmd_t            rb[HIO_RB_SIZE];
+    int                         rb_syscall_prod_idx;     // shared, updated by hio client
+    int                         rb_ret_cons_idx;         // client private
+    int                         rb_syscall_cons_idx;     // engine private
+    int                         rb_ret_prod_idx;         // shared, updated by hio engine
 
     struct task_struct         *handler_thread;
 };
