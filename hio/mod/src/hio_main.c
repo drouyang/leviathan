@@ -75,7 +75,12 @@ device_ioctl(struct file  * filp,
     struct hio_engine * hio_engine = (struct hio_engine *)filp->private_data;
 
     switch (ioctl) {
-        // Given an ID, get an fd associated with the request queue of the ID
+        /*
+         * Register a stub process with hio_engine, create /dev/hio-stubN
+         * Need to specify an ID N that is shared between stub and client process
+         * The stub process then poll on the /dev/hio-stubN
+         * Syscalls with the ID N will be routed to this stub process
+         */
         case HIO_IOCTL_REGISTER: 
             {
                 unsigned long id = arg;

@@ -98,14 +98,14 @@ stub_ioctl(struct file  * filp,
     int ret = 0;
     
     switch (ioctl) {
-        // Given an ID, get an fd associated with the request queue of the ID
+        // Poll a syscall request
         case HIO_STUB_SYSCALL_POLL: 
             {
                 struct stub_syscall_t *syscall;
 
                 syscall = stub_syscall_poll(stub);
                 if (syscall == NULL) {
-                    printk(KERN_ERR "Error on syscall poll (app_id %d)\n", stub->app_id);
+                    printk(KERN_ERR "Error on syscall poll (stub_id %d)\n", stub->stub_id);
                     ret = -EFAULT;
                     break;
                 }
@@ -118,6 +118,7 @@ stub_ioctl(struct file  * filp,
                 break;
             }
 
+        // Syscall request completed
         case HIO_STUB_SYSCALL_RET:
             {
                 struct stub_syscall_ret_t syscall_ret;
@@ -133,6 +134,22 @@ stub_ioctl(struct file  * filp,
                     ret = -EFAULT;
                     break;
                 }
+
+                break;
+            }
+
+        // Delegate a syscall, this is for test purpose
+        case HIO_STUB_SYSCALL:
+            {
+                struct stub_syscall_t syscall;
+                memset(&syscall, 0, sizeof(struct stub_syscall_t));
+                if (copy_from_user(&syscall, argp, sizeof(struct stub_syscall_t))) {
+                    printk(KERN_ERR "Could not copy syscall from user space\n");
+                    ret = -EFAULT;
+                    break;
+                }
+
+                ret = hio_engine_syscall(stub->hio_engine, &syscall);
 
                 break;
             }
@@ -156,9 +173,12 @@ static struct file_operations stub_fops = {
     .release        = stub_release,
 };
 
-
+/* Create a hio_stub sturct and the /dev/hio-stubN file 
+ * The hio_stub consists of a lock, a waitq, a pending_syscall pointer
+ * and a is_pending flag
+ */
 int 
-stub_register(struct hio_engine *hio_engine, int app_id)
+stub_register(struct hio_engine *hio_engine, int stub_id)
 {
     struct hio_stub *stub = NULL;
 
@@ -174,8 +194,8 @@ stub_register(struct hio_engine *hio_engine, int app_id)
     spin_lock_init(&stub->lock);
     init_waitqueue_head(&stub->syscall_wq);
 
-    stub->app_id       = app_id;
-    stub->dev          = MKDEV(hio_major_num, app_id);
+    stub->stub_id       = stub_id;
+    stub->dev          = MKDEV(hio_major_num, stub_id);
 
     cdev_init(&(stub->cdev), &stub_fops);
 
@@ -195,7 +215,7 @@ stub_register(struct hio_engine *hio_engine, int app_id)
         return -1;
     }
 
-    if (insert_stub(hio_engine, app_id, stub) < 0) {
+    if (insert_stub(hio_engine, stub_id, stub) < 0) {
         printk(KERN_ERR "Fails to insert stub\n");
         cdev_del(&(stub->cdev));
         kfree(stub);
@@ -206,15 +226,15 @@ stub_register(struct hio_engine *hio_engine, int app_id)
 }
 
 int 
-stub_deregister(struct hio_engine *hio_engine, int app_id)
+stub_deregister(struct hio_engine *hio_engine, int stub_id)
 {
-    struct hio_stub * stub = lookup_stub(hio_engine, app_id);
+    struct hio_stub * stub = lookup_stub(hio_engine, stub_id);
     if (stub != NULL) {
-        remove_stub(hio_engine, app_id);
+        remove_stub(hio_engine, stub_id);
         kfree(stub);
     } else {
-        printk(KERN_WARNING "Trying to deregister a non-exisiting stub, app_id %d\n", 
-                app_id);
+        printk(KERN_WARNING "Trying to deregister a non-exisiting stub, stub_id %d\n", 
+                stub_id);
     }
 
     device_destroy(hio_class, stub->dev);

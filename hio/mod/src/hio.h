@@ -23,7 +23,7 @@
 
 // transferred in the ringbuffer
 struct hio_cmd_t {
-    int app_id;
+    int stub_id;
     int syscall_nr;
     uint64_t arg0;
     uint64_t arg1;
@@ -37,7 +37,7 @@ struct hio_cmd_t {
 
 // used in ioctls
 struct stub_syscall_t {
-    int app_id;
+    int stub_id;
     int syscall_nr;
     uint64_t arg0;
     uint64_t arg1;
@@ -49,14 +49,14 @@ struct stub_syscall_t {
 
 // used in ioctls
 struct stub_syscall_ret_t {
-    int app_id;
+    int stub_id;
     int syscall_nr;
     int ret_val;
     int errno;
 };
 
 struct hio_stub {
-    int app_id;
+    int stub_id;
     struct hio_engine *hio_engine;
 
     spinlock_t                  lock;
@@ -86,9 +86,10 @@ struct hio_engine {
 
 
 int hio_engine_init(struct hio_engine *hio_engine);
-int stub_register(struct hio_engine *hio_engine, int app_id);
-int stub_deregister(struct hio_engine *hio_engine, int app_id);
-struct hio_stub * lookup_stub(struct hio_engine *hio_engine, int app_id);
+int hio_engine_syscall(struct hio_engine *hio_engine, struct stub_syscall_t *syscall);
+int stub_register(struct hio_engine *hio_engine, int stub_id);
+int stub_deregister(struct hio_engine *hio_engine, int stub_id);
+struct hio_stub * lookup_stub(struct hio_engine *hio_engine, int stub_id);
 int insert_stub(struct hio_engine *hio_engine, int key, struct hio_stub *stub);
 int remove_stub(struct hio_engine *hio_engine, int key);
 #endif
