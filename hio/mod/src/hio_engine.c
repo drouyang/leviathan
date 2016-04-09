@@ -165,9 +165,9 @@ add_stub(struct hio_engine *hio_engine,
 int
 remove_stub(struct hio_engine *hio_engine, int stub_id) {
     int ret = 0;
-    if (hio_engine->stub_lookup_table[stub_id] != NULL) {
+    if (hio_engine->stub_lookup_table[stub_id] == NULL) {
         printk(KERN_WARNING "Trying to remove a non-existing stub, stub_id=%d\n", stub_id);
-        ret = -1;
+        return -1;
     }
     hio_engine->stub_lookup_table[stub_id] = NULL;
     return ret;

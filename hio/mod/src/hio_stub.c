@@ -232,7 +232,6 @@ stub_deregister(struct hio_engine *hio_engine, int stub_id)
     struct hio_stub * stub = lookup_stub(hio_engine, stub_id);
     if (stub != NULL) {
         remove_stub(hio_engine, stub_id);
-        kfree(stub);
     } else {
         printk(KERN_WARNING "Trying to deregister a non-exisiting stub, stub_id %d\n", 
                 stub_id);

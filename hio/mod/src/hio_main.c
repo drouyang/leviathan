@@ -21,10 +21,9 @@
 #include "hio_ioctl.h"                /* device file ioctls*/
 #include "hio.h"
 
-int                      hio_major_num = 0;
-struct class           * hio_class     = NULL;
-
-struct hio_engine * hio_engine = NULL;
+int                      hio_major_num  = 0;
+struct class            *hio_class      = NULL;
+struct hio_engine       *hio_engine     = NULL;
 
 
 static int 
@@ -73,7 +72,7 @@ device_ioctl(struct file  * filp,
 {
     int ret = 0;
     //void __user * argp = (void __user *)arg;
-    struct hio_engine * hio_engine = (struct hio_engine *)filp->private_data;
+    //struct hio_engine * hio_engine = (struct hio_engine *)filp->private_data;
 
     if (hio_engine == NULL) {
 	    printk(KERN_ERR "HIO: hio_engine is NULL\n");
@@ -128,7 +127,7 @@ hio_init(void)
 {
     dev_t dev_num   = MKDEV(0, 0); // <major , minor> 
 
-    printk(KERN_INFO "HIO: Load kernel module\n");
+    printk(KERN_INFO "HIO: load kernel module...\n");
 
     hio_engine = kmalloc(sizeof(struct hio_engine), GFP_KERNEL);
     if (IS_ERR(hio_engine)) {
@@ -185,7 +184,21 @@ hio_init(void)
 void 
 hio_exit(void) 
 {
-    dev_t dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
+    struct hio_stub *stub = NULL;
+    int i;
+    dev_t dev_num;
+
+    printk(KERN_INFO "HIO: remove kernel module...\n");
+
+    for(i = 0; i < MAX_STUBS; i++) {
+        stub = hio_engine->stub_lookup_table[i];
+        if (stub != NULL) {
+            printk(KERN_INFO "HIO: destory stub %d (/dev/hio-stub%d)\n", stub->stub_id, stub->stub_id);
+            stub_deregister(hio_engine, stub->stub_id);
+        }
+    }
+
+    dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
     hio_engine_deinit(hio_engine);
     unregister_chrdev_region(MKDEV(hio_major_num, 0), MAX_STUBS + 1);
     cdev_del(&(hio_engine->cdev));
