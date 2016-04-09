@@ -8,4 +8,5 @@
 *.o
 .exrc
 linux_usr/stub
+linux_usr/test
 tags
