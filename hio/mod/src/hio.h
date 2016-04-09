@@ -18,7 +18,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-#define MAX_STUBS           1024
+#define MAX_STUBS               1024
 #define HIO_RB_SIZE             MAX_STUBS
 
 // transferred in the ringbuffer
@@ -34,26 +34,6 @@ struct hio_cmd_t {
     uint64_t errno;
 };
 
-
-// used in ioctls
-struct stub_syscall_t {
-    int stub_id;
-    int syscall_nr;
-    uint64_t arg0;
-    uint64_t arg1;
-    uint64_t arg2;
-    uint64_t arg3;
-    uint64_t arg4;
-};
-
-
-// used in ioctls
-struct stub_syscall_ret_t {
-    int stub_id;
-    int syscall_nr;
-    int ret_val;
-    int errno;
-};
 
 struct hio_stub {
     int stub_id;
@@ -82,14 +62,20 @@ struct hio_engine {
     int                         rb_ret_prod_idx;         // shared, updated by hio engine
 
     struct task_struct         *handler_thread;
+
+    // wait for syscall requests
+    wait_queue_head_t           syscall_wq;
+
+    struct cdev       		cdev;  
 };
 
 
 int hio_engine_init(struct hio_engine *hio_engine);
+int hio_engine_deinit(struct hio_engine *hio_engine);
 int hio_engine_syscall(struct hio_engine *hio_engine, struct stub_syscall_t *syscall);
 int stub_register(struct hio_engine *hio_engine, int stub_id);
 int stub_deregister(struct hio_engine *hio_engine, int stub_id);
 struct hio_stub * lookup_stub(struct hio_engine *hio_engine, int stub_id);
-int insert_stub(struct hio_engine *hio_engine, int key, struct hio_stub *stub);
-int remove_stub(struct hio_engine *hio_engine, int key);
+int add_stub(struct hio_engine *hio_engine, int stub_id, struct hio_stub *stub);
+int remove_stub(struct hio_engine *hio_engine, int stub_id);
 #endif

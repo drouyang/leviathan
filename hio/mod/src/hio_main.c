@@ -23,15 +23,16 @@
 
 int                      hio_major_num = 0;
 struct class           * hio_class     = NULL;
-static struct cdev       hio_cdev;  
 
 struct hio_engine * hio_engine = NULL;
 
 
 static int 
 device_open(struct inode * inode, 
-	    struct file  * file) 
+	    struct file  * filp) 
 {
+    struct hio_engine *engine = container_of(inode->i_cdev, struct hio_engine, cdev);
+    filp->private_data = engine;
     return 0;
 }
 
@@ -74,6 +75,11 @@ device_ioctl(struct file  * filp,
     //void __user * argp = (void __user *)arg;
     struct hio_engine * hio_engine = (struct hio_engine *)filp->private_data;
 
+    if (hio_engine == NULL) {
+	    printk(KERN_ERR "HIO: hio_engine is NULL\n");
+	    return -1;
+    }
+
     switch (ioctl) {
         /*
          * Register a stub process with hio_engine, create /dev/hio-stubN
@@ -83,7 +89,9 @@ device_ioctl(struct file  * filp,
          */
         case HIO_IOCTL_REGISTER: 
             {
-                unsigned long id = arg;
+                int id = arg;
+
+                printk(KERN_INFO "HIO: ioctl register stub_id %d, create /dev/hio-stub%d\n", id, id);
                 ret = stub_register(hio_engine, id);
                 break;
             }
@@ -120,6 +128,8 @@ hio_init(void)
 {
     dev_t dev_num   = MKDEV(0, 0); // <major , minor> 
 
+    printk(KERN_INFO "HIO: Load kernel module\n");
+
     hio_engine = kmalloc(sizeof(struct hio_engine), GFP_KERNEL);
     if (IS_ERR(hio_engine)) {
         printk(KERN_ERR "Error alloc hio_engine\n");
@@ -133,6 +143,7 @@ hio_init(void)
     }
 
     if (alloc_chrdev_region(&dev_num, 0, MAX_STUBS + 1, "hio") < 0) {
+    	hio_engine_deinit(hio_engine);
         printk(KERN_ERR "Error allocating hio char device region\n");
         return -1;
     }
@@ -145,6 +156,7 @@ hio_init(void)
     if ((hio_class = class_create(THIS_MODULE, "hio")) == NULL) {
         printk(KERN_ERR "Error creating hio device class\n");
         unregister_chrdev_region(dev_num, 1);
+    	hio_engine_deinit(hio_engine);
         return -1;
     }
 
@@ -152,19 +164,21 @@ hio_init(void)
         printk(KERN_ERR "Error creating hio device\n");
         class_destroy(hio_class);
         unregister_chrdev_region(dev_num, MAX_STUBS + 1);
+    	hio_engine_deinit(hio_engine);
         return -1;
     }
 
-    cdev_init(&hio_cdev, &fops);
+    cdev_init(&(hio_engine->cdev), &fops);
 
-    if (cdev_add(&hio_cdev, dev_num, 1) == -1) {
+    if (cdev_add(&(hio_engine->cdev), dev_num, 1) == -1) {
         printk(KERN_ERR "Error adding hio cdev\n");
         device_destroy(hio_class, dev_num);
         class_destroy(hio_class);
         unregister_chrdev_region(dev_num, MAX_STUBS + 1);
+    	hio_engine_deinit(hio_engine);
         return -1;
     }
-
+    
     return 0;
 }
 
@@ -172,8 +186,9 @@ void
 hio_exit(void) 
 {
     dev_t dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
+    hio_engine_deinit(hio_engine);
     unregister_chrdev_region(MKDEV(hio_major_num, 0), MAX_STUBS + 1);
-    cdev_del(&hio_cdev);
+    cdev_del(&(hio_engine->cdev));
     device_destroy(hio_class, dev_num);
     class_destroy(hio_class);
 }

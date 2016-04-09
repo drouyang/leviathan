@@ -215,8 +215,9 @@ stub_register(struct hio_engine *hio_engine, int stub_id)
         return -1;
     }
 
-    if (insert_stub(hio_engine, stub_id, stub) < 0) {
+    if (add_stub(hio_engine, stub_id, stub)) {
         printk(KERN_ERR "Fails to insert stub\n");
+        device_destroy(hio_class, stub->dev);
         cdev_del(&(stub->cdev));
         kfree(stub);
         return -1;

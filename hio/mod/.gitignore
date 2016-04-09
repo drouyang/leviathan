@@ -7,5 +7,5 @@
 *.ko
 *.o
 .exrc
-linux_usr/hio
+linux_usr/stub
 tags

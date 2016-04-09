@@ -5,7 +5,7 @@ CFLAGS = -Wall -Werror -D_GNU_SOURCE -I../include -I$(PETLIB_PATH) -L$(PETLIB_PA
 CC = gcc
 AR = ar
 
-execs := 	hio \
+execs := 	stub \
 
 ext_libs := $(PETLIB_PATH)/petlib.a 
 
