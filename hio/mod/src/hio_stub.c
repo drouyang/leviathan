@@ -105,7 +105,6 @@ stub_ioctl(struct file  * filp,
 
                 syscall = stub_syscall_poll(stub);
                 if (syscall == NULL) {
-                    printk(KERN_ERR "Error on syscall poll (stub_id %d)\n", stub->stub_id);
                     ret = -EFAULT;
                     break;
                 }
