@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
 
     struct stub_syscall_t syscall_ioclt;
     memset(&syscall_ioclt, 0, sizeof(struct stub_syscall_t));
+    syscall_ioclt.stub_id = STUB_ID;
     syscall_ioclt.syscall_nr = GETPID;
 
     printf("issue syscall %d (%llu, %llu, %llu, %llu, %llu)\n",

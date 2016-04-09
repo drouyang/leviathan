@@ -73,7 +73,7 @@ stub_syscall_ret(struct hio_stub *stub, struct stub_syscall_ret_t *syscall_ret)
     spin_lock(&engine->lock);
     hio_cmd = &engine->rb[engine->rb_ret_prod_idx];
     hio_cmd->ret_val = syscall_ret->ret_val;
-    hio_cmd->errno = syscall_ret->errno;
+    hio_cmd->errno = syscall_ret->ret_errno;
     engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
     spin_unlock(&engine->lock);
     
@@ -94,7 +94,7 @@ stub_ioctl(struct file  * filp,
 {
     void __user           * argp    = (void __user *)arg;
     struct hio_stub * stub = (struct hio_stub *)filp->private_data;
-    //struct hio_engine * hio_engine = stub->hio_engine;
+    struct hio_engine * hio_engine = stub->hio_engine;
     int ret = 0;
     
     switch (ioctl) {
@@ -140,15 +140,24 @@ stub_ioctl(struct file  * filp,
         // Delegate a syscall, this is for test purpose
         case HIO_STUB_SYSCALL:
             {
-                struct stub_syscall_t syscall;
-                memset(&syscall, 0, sizeof(struct stub_syscall_t));
-                if (copy_from_user(&syscall, argp, sizeof(struct stub_syscall_t))) {
+                struct stub_syscall_t *syscall;
+                syscall = (struct stub_syscall_t *) kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+                if (syscall == NULL) {
+                    printk(KERN_ERR "HIO: error allocating HIO_STUB_SYSCALL memory\n");
+                    ret = -1;
+                    break;
+                }
+
+                memset(syscall, 0, sizeof(struct stub_syscall_t));
+                if (copy_from_user(syscall, argp, sizeof(struct stub_syscall_t))) {
                     printk(KERN_ERR "Could not copy syscall from user space\n");
                     ret = -EFAULT;
                     break;
                 }
 
-                ret = hio_engine_syscall(stub->hio_engine, &syscall);
+                printk("STUB %d: test syscall ioctl %d", syscall->stub_id, syscall->syscall_nr);
+
+                ret = hio_engine_syscall(hio_engine, syscall);
 
                 break;
             }
@@ -194,7 +203,8 @@ stub_register(struct hio_engine *hio_engine, int stub_id)
     init_waitqueue_head(&stub->syscall_wq);
 
     stub->stub_id       = stub_id;
-    stub->dev          = MKDEV(hio_major_num, stub_id);
+    stub->dev           = MKDEV(hio_major_num, stub_id);
+    stub->hio_engine    = hio_engine;
 
     cdev_init(&(stub->cdev), &stub_fops);
 

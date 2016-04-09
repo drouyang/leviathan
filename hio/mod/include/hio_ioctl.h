@@ -33,7 +33,7 @@ struct stub_syscall_ret_t {
     int stub_id;
     int syscall_nr;
     int ret_val;
-    int errno;
+    int ret_errno;
 };
 
 

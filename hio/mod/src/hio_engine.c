@@ -28,31 +28,31 @@ static int hio_handler_worker(void *arg) {
 
         printk(KERN_INFO "HIO: hio_engine kthread wakeup...\n");
 
-        if (!kthread_should_stop()) break;
+        if (kthread_should_stop()) break;
 
         // there are pending syscalls
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
-            struct hio_cmd_t *cmd = &engine->rb[engine->rb_syscall_cons_idx];
+            struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
             struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
-
             struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+
             if (syscall == NULL) {
                 printk(KERN_ERR "Failed allocate syscall memeory\n");
-                return -1;
+                goto out;
             }
+
+            printk(KERN_INFO "HIO ENGINE: syscall consume index %d (prod index %d)\n", 
+                    engine->rb_syscall_cons_idx,
+                    engine->rb_syscall_prod_idx);
 
             if (stub == NULL) {
                 printk(KERN_ERR "stub_id %d does not exist\n", cmd->stub_id);
-                return -1;
+                goto out;
             } else if (stub->is_pending) {
                 printk(KERN_ERR "Failed to process syscall while previous one is pending\n");
                 printk(KERN_ERR "HIO currently supports ONE outstanding syscall per proc\n");
-                return -1;
+                goto out;
             } else {
-                printk(KERN_INFO "HIO: hio_engine dispatch syscall %d to stub %d\n",
-                        syscall->syscall_nr,
-                        syscall->stub_id);
-
                 syscall->stub_id = cmd->stub_id;
                 syscall->syscall_nr = cmd->syscall_nr;
                 syscall->arg0 = cmd->arg0;
@@ -60,6 +60,10 @@ static int hio_handler_worker(void *arg) {
                 syscall->arg2 = cmd->arg2;
                 syscall->arg3 = cmd->arg3;
                 syscall->arg4 = cmd->arg4;
+
+                printk(KERN_INFO "HIO: hio_engine dispatch syscall %d to stub %d\n",
+                        syscall->syscall_nr,
+                        syscall->stub_id);
 
                 spin_lock(&stub->lock);
                 stub->pending_syscall = syscall;
@@ -75,18 +79,21 @@ static int hio_handler_worker(void *arg) {
         } 
     } while (!kthread_should_stop());
 
+out:
+    while (!kthread_should_stop()) schedule();
     printk(KERN_INFO "HIO: kthread stopped\n");
 
     return 0;
 }
 
-void hio_engine_insert_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
+void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
     // Insert syscall into hio_engine
     spin_lock(&engine->lock);
-    if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_syscall_cons_idx) {
+    if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_ret_cons_idx) {
         // ringbuffer is not full
-        struct hio_cmd_t *cmd = &engine->rb[engine->rb_syscall_prod_idx];
-        cmd->stub_id     =   syscall->stub_id;
+        struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_prod_idx]);
+        printk(KERN_INFO "HIO ENGINE: insert syscall at rb index %d\n", engine->rb_syscall_prod_idx);
+        cmd->stub_id    =   syscall->stub_id;
         cmd->syscall_nr =   syscall->syscall_nr;
         cmd->arg0       =   syscall->arg0; 
         cmd->arg1       =   syscall->arg1;
@@ -94,11 +101,14 @@ void hio_engine_insert_syscall(struct hio_engine *engine, struct stub_syscall_t 
         cmd->arg3       =   syscall->arg3;
         cmd->arg4       =   syscall->arg4;
 
+        printk(KERN_INFO "HIO ENGINE: rb index %d, stub_id %d\n", engine->rb_syscall_prod_idx, cmd->stub_id);
+
         engine->rb_syscall_prod_idx = (engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE;
     }
     spin_unlock(&engine->lock);
-    
+   
     wake_up(&engine->syscall_wq);
+    kfree(syscall);
 }
 
 
@@ -106,17 +116,19 @@ void hio_engine_insert_syscall(struct hio_engine *engine, struct stub_syscall_t 
 int hio_engine_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
     int ret = 0;
 
-    hio_engine_insert_syscall(engine, syscall);
+    hio_engine_add_syscall(engine, syscall);
 
     // busy waiting returns
     while (engine->rb_ret_cons_idx == engine->rb_ret_prod_idx) {
         /* spinning */
+        schedule();
     }
 
     spin_lock(&engine->lock);
     if (engine->rb_ret_cons_idx != engine->rb_ret_prod_idx) {
         struct hio_cmd_t *cmd = &engine->rb[engine->rb_ret_cons_idx];
         ret = cmd->ret_val;
+        printk(KERN_INFO "HIO ENGINE: stub %d syscall %d returns %d\n", cmd->stub_id, cmd->syscall_nr, cmd->ret_val);
         engine->rb_ret_cons_idx = (engine->rb_ret_cons_idx + 1) % HIO_RB_SIZE;
     }
     spin_unlock(&engine->lock);

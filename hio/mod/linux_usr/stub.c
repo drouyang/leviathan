@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/syscall.h>
 
 #include <hio_ioctl.h>
@@ -37,10 +38,10 @@ int main(int argc, char* argv[])
     }
 
     while (1) {
-        struct stub_syscall_t syscall_ioclt;
+        struct stub_syscall_t syscall_ioctl;
         printf("Poll file %s\n", stub_fname);
 
-        int ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_POLL, (void *) &syscall_ioclt);
+        int ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_POLL, (void *) &syscall_ioctl);
         if (ret < 0) {
             printf("Error %d when polling syscall from stub %d\n",
                 ret, STUB_ID);
@@ -48,30 +49,38 @@ int main(int argc, char* argv[])
         }
 
         printf("stub_id %d get syscall: %d (%llu, %llu, %llu, %llu, %llu)\n",
-                syscall_ioclt.stub_id,
-                syscall_ioclt.syscall_nr,
-                syscall_ioclt.arg0,
-                syscall_ioclt.arg1,
-                syscall_ioclt.arg2,
-                syscall_ioclt.arg3,
-                syscall_ioclt.arg4);
+                syscall_ioctl.stub_id,
+                syscall_ioctl.syscall_nr,
+                syscall_ioctl.arg0,
+                syscall_ioctl.arg1,
+                syscall_ioctl.arg2,
+                syscall_ioctl.arg3,
+                syscall_ioctl.arg4);
 
         printf("issue syscall %d (%llu, %llu, %llu, %llu, %llu)\n",
-                syscall_ioclt.syscall_nr,
-                syscall_ioclt.arg0,
-                syscall_ioclt.arg1,
-                syscall_ioclt.arg2,
-                syscall_ioclt.arg3,
-                syscall_ioclt.arg4);
+                syscall_ioctl.syscall_nr,
+                syscall_ioctl.arg0,
+                syscall_ioctl.arg1,
+                syscall_ioctl.arg2,
+                syscall_ioctl.arg3,
+                syscall_ioctl.arg4);
 
-        ret = syscall(syscall_ioclt.syscall_nr, 
-                syscall_ioclt.arg0,
-                syscall_ioclt.arg1, 
-                syscall_ioclt.arg2, 
-                syscall_ioclt.arg3, 
-                syscall_ioclt.arg4);
+        ret = syscall(syscall_ioctl.syscall_nr, 
+                syscall_ioctl.arg0,
+                syscall_ioctl.arg1, 
+                syscall_ioctl.arg2, 
+                syscall_ioctl.arg3, 
+                syscall_ioctl.arg4);
 
         printf("syscall_ioctl ret %d\n", ret);
+
+        {
+            struct stub_syscall_ret_t ret_ioctl;
+            ret_ioctl.ret_val = ret;
+            ret_ioctl.ret_errno = errno;
+            ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_RET, (void *) &ret_ioctl);
+            printf("ret_ioctl returns %d\n", ret);
+        }
     }
 
     return 0;

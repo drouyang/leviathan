@@ -30,8 +30,8 @@ struct hio_cmd_t {
     uint64_t arg2;
     uint64_t arg3;
     uint64_t arg4;
-    uint64_t ret_val;
-    uint64_t errno;
+    int ret_val;
+    int errno;
 };
 
 
