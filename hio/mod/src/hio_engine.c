@@ -104,6 +104,8 @@ void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
         printk(KERN_INFO "HIO ENGINE: rb index %d, stub_id %d\n", engine->rb_syscall_prod_idx, cmd->stub_id);
 
         engine->rb_syscall_prod_idx = (engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE;
+    } else {
+        printk(KERN_ERR "HIO ENGINE: ring buffer is full!!!\n");
     }
     spin_unlock(&engine->lock);
    
@@ -111,9 +113,26 @@ void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
     kfree(syscall);
 }
 
+int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret) {
+    struct hio_cmd_t *hio_cmd;
+
+    spin_lock(&engine->lock);
+    if (engine->rb_ret_prod_idx == engine->rb_syscall_cons_idx) {
+        printk(KERN_ERR "No pending syscall needs a return\n");
+        printk(KERN_ERR "Return before handling a syscall???\n");
+        return -1;
+    }
+    hio_cmd = &engine->rb[engine->rb_ret_prod_idx];
+    hio_cmd->ret_val = ret->ret_val;
+    hio_cmd->errno = ret->ret_errno;
+    engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
+    spin_unlock(&engine->lock);
+    return 0;
+}
+
 
 // this is for test purpose
-int hio_engine_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
+int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
     int ret = 0;
 
     hio_engine_add_syscall(engine, syscall);
@@ -124,12 +143,16 @@ int hio_engine_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall
         schedule();
     }
 
+    // Consume ret
     spin_lock(&engine->lock);
     if (engine->rb_ret_cons_idx != engine->rb_ret_prod_idx) {
         struct hio_cmd_t *cmd = &engine->rb[engine->rb_ret_cons_idx];
         ret = cmd->ret_val;
         printk(KERN_INFO "HIO ENGINE: stub %d syscall %d returns %d\n", cmd->stub_id, cmd->syscall_nr, cmd->ret_val);
         engine->rb_ret_cons_idx = (engine->rb_ret_cons_idx + 1) % HIO_RB_SIZE;
+    } else {
+        printk(KERN_ERR "No pending syscall_ret found\n");
+        ret = -1;
     }
     spin_unlock(&engine->lock);
 

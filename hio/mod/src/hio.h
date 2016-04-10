@@ -21,6 +21,8 @@
 #define MAX_STUBS               1024
 #define HIO_RB_SIZE             MAX_STUBS
 
+#include "hio_ioctl.h"
+
 // transferred in the ringbuffer
 struct hio_cmd_t {
     int stub_id;
@@ -72,7 +74,8 @@ struct hio_engine {
 
 int hio_engine_init(struct hio_engine *hio_engine);
 int hio_engine_deinit(struct hio_engine *hio_engine);
-int hio_engine_syscall(struct hio_engine *hio_engine, struct stub_syscall_t *syscall);
+int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret);
+int hio_engine_test_syscall(struct hio_engine *hio_engine, struct stub_syscall_t *syscall);
 int stub_register(struct hio_engine *hio_engine, int stub_id);
 int stub_deregister(struct hio_engine *hio_engine, int stub_id);
 struct hio_stub * lookup_stub(struct hio_engine *hio_engine, int stub_id);

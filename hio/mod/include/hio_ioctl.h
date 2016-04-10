@@ -13,7 +13,7 @@
 // stub commands
 #define HIO_STUB_SYSCALL_POLL       3302
 #define HIO_STUB_SYSCALL_RET        3303
-#define HIO_STUB_SYSCALL            3304
+#define HIO_STUB_TEST_SYSCALL       3304
 
 
 // used in ioctls

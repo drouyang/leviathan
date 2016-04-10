@@ -62,20 +62,8 @@ stub_syscall_ret(struct hio_stub *stub, struct stub_syscall_ret_t *syscall_ret)
 {
     int ret = 0;
     struct hio_engine *engine = stub->hio_engine;
-    struct hio_cmd_t *hio_cmd;
 
-    if (engine->rb_ret_prod_idx == engine->rb_syscall_cons_idx) {
-        printk(KERN_ERR "No available rb slot for syscall_ret\n");
-        printk(KERN_ERR "Return syscall before handling???\n");
-        return -1;
-    }
-    // add ret to io_engine
-    spin_lock(&engine->lock);
-    hio_cmd = &engine->rb[engine->rb_ret_prod_idx];
-    hio_cmd->ret_val = syscall_ret->ret_val;
-    hio_cmd->errno = syscall_ret->ret_errno;
-    engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
-    spin_unlock(&engine->lock);
+    ret = hio_engine_add_ret(engine, syscall_ret);
     
     // clear pending
     kfree(stub->pending_syscall);
@@ -138,12 +126,12 @@ stub_ioctl(struct file  * filp,
             }
 
         // Delegate a syscall, this is for test purpose
-        case HIO_STUB_SYSCALL:
+        case HIO_STUB_TEST_SYSCALL:
             {
                 struct stub_syscall_t *syscall;
                 syscall = (struct stub_syscall_t *) kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
                 if (syscall == NULL) {
-                    printk(KERN_ERR "HIO: error allocating HIO_STUB_SYSCALL memory\n");
+                    printk(KERN_ERR "HIO: error allocating HIO_STUB_TEST_SYSCALL memory\n");
                     ret = -1;
                     break;
                 }
@@ -157,7 +145,7 @@ stub_ioctl(struct file  * filp,
 
                 printk("STUB %d: test syscall ioctl %d", syscall->stub_id, syscall->syscall_nr);
 
-                ret = hio_engine_syscall(hio_engine, syscall);
+                ret = hio_engine_test_syscall(hio_engine, syscall);
 
                 break;
             }
