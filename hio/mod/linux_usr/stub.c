@@ -1,4 +1,4 @@
-/* HIO Interface Library 
+/* HIO Stub Process 
  * (c) 2016, Jiannan Ouyang <ouyang@cs.pitt.edu>
  */
 

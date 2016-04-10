@@ -1,4 +1,4 @@
-/* HIO Interface Library 
+/* HIO Syscall Test Process 
  * (c) 2016, Jiannan Ouyang <ouyang@cs.pitt.edu>
  */
 
