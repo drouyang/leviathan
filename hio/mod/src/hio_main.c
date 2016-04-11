@@ -18,6 +18,7 @@
 #include <linux/seq_file.h>
 #include <linux/version.h>
 
+#include <xpmem.h>
 #include "hio_ioctl.h"                /* device file ioctls*/
 #include "hio.h"
 
@@ -25,6 +26,9 @@ int                      hio_major_num  = 0;
 struct class            *hio_class      = NULL;
 struct hio_engine       *hio_engine     = NULL;
 
+extern int
+xpmem_make(u64 vaddr, size_t size, int permit_type, void *permit_value, int flags,
+        xpmem_segid_t request, xpmem_segid_t *segid_p, int *fd_p);
 
 static int 
 device_open(struct inode * inode, 
@@ -135,6 +139,14 @@ hio_init(void)
         return -1;
     }
     memset(hio_engine, 0, sizeof(struct hio_engine));
+
+    /* export xpmem region */
+    {
+        xpmem_segid_t segid;
+        int fd;
+        xpmem_make((u64)hio_engine, sizeof(struct hio_engine), XPMEM_GLOBAL_MODE, 
+                (void *)0, 0, 0, &segid, &fd);
+    }
 
     if (hio_engine_init(hio_engine) < 0) {
         printk(KERN_ERR "Error init hio_engine\n");

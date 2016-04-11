@@ -3,7 +3,11 @@ KERN_PATH?=/lib/modules/`uname -r`/build/
 BUILD_DIR=$(PWD)
 PETLIB_PATH=$(BUILD_DIR)/../../petlib
 
+XPMEM_PATH=$(BUILD_DIR)/../../xpmem/
+KBUILD_EXTRA_SYMBOLS+=$(XPMEM_PATH)/mod/Module.symvers
+
 EXTRA_CFLAGS += -I$(BUILD_DIR)/include/
+EXTRA_CFLAGS += -I$(XPMEM_PATH)/include/
 
 obj-m += hio.o
 

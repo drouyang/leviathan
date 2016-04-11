@@ -61,8 +61,13 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL, (void *) &syscall_ioclt);
-    printf("syscall_ioctl ret %d\n", ret);
+    {
+        int i = 0;
+        for (; i < 1000000; i++) {
+            ret = pet_ioctl_path(stub_fname, HIO_STUB_TEST_SYSCALL, (void *) &syscall_ioclt);
+            printf("%d: syscall_ioctl ret %d\n", i, ret);
+        }
+    }
 
     return 0;
 }
