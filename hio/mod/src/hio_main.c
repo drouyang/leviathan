@@ -17,6 +17,9 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
+#include <linux/mm.h>
+#include <linux/pagemap.h>
 
 #include <xpmem.h>
 #include "hio_ioctl.h"                /* device file ioctls*/
@@ -26,6 +29,8 @@ int                      hio_major_num  = 0;
 struct class            *hio_class      = NULL;
 struct cdev cdev;
 struct hio_engine       *hio_engine     = NULL;
+struct page *shared_page;
+int *shared_page_ptr;
 
 extern int64_t xpmem_get_domid(void);
 extern int64_t
@@ -84,10 +89,38 @@ device_ioctl(struct file  * filp,
          */
         case HIO_IOCTL_ENGINE_START:
             {
-                void * engine_uva = (void *) arg;
-                phys_addr_t engine_pa = virt_to_phys(engine_uva);
-                void * engine_kva = phys_to_virt(engine_pa);
-                printk(KERN_INFO "uva %p, pa %p, kva %p\n", engine_uva, (void *) engine_pa, engine_kva);
+                unsigned long engine_kva = 0;
+                /* grap the memory passed from user space */
+                {
+                    //void *engine_uva = (void *) arg;
+                    //phys_addr_t engine_pa = virt_to_phys(engine_uva);
+                    //void * engine_kva = phys_to_virt(engine_pa);
+                    //printk(KERN_INFO "uva %p, pa %p, kva %p\n", engine_uva, (void *) engine_pa, engine_kva);
+
+                    unsigned long uaddr = arg;
+                    int res;
+
+                    down_read(&current->mm->mmap_sem);
+                    res = get_user_pages(current, current->mm,
+                            uaddr,
+                            1, /* Only want one page */
+                            1, /* Do want to write into it */
+                            1, /* do force */
+                            &shared_page,
+                            NULL);
+                    if (res == 1) {
+                        shared_page_ptr = kmap(shared_page);
+                        pr_info("Got page: kva %p, kpa %p, uva %lx, content 0x%x\n", 
+                                shared_page_ptr, (void *)virt_to_phys(shared_page_ptr), uaddr, *shared_page_ptr);
+                        *shared_page_ptr = 0x11111111;
+                    } else {
+                        pr_err("Couldn't get page :(\n");
+                        up_read(&current->mm->mmap_sem);
+                        return -1;
+                    }
+                    up_read(&current->mm->mmap_sem);
+                }
+                break;
 
                 hio_engine = (struct hio_engine *) engine_kva;
                 if (hio_engine_init(hio_engine) < 0) {
@@ -158,6 +191,7 @@ hio_init(void)
     dev_t dev_num   = MKDEV(0, 0); // <major , minor> 
 
     printk(KERN_INFO "HIO: load kernel module...\n");
+    printk(KERN_INFO "    minimal shared memory size: %lu\n", sizeof(struct hio_engine));
 
 #if 0
     hio_engine = kmalloc(sizeof(struct hio_engine), GFP_KERNEL);
@@ -246,6 +280,13 @@ hio_exit(void)
             }
         }
     }
+/*
+   kunmap(shared_page);
+
+   if (!PageReserved(shared_page))
+   SetPageDirty(shared_page);
+   page_cache_release(shared_page);
+*/
 
     dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
     if (hio_engine != NULL) hio_engine_deinit(hio_engine);

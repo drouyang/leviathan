@@ -226,6 +226,7 @@ int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
 
 int hio_engine_init(struct hio_engine *hio_engine) {
 
+    hio_engine->magic = 0x87654321;
     spin_lock_init(&hio_engine->lock);
     init_waitqueue_head(&hio_engine->syscall_wq);
 

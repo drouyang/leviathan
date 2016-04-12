@@ -18,7 +18,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-#define MAX_STUBS               1024
+#define MAX_STUBS               32
 #define HIO_RB_SIZE             MAX_STUBS
 
 #include "hio_ioctl.h"
@@ -52,6 +52,8 @@ struct hio_stub {
 
 
 struct hio_engine {
+    uint32_t    magic;
+
     // We could use hashmap here, but for now just use array
     // and use rank number as the key
     struct hio_stub *stub_lookup_table[MAX_STUBS];
