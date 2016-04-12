@@ -37,6 +37,9 @@
 #include "palacios.h"
 
 
+//#define CRAY_UGNI_SUPPORT 1
+
+
 cpu_set_t   enclave_cpus;
 char      * enclave_name =  NULL; 
 
@@ -97,6 +100,33 @@ bool hobbes_enabled   = false;
 bool palacios_enabled = false;
 
 
+#ifdef CRAY_UGNI_SUPPORT
+static int
+create_file(const char *filename, const void *contents, size_t nbytes)
+{
+    int fd;
+    ssize_t rc;
+
+    if ((fd = open(filename, (O_RDWR | O_CREAT), (S_IRUSR|S_IWUSR))) == -1) {
+	printf("create_file(): open failed\n");
+	return -1;
+    }
+
+    if ((rc = write(fd, contents, nbytes)) == -1) {
+	printf("create_file(): write failed\n");
+	return -1;
+    }
+
+    if (close(fd) != 0) {
+	printf("create_file: close failed\n");
+	return -1;
+    }
+
+    return 0;
+}
+#endif
+
+
 int
 main(int argc, char ** argv, char * envp[]) 
 {
@@ -104,6 +134,21 @@ main(int argc, char ** argv, char * envp[])
     CPU_ZERO(&enclave_cpus);	/* Initialize CPU mask */
     CPU_SET(0, &enclave_cpus);  /* We always boot on CPU 0 */
 
+#ifdef CRAY_UGNI_SUPPORT
+    /* Pre-populate some dummy files for Cray Gemini support */
+    printf("CRAY_UGNI_SUPPORT enabled\n");
+    const char *file1 = "/dev/kgni0\n";
+    create_file("/dev/kgni0", file1, strlen(file1));
+
+    const char *file2 = "/dev/pmi\n";
+    create_file("/dev/pmi", file2, strlen(file2));
+
+    const char *file3 = "0\n";
+    create_file("/sys/class/gni/nic_type", file3, strlen(file3));
+
+    const char *file4 = "0x004400b7\n1.0502.9750.8.9.gem-abuild-RB-5.2UP02-2014-09-17-06:22\n9750\n";
+    create_file("/sys/class/gni/version", file4, strlen(file4));
+#endif
   
    /* Initialize command table */
     handler_table = pet_create_htable(0, handler_hash_fn, handler_equal_fn);
