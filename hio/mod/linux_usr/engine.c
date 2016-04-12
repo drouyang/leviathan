@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
     memset(buf, 0, SIZE);
     {
         int *ptr = buf;
-        *ptr = 0xf0f000f0;
+        *ptr = HIO_ENGINE_MAGIC;
         printf("Passing buf %p, content %x to the kernel\n", ptr, *ptr);
     }
     ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_START , buf);
