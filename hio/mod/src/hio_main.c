@@ -89,9 +89,9 @@ device_ioctl(struct file  * filp,
          */
         case HIO_IOCTL_ENGINE_START:
             {
-                unsigned long engine_kva = 0;
                 /* grap the memory passed from user space */
                 {
+                    //unsigned long engine_kva = 0;
                     //void *engine_uva = (void *) arg;
                     //phys_addr_t engine_pa = virt_to_phys(engine_uva);
                     //void * engine_kva = phys_to_virt(engine_pa);
@@ -110,22 +110,28 @@ device_ioctl(struct file  * filp,
                             NULL);
                     if (res == 1) {
                         shared_page_ptr = kmap(shared_page);
-                        pr_info("Got page: kva %p, kpa %p, uva %lx, content 0x%x\n", 
+                        pr_info("HIO shared page: kva %p, kpa %p, uva %lx, content 0x%x\n", 
                                 shared_page_ptr, (void *)virt_to_phys(shared_page_ptr), uaddr, *shared_page_ptr);
-                        *shared_page_ptr = 0x11111111;
                     } else {
-                        pr_err("Couldn't get page :(\n");
+                        pr_err("HIO couldn't get shared page\n");
                         up_read(&current->mm->mmap_sem);
                         return -1;
                     }
                     up_read(&current->mm->mmap_sem);
                 }
-                break;
 
-                hio_engine = (struct hio_engine *) engine_kva;
+                hio_engine = (struct hio_engine *) shared_page_ptr;
+
+                if (hio_engine->magic != HIO_ENGINE_MAGIC) {
+                    pr_err("HIO ENGINE magic number does not match\n");
+                    ret = -1;
+                    break;
+                }
+
                 if (hio_engine_init(hio_engine) < 0) {
                     printk(KERN_ERR "Error init hio_engine\n");
                     ret = -1;
+                    break;
                 }
 
                 hio_engine_event_loop(hio_engine);
@@ -280,13 +286,14 @@ hio_exit(void)
             }
         }
     }
-/*
-   kunmap(shared_page);
 
-   if (!PageReserved(shared_page))
-   SetPageDirty(shared_page);
-   page_cache_release(shared_page);
-*/
+    if (shared_page != NULL) {
+        kunmap(shared_page);
+
+        if (!PageReserved(shared_page))
+            SetPageDirty(shared_page);
+        page_cache_release(shared_page);
+    }
 
     dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
     if (hio_engine != NULL) hio_engine_deinit(hio_engine);
