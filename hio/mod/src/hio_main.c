@@ -24,9 +24,11 @@
 
 int                      hio_major_num  = 0;
 struct class            *hio_class      = NULL;
+struct cdev cdev;
 struct hio_engine       *hio_engine     = NULL;
 
-extern int
+extern int64_t xpmem_get_domid(void);
+extern int64_t
 xpmem_make(u64 vaddr, size_t size, int permit_type, void *permit_value, int flags,
         xpmem_segid_t request, xpmem_segid_t *segid_p, int *fd_p);
 
@@ -34,8 +36,6 @@ static int
 device_open(struct inode * inode, 
 	    struct file  * filp) 
 {
-    struct hio_engine *engine = container_of(inode->i_cdev, struct hio_engine, cdev);
-    filp->private_data = engine;
     return 0;
 }
 
@@ -78,12 +78,27 @@ device_ioctl(struct file  * filp,
     //void __user * argp = (void __user *)arg;
     //struct hio_engine * hio_engine = (struct hio_engine *)filp->private_data;
 
-    if (hio_engine == NULL) {
-	    printk(KERN_ERR "HIO: hio_engine is NULL\n");
-	    return -1;
-    }
-
     switch (ioctl) {
+        /*
+         * User process trap into kernel as a kernel thread
+         */
+        case HIO_IOCTL_ENGINE_START:
+            {
+                void * engine_uva = (void *) arg;
+                phys_addr_t engine_pa = virt_to_phys(engine_uva);
+                void * engine_kva = phys_to_virt(engine_pa);
+                printk(KERN_INFO "uva %p, pa %p, kva %p\n", engine_uva, (void *) engine_pa, engine_kva);
+
+                hio_engine = (struct hio_engine *) engine_kva;
+                if (hio_engine_init(hio_engine) < 0) {
+                    printk(KERN_ERR "Error init hio_engine\n");
+                    ret = -1;
+                }
+
+                hio_engine_event_loop(hio_engine);
+
+                break;
+            }
         /*
          * Register a stub process with hio_engine, create /dev/hio-stubN
          * Need to specify an ID N that is shared between stub and client process
@@ -94,6 +109,11 @@ device_ioctl(struct file  * filp,
             {
                 int id = arg;
 
+                if (hio_engine == NULL) {
+                    printk(KERN_ERR "HIO: hio_engine is NULL\n");
+                    return -1;
+                }
+
                 printk(KERN_INFO "HIO: ioctl register stub_id %d, create /dev/hio-stub%d\n", id, id);
                 ret = stub_register(hio_engine, id);
                 break;
@@ -102,6 +122,12 @@ device_ioctl(struct file  * filp,
         case HIO_IOCTL_DEREGISTER:
             {
                 unsigned long id = arg;
+
+                if (hio_engine == NULL) {
+                    printk(KERN_ERR "HIO: hio_engine is NULL\n");
+                    return -1;
+                }
+
                 ret = stub_deregister(hio_engine, id);
                 break;
             }
@@ -133,6 +159,7 @@ hio_init(void)
 
     printk(KERN_INFO "HIO: load kernel module...\n");
 
+#if 0
     hio_engine = kmalloc(sizeof(struct hio_engine), GFP_KERNEL);
     if (IS_ERR(hio_engine)) {
         printk(KERN_ERR "Error alloc hio_engine\n");
@@ -142,19 +169,30 @@ hio_init(void)
 
     /* export xpmem region */
     {
+#define HIO_XPMEM_MAGIC 16
         xpmem_segid_t segid;
-        int fd;
+
+        //xpmem_make(u64 vaddr, size_t size, int permit_type, void *permit_value, int flags,
+        //       xpmem_segid_t request, xpmem_segid_t *segid_p, int *fd_p)
+        //
+        printk(KERN_INFO "Exporting xpmem memory\n");
+        xpmem_get_domid();
         xpmem_make((u64)hio_engine, sizeof(struct hio_engine), XPMEM_GLOBAL_MODE, 
-                (void *)0, 0, 0, &segid, &fd);
+                (void *)0, XPMEM_REQUEST_MODE, HIO_XPMEM_MAGIC, &segid, NULL);
+        if (segid != HIO_XPMEM_MAGIC) {
+            printk(KERN_ERR "xpmem returns segid %lld does not match %d\n", 
+                    segid, HIO_XPMEM_MAGIC);
+            return -1;
+        }
     }
 
     if (hio_engine_init(hio_engine) < 0) {
         printk(KERN_ERR "Error init hio_engine\n");
         return -1;
     }
+#endif
 
     if (alloc_chrdev_region(&dev_num, 0, MAX_STUBS + 1, "hio") < 0) {
-    	hio_engine_deinit(hio_engine);
         printk(KERN_ERR "Error allocating hio char device region\n");
         return -1;
     }
@@ -167,7 +205,6 @@ hio_init(void)
     if ((hio_class = class_create(THIS_MODULE, "hio")) == NULL) {
         printk(KERN_ERR "Error creating hio device class\n");
         unregister_chrdev_region(dev_num, 1);
-    	hio_engine_deinit(hio_engine);
         return -1;
     }
 
@@ -175,18 +212,16 @@ hio_init(void)
         printk(KERN_ERR "Error creating hio device\n");
         class_destroy(hio_class);
         unregister_chrdev_region(dev_num, MAX_STUBS + 1);
-    	hio_engine_deinit(hio_engine);
         return -1;
     }
 
-    cdev_init(&(hio_engine->cdev), &fops);
+    cdev_init(&cdev, &fops);
 
-    if (cdev_add(&(hio_engine->cdev), dev_num, 1) == -1) {
+    if (cdev_add(&cdev, dev_num, 1) == -1) {
         printk(KERN_ERR "Error adding hio cdev\n");
         device_destroy(hio_class, dev_num);
         class_destroy(hio_class);
         unregister_chrdev_region(dev_num, MAX_STUBS + 1);
-    	hio_engine_deinit(hio_engine);
         return -1;
     }
     
@@ -202,18 +237,20 @@ hio_exit(void)
 
     printk(KERN_INFO "HIO: remove kernel module...\n");
 
-    for(i = 0; i < MAX_STUBS; i++) {
-        stub = hio_engine->stub_lookup_table[i];
-        if (stub != NULL) {
-            printk(KERN_INFO "HIO: destory stub %d (/dev/hio-stub%d)\n", stub->stub_id, stub->stub_id);
-            stub_deregister(hio_engine, stub->stub_id);
+    if (hio_engine != NULL) {
+        for(i = 0; i < MAX_STUBS; i++) {
+            stub = hio_engine->stub_lookup_table[i];
+            if (stub != NULL) {
+                printk(KERN_INFO "HIO: destory stub %d (/dev/hio-stub%d)\n", stub->stub_id, stub->stub_id);
+                stub_deregister(hio_engine, stub->stub_id);
+            }
         }
     }
 
     dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);
-    hio_engine_deinit(hio_engine);
+    if (hio_engine != NULL) hio_engine_deinit(hio_engine);
     unregister_chrdev_region(MKDEV(hio_major_num, 0), MAX_STUBS + 1);
-    cdev_del(&(hio_engine->cdev));
+    cdev_del(&cdev);
     device_destroy(hio_class, dev_num);
     class_destroy(hio_class);
 }

@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 
     {
         int i = 0;
-        for (; i < 1000000; i++) {
+        for (; i < 10; i++) {
             ret = pet_ioctl_path(stub_fname, HIO_STUB_TEST_SYSCALL, (void *) &syscall_ioclt);
             printf("%d: syscall_ioctl ret %d\n", i, ret);
         }

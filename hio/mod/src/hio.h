@@ -67,13 +67,12 @@ struct hio_engine {
 
     // wait for syscall requests
     wait_queue_head_t           syscall_wq;
-
-    struct cdev       		cdev;  
 };
 
 
 int hio_engine_init(struct hio_engine *hio_engine);
 int hio_engine_deinit(struct hio_engine *hio_engine);
+int hio_engine_event_loop(struct hio_engine *engine);
 int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret);
 int hio_engine_test_syscall(struct hio_engine *hio_engine, struct stub_syscall_t *syscall);
 int stub_register(struct hio_engine *hio_engine, int stub_id);

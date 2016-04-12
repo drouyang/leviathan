@@ -6,7 +6,8 @@ CC = gcc
 AR = ar
 
 execs := 	stub \
-                test
+                test \
+                engine
 
 ext_libs := $(PETLIB_PATH)/petlib.a 
 
