@@ -7,13 +7,14 @@
 #define _HIO_IOCTL_H_
 
 // hio commands
-#define HIO_IOCTL_REGISTER          3300 // register stub
-#define HIO_IOCTL_DEREGISTER        3301
+#define HIO_IOCTL_ENGINE_START      3300
+#define HIO_IOCTL_REGISTER          3301 // register stub
+#define HIO_IOCTL_DEREGISTER        3302
 
 // stub commands
-#define HIO_STUB_SYSCALL_POLL       3302
-#define HIO_STUB_SYSCALL_RET        3303
-#define HIO_STUB_TEST_SYSCALL       3304
+#define HIO_STUB_SYSCALL_POLL       3400
+#define HIO_STUB_SYSCALL_RET        3401
+#define HIO_STUB_TEST_SYSCALL       3402
 
 
 // used in ioctls

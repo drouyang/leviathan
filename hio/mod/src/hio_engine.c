@@ -17,6 +17,7 @@
 #include "hio.h"
 #include "hio_ioctl.h"
 
+#if 0
 static int hio_handler_worker(void *arg) {
     struct hio_engine *engine = (struct hio_engine *)arg;
 
@@ -83,6 +84,70 @@ out:
     while (!kthread_should_stop()) schedule();
     printk(KERN_INFO "HIO: kthread stopped\n");
 
+    return 0;
+}
+#endif
+
+int hio_engine_event_loop(struct hio_engine *engine) {
+    do {
+        printk(KERN_INFO "HIO: hio_engine wait...\n");
+        wait_event_interruptible(engine->syscall_wq, 
+            (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
+
+        printk(KERN_INFO "HIO: hio_engine wakeup...\n");
+
+        // there are pending syscalls
+        while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
+            struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
+            struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
+            struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+
+            if (syscall == NULL) {
+                printk(KERN_ERR "Failed allocate syscall memeory\n");
+                goto out;
+            }
+
+            printk(KERN_INFO "HIO ENGINE: syscall consume index %d (prod index %d)\n", 
+                    engine->rb_syscall_cons_idx,
+                    engine->rb_syscall_prod_idx);
+
+            if (stub == NULL) {
+                printk(KERN_ERR "stub_id %d does not exist\n", cmd->stub_id);
+                goto out;
+            } else if (stub->is_pending) {
+                printk(KERN_ERR "Failed to process syscall while previous one is pending\n");
+                printk(KERN_ERR "HIO currently supports ONE outstanding syscall per proc\n");
+                goto out;
+            } else {
+                syscall->stub_id = cmd->stub_id;
+                syscall->syscall_nr = cmd->syscall_nr;
+                syscall->arg0 = cmd->arg0;
+                syscall->arg1 = cmd->arg1;
+                syscall->arg2 = cmd->arg2;
+                syscall->arg3 = cmd->arg3;
+                syscall->arg4 = cmd->arg4;
+
+                printk(KERN_INFO "HIO: hio_engine dispatch syscall %d to stub %d\n",
+                        syscall->syscall_nr,
+                        syscall->stub_id);
+
+                spin_lock(&stub->lock);
+                stub->pending_syscall = syscall;
+                stub->is_pending = true;
+                spin_unlock(&stub->lock);
+            }
+
+            spin_lock(&engine->lock);
+            engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
+            spin_unlock(&engine->lock);
+
+            wake_up_interruptible(&stub->syscall_wq);
+        } 
+        schedule();
+    } while (1);
+
+out:
+    printk(KERN_INFO "HIO: kthread stopped\n");
     return 0;
 }
 
@@ -164,8 +229,9 @@ int hio_engine_init(struct hio_engine *hio_engine) {
     spin_lock_init(&hio_engine->lock);
     init_waitqueue_head(&hio_engine->syscall_wq);
 
-    printk(KERN_INFO "HIO: create hio_engine kthread\n");
+    //printk(KERN_INFO "HIO: create hio_engine kthread\n");
 
+    /*
     {
         // create polling kthread
         struct task_struct *handler_thread = kthread_run(hio_handler_worker, (void *)hio_engine, "hio_polling");
@@ -175,12 +241,13 @@ int hio_engine_init(struct hio_engine *hio_engine) {
         }
         hio_engine->handler_thread = handler_thread;
     }
+    */
 
     return 0;
 }
 
 int hio_engine_deinit(struct hio_engine *hio_engine) {
-    kthread_stop(hio_engine->handler_thread);
+    //kthread_stop(hio_engine->handler_thread);
     return 0;
 }
 
