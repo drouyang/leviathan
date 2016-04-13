@@ -20,6 +20,7 @@
 
 #include <hio_ioctl.h>
 #include <pet_ioctl.h>
+#include <hobbes_util.h>
 #include <xemem.h>
 
 #define SIZE                    (4*1024)
@@ -28,6 +29,8 @@
 int main(int argc, char* argv[])
 {
     int *buf;
+
+    hobbes_client_init();
 
     xemem_segid_t segid;
     segid = xemem_lookup_segid(HIO_SEG_NAME);
@@ -48,6 +51,14 @@ int main(int argc, char* argv[])
     buf = xemem_attach(addr, SIZE, NULL);
 
     printf("Buffer content %x\n", *buf);
+
+    if (xemem_detach(buf) < 0) {
+        printf("xemem_detach failed\n");
+    }
+
+    if (xemem_release(apid) < 0) {
+        printf("xemem_release failed\n");
+    }
 
     return 0;
 }
