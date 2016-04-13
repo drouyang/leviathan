@@ -89,12 +89,10 @@ out:
 #endif
 
 int hio_engine_event_loop(struct hio_engine *engine) {
-    do {
-        printk(KERN_INFO "HIO: engine kthread wait...\n");
-        wait_event_interruptible(engine->syscall_wq, 
-            (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
+    printk(KERN_INFO "HIO ENGINE: enter event loop...\n");
 
-        printk(KERN_INFO "HIO: engine kthread wakeup...\n");
+    do {
+        //wait_event_interruptible(engine->syscall_wq, (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
 
         // there are pending syscalls
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
@@ -107,7 +105,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
                 goto out;
             }
 
-            printk(KERN_INFO "HIO ENGINE: syscall consume index %d (prod index %d)\n", 
+            printk(KERN_INFO "HIO ENGINE: consume syscall index %d (prod index %d)\n", 
                     engine->rb_syscall_cons_idx,
                     engine->rb_syscall_prod_idx);
 
@@ -127,7 +125,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
                 syscall->arg3 = cmd->arg3;
                 syscall->arg4 = cmd->arg4;
 
-                printk(KERN_INFO "HIO: engine dispatch syscall %d to stub %d\n",
+                printk(KERN_INFO "HIO ENGINE: dispatch syscall %d to stub %d\n",
                         syscall->syscall_nr,
                         syscall->stub_id);
 
@@ -152,32 +150,6 @@ out:
     return 0;
 }
 
-void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
-    // Insert syscall into hio_engine
-    spin_lock(&engine->lock);
-    if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_ret_cons_idx) {
-        // ringbuffer is not full
-        struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_prod_idx]);
-        printk(KERN_INFO "HIO ENGINE: insert syscall at rb index %d\n", engine->rb_syscall_prod_idx);
-        cmd->stub_id    =   syscall->stub_id;
-        cmd->syscall_nr =   syscall->syscall_nr;
-        cmd->arg0       =   syscall->arg0; 
-        cmd->arg1       =   syscall->arg1;
-        cmd->arg2       =   syscall->arg2;
-        cmd->arg3       =   syscall->arg3;
-        cmd->arg4       =   syscall->arg4;
-
-        printk(KERN_INFO "HIO ENGINE: rb index %d, stub_id %d\n", engine->rb_syscall_prod_idx, cmd->stub_id);
-
-        engine->rb_syscall_prod_idx = (engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE;
-    } else {
-        printk(KERN_ERR "HIO ENGINE: ring buffer is full!!!\n");
-    }
-    spin_unlock(&engine->lock);
-   
-    wake_up(&engine->syscall_wq);
-    kfree(syscall);
-}
 
 int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret) {
     struct hio_cmd_t *hio_cmd;
@@ -196,6 +168,33 @@ int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret
     return 0;
 }
 
+// for test purpose
+void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
+    // Insert syscall into hio_engine
+    spin_lock(&engine->lock);
+    if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_ret_cons_idx) {
+        // ringbuffer is not full
+        struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_prod_idx]);
+        cmd->stub_id    =   syscall->stub_id;
+        cmd->syscall_nr =   syscall->syscall_nr;
+        cmd->arg0       =   syscall->arg0; 
+        cmd->arg1       =   syscall->arg1;
+        cmd->arg2       =   syscall->arg2;
+        cmd->arg3       =   syscall->arg3;
+        cmd->arg4       =   syscall->arg4;
+
+        printk(KERN_INFO "HIO ENGINE: insert syscall at rb index %d, stub_id %d\n", 
+                engine->rb_syscall_prod_idx, cmd->stub_id);
+
+        engine->rb_syscall_prod_idx = (engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE;
+    } else {
+        printk(KERN_ERR "HIO ENGINE: ring buffer is full!!!\n");
+    }
+    spin_unlock(&engine->lock);
+   
+    //wake_up(&engine->syscall_wq);
+    kfree(syscall);
+}
 
 // this is for test purpose
 int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
@@ -229,7 +228,7 @@ int hio_engine_init(struct hio_engine *hio_engine) {
 
     hio_engine->magic = HIO_ENGINE_MAGIC;
     spin_lock_init(&hio_engine->lock);
-    init_waitqueue_head(&hio_engine->syscall_wq);
+    //init_waitqueue_head(&hio_engine->syscall_wq);
 
     //printk(KERN_INFO "HIO: create hio_engine kthread\n");
 
