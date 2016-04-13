@@ -20,8 +20,14 @@
 
 #include <hio_ioctl.h>
 #include <pet_ioctl.h>
+#include <xemem.h>
+#include <hobbes_util.h>
+#include <hobbes_cmd_queue.h>
 
-#define SIZE (4*1024)
+#define SIZE                    (4*1024)
+#define HIO_SEG_NAME            "hio_engine_seg"
+
+xemem_segid_t segid;
 
 int main(int argc, char* argv[])
 {
@@ -42,7 +48,8 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    printf("Enter kernel...\n");
+
+    /* Allocating page aligned memory*/
     void *buf;
     posix_memalign((void **)&buf, SIZE, SIZE);
     if (buf == NULL) {
@@ -53,11 +60,25 @@ int main(int argc, char* argv[])
     {
         int *ptr = buf;
         *ptr = HIO_ENGINE_MAGIC;
-        printf("Passing buf %p, content %x to the kernel\n", ptr, *ptr);
+        printf("Buf addr %p, content %x\n", ptr, *ptr);
     }
-    ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_START , buf);
+    
+    /* export memory */
+    {
+        printf("Exporting buf %p with XEMEM...\n", buf);
+        hobbes_client_init();
+        segid = xemem_make(buf, SIZE, HIO_SEG_NAME);
+        if (segid == XEMEM_INVALID_SEGID) {
+            printf("xemem_make failed\n");
+            free(buf);
+            return -1;
+        }
+    }
 
+
+    ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_START , buf);
     printf("Return from kernel with ret %d\n", ret);
 
+    xemem_remove(segid);
     return 0;
 }

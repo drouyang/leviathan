@@ -21,7 +21,7 @@
 #include <linux/mm.h>
 #include <linux/pagemap.h>
 
-#include <xpmem.h>
+//#include <xpmem.h>
 #include "hio_ioctl.h"                /* device file ioctls*/
 #include "hio.h"
 
@@ -32,10 +32,12 @@ struct hio_engine       *hio_engine     = NULL;
 struct page *shared_page;
 int *shared_page_ptr;
 
+/*
 extern int64_t xpmem_get_domid(void);
 extern int64_t
 xpmem_make(u64 vaddr, size_t size, int permit_type, void *permit_value, int flags,
         xpmem_segid_t request, xpmem_segid_t *segid_p, int *fd_p);
+        */
 
 static int 
 device_open(struct inode * inode, 
@@ -100,7 +102,11 @@ device_ioctl(struct file  * filp,
                     unsigned long uaddr = arg;
                     int res;
 
+                    pr_info("Engine start ioctl\n");
+
                     down_read(&current->mm->mmap_sem);
+
+                    pr_info("    get page...\n");
                     res = get_user_pages(current, current->mm,
                             uaddr,
                             1, /* Only want one page */
@@ -108,9 +114,16 @@ device_ioctl(struct file  * filp,
                             1, /* do force */
                             &shared_page,
                             NULL);
+
                     if (res == 1) {
+                        pr_info("    kmap...\n");
                         shared_page_ptr = kmap(shared_page);
-                        pr_info("HIO shared page: kva %p, kpa %p, uva %lx, content 0x%x\n", 
+                        if (shared_page_ptr == NULL) {
+                            pr_err("HIO couldn't kmap shared page\n");
+                            up_read(&current->mm->mmap_sem);
+                            return -1;
+                        }
+                        pr_info("    shared page: kva %p, kpa %p, uva %lx, content 0x%x\n", 
                                 shared_page_ptr, (void *)virt_to_phys(shared_page_ptr), uaddr, *shared_page_ptr);
                     } else {
                         pr_err("HIO couldn't get shared page\n");

@@ -90,11 +90,11 @@ out:
 
 int hio_engine_event_loop(struct hio_engine *engine) {
     do {
-        printk(KERN_INFO "HIO: hio_engine wait...\n");
+        printk(KERN_INFO "HIO: engine kthread wait...\n");
         wait_event_interruptible(engine->syscall_wq, 
             (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
 
-        printk(KERN_INFO "HIO: hio_engine wakeup...\n");
+        printk(KERN_INFO "HIO: engine kthread wakeup...\n");
 
         // there are pending syscalls
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
@@ -127,7 +127,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
                 syscall->arg3 = cmd->arg3;
                 syscall->arg4 = cmd->arg4;
 
-                printk(KERN_INFO "HIO: hio_engine dispatch syscall %d to stub %d\n",
+                printk(KERN_INFO "HIO: engine dispatch syscall %d to stub %d\n",
                         syscall->syscall_nr,
                         syscall->stub_id);
 
