@@ -1,15 +1,18 @@
 
-CFLAGS = -Wall -Werror -D_GNU_SOURCE -I../include -I$(PETLIB_PATH) -L$(PETLIB_PATH)
+CFLAGS = -static -Wall -Werror -D_GNU_SOURCE -I../include \
+         -I$(PETLIB_PATH) -L$(PETLIB_PATH) -I$(LIBHOBBES) -L$(LIBHOBBES)
 
 
 CC = gcc
 AR = ar
 
 execs := 	stub \
-                test \
-                engine
+                engine \
+                test_xemem \
+                test_syscall \
 
-ext_libs := $(PETLIB_PATH)/petlib.a 
+
+ext_libs := $(PETLIB_PATH)/petlib.a $(LIBHOBBES)/libhobbes.a -lm
 
 build = \
 	@if [ -z "$V" ]; then \
