@@ -8,6 +8,7 @@
 *.o
 .exrc
 linux_usr/stub
-linux_usr/test
+linux_usr/test_xemem
+linux_usr/test_syscall
 linux_usr/engine
 tags
