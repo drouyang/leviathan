@@ -28,9 +28,6 @@
 #include <hobbes_util.h>
 #include <hobbes_cmd_queue.h>
 
-#define SIZE                    (4*1024)
-#define HIO_SEG_NAME            "hio_engine_seg"
-
 xemem_segid_t segid;
 
 static void sig_handler(int signo)
@@ -74,12 +71,12 @@ int main(int argc, char* argv[])
 
     /* Allocating page aligned memory*/
     void *buf;
-    posix_memalign((void **)&buf, SIZE, SIZE);
+    posix_memalign((void **)&buf, HIO_ENGINE_PAGE_SIZE, HIO_ENGINE_PAGE_SIZE);
     if (buf == NULL) {
         printf("memory allocation failed\n");
         return -1;
     }
-    memset(buf, 0, SIZE);
+    memset(buf, 0, HIO_ENGINE_PAGE_SIZE);
     {
         int *ptr = buf;
         *ptr = HIO_ENGINE_MAGIC;
@@ -90,7 +87,7 @@ int main(int argc, char* argv[])
     {
         printf("Exporting buf %p with XEMEM...\n", buf);
         hobbes_client_init();
-        segid = xemem_make(buf, SIZE, HIO_SEG_NAME);
+        segid = xemem_make(buf, HIO_ENGINE_PAGE_SIZE, HIO_ENGINE_SEG_NAME);
         if (segid == XEMEM_INVALID_SEGID) {
             printf("xemem_make failed\n");
             free(buf);

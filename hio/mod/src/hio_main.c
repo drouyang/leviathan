@@ -167,6 +167,11 @@ device_ioctl(struct file  * filp,
 
                 break;
             }
+        case HIO_IOCTL_ENGINE_ATTACH:
+            {
+                printk("This IOCTL is expected to run on the kitten side\n");
+                break;
+            }
         /*
          * Register a stub process with hio_engine, create /dev/hio-stubN
          * Need to specify an ID N that is shared between stub and client process
