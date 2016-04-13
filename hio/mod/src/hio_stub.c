@@ -143,7 +143,7 @@ stub_ioctl(struct file  * filp,
                     break;
                 }
 
-                printk("STUB %d: test syscall ioctl %d", syscall->stub_id, syscall->syscall_nr);
+                printk("STUB-%d: test syscall ioctl %d", syscall->stub_id, syscall->syscall_nr);
 
                 ret = hio_engine_test_syscall(hio_engine, syscall);
 
