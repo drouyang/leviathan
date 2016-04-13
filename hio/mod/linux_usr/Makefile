@@ -8,6 +8,7 @@ AR = ar
 
 execs := 	stub \
                 engine \
+                engine_client \
                 test_xemem \
                 test_syscall \
 
