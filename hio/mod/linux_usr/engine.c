@@ -17,6 +17,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include<signal.h>
+#include<unistd.h>
+
+
 
 #include <hio_ioctl.h>
 #include <pet_ioctl.h>
@@ -29,12 +33,31 @@
 
 xemem_segid_t segid;
 
+static void sig_handler(int signo)
+{
+    if (signo == SIGINT) {
+        printf("Terminaling engine is not supported!\n");
+        printf("    The HIO kernel module uses memory region exported by the engine process with xemem\n");
+        printf("    Terminating the engine process will destory the memory region and corrupt the hio module\n"); 
+        printf("    To terminate, remove the hio module\n"); 
+    }
+}
+
 int main(int argc, char* argv[])
 {
     int ret;
     char hio_fname[128] = "/dev/hio";
 
+    if (signal(SIGINT, sig_handler) == SIG_ERR) {
+        printf("Warning: fail to catch SIGINT, do not ctrl-c this process\n");
+        return -1;
+    }
     printf("Start engine process...\n");
+    printf("Warning: DO NOT CTRL-C this process!\n");
+    printf("    The HIO kernel module uses memory region exported by the engine process with xemem\n");
+    printf("    Terminating the engine process will destory the memory region and corrupt the hio module\n"); 
+    printf("    Currently there's no way to correctly terminate it\n"); 
+    printf("    CTRL-C will result in a infinite loop in the kernel\n"); 
 
     ret = access(hio_fname, F_OK);
     if(ret != 0) {

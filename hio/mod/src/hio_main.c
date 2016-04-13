@@ -38,6 +38,7 @@ extern int64_t
 xpmem_make(u64 vaddr, size_t size, int permit_type, void *permit_value, int flags,
         xpmem_segid_t request, xpmem_segid_t *segid_p, int *fd_p);
         */
+void hio_exit(void);
 
 static int 
 device_open(struct inode * inode, 
@@ -148,6 +149,21 @@ device_ioctl(struct file  * filp,
                 }
 
                 hio_engine_event_loop(hio_engine);
+
+                hio_engine = NULL;
+                pr_info("Destroy hio engine...");
+                if (shared_page != NULL) {
+                    kunmap(shared_page);
+
+                    if (!PageReserved(shared_page))
+                        SetPageDirty(shared_page);
+                    page_cache_release(shared_page);
+                }
+
+                while(1) {
+                    pr_info("hehehe");
+                    schedule();
+                }
 
                 break;
             }
@@ -298,14 +314,6 @@ hio_exit(void)
                 stub_deregister(hio_engine, stub->stub_id);
             }
         }
-    }
-
-    if (shared_page != NULL) {
-        kunmap(shared_page);
-
-        if (!PageReserved(shared_page))
-            SetPageDirty(shared_page);
-        page_cache_release(shared_page);
     }
 
     dev_num = MKDEV(hio_major_num, MAX_STUBS + 1);

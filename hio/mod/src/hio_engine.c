@@ -147,6 +147,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
     } while (1);
 
 out:
+    while (!kthread_should_stop()) schedule();
     printk(KERN_INFO "HIO: kthread stopped\n");
     return 0;
 }
