@@ -1316,6 +1316,7 @@ mark_pid_exited(pid_t pid, int status)
 {
     unsigned int rank;
     int found = false;
+    hobbes_id_t hpid;
 
     lwk_app_state_t *app = lookup_app_by_pid(pid);
     if (!app) {
@@ -1338,8 +1339,6 @@ mark_pid_exited(pid_t pid, int status)
         hobbes_panic("Could not find rank corresponding to pid %ld\n", (long) pid);
     }
 
-/* TODO: fix me */
-#if 0
     /* If all processes in the app have exited, destroy the app */
     if (app->num_exited == app->num_ranks) {
         hpid = app->hpid;
@@ -1351,7 +1350,6 @@ mark_pid_exited(pid_t pid, int status)
         hobbes_set_app_state(hpid, APP_STOPPED);
         hnotif_signal(HNOTIF_EVT_APPLICATION);
     }
-#endif
 
     return 0;
 }

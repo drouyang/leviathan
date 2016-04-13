@@ -75,9 +75,11 @@ handler_equal_fn(uintptr_t key1, uintptr_t key2)
     return (key1 == key2);
 }
 
+sig_atomic_t got_sigchld = 0;
 
 static void
 handle_sigchld(int sig, siginfo_t *siginfo, void *ucontext) {
+    got_sigchld = 1;
     printf("Got a SIGCHLD event for pid %ld\n", (long) siginfo->si_pid);
 }
 
@@ -130,6 +132,7 @@ create_file(const char *filename, const void *contents, size_t nbytes)
 int
 main(int argc, char ** argv, char * envp[]) 
 {
+    sigset_t orig_mask, mask;
 
     CPU_ZERO(&enclave_cpus);	/* Initialize CPU mask */
     CPU_SET(0, &enclave_cpus);  /* We always boot on CPU 0 */
@@ -206,7 +209,12 @@ main(int argc, char ** argv, char * envp[])
         exit(-1);
     }
 
-    /* Install a signal handler for SIGCHLD */
+    /* Install a signal handler for SIGCHLD, we also block SIGCHLD until we enter ppoll */
+    sigemptyset(&mask);
+
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &orig_mask);
+
     register_for_sigchld();
 
     /* Command Loop */
@@ -215,8 +223,8 @@ main(int argc, char ** argv, char * envp[])
 	int      ret  = 0;
 	uint32_t i    = 0;
 
-	ret = poll(handler_fds, handler_cnt, -1);
-
+	/* separate signal set here? */
+	ret = ppoll(handler_fds, handler_cnt, NULL, &orig_mask);
 	if (ret == -1) {
 	    ERROR("poll() error\n");
 	    break;
@@ -231,6 +239,11 @@ main(int argc, char ** argv, char * envp[])
 	     * things are currently setup.
 	     */
 	    reap_exited_children();
+	    if(got_sigchld){
+		reap_exited_children();
+		got_sigchld = 0;
+	    }
+	    continue;
 	}
 	
 	for (i = 0; i < handler_cnt; i++) {
