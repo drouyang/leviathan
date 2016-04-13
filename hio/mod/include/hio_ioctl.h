@@ -8,10 +8,16 @@
 
 #define HIO_ENGINE_MAGIC        0x13131313
 
+#define HIO_ENGINE_PAGE_SIZE    4096
+#define HIO_ENGINE_SEG_NAME     "hio_engine_seg"
+
+
 // hio commands
 #define HIO_IOCTL_ENGINE_START      3300
 #define HIO_IOCTL_REGISTER          3301 // register stub
 #define HIO_IOCTL_DEREGISTER        3302
+
+#define HIO_IOCTL_ENGINE_ATTACH     3303
 
 // stub commands
 #define HIO_STUB_SYSCALL_POLL       3400

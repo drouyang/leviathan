@@ -1,6 +1,10 @@
 /* 
  * (c) 2016, Jiannan Ouyang <ouyang@cs.pitt.edu>
  *
+ * HIO Engine User Space CLIENT Process (Kitten)
+ *
+ * This process attach to a shared memory region via xemem
+ * and pass the memory region to the kitten kernel
  */
 
 #include <stdio.h>
@@ -13,14 +17,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include<signal.h>
+#include<unistd.h>
+
 
 #include <hio_ioctl.h>
 #include <pet_ioctl.h>
 #include <hobbes_util.h>
 #include <xemem.h>
-
-#define SIZE                    (4*1024)
-#define HIO_SEG_NAME            "hio_engine_seg"
 
 int main(int argc, char* argv[])
 {
@@ -29,7 +33,7 @@ int main(int argc, char* argv[])
     hobbes_client_init();
 
     xemem_segid_t segid;
-    segid = xemem_lookup_segid(HIO_SEG_NAME);
+    segid = xemem_lookup_segid(HIO_ENGINE_SEG_NAME);
     if (segid == XEMEM_INVALID_SEGID) {
         printf("xemem_lookup_segid failed\n");
         return -1;
@@ -44,9 +48,15 @@ int main(int argc, char* argv[])
     struct xemem_addr addr;
     addr.apid = apid;
     addr.offset = 0;
-    buf = xemem_attach(addr, SIZE, NULL);
+    buf = xemem_attach(addr, HIO_ENGINE_PAGE_SIZE, NULL);
 
-    printf("Buffer content %x\n", *buf);
+    printf("Buffer address %p, buffer content %x\n", buf, *buf);
+    printf("Enter kernel...\n");
+
+    {
+        int ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_ATTACH , buf);
+        printf("Return from kernel with ret %d\n", ret);
+    }
 
     if (xemem_detach(buf) < 0) {
         printf("xemem_detach failed\n");

@@ -11,4 +11,5 @@ linux_usr/stub
 linux_usr/test_xemem
 linux_usr/test_syscall
 linux_usr/engine
+linux_usr/engine_client
 tags
