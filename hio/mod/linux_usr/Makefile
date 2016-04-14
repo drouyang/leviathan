@@ -11,6 +11,7 @@ execs := 	stub \
                 engine_client \
                 test_xemem \
                 test_syscall \
+                socket \
 
 
 ext_libs := $(PETLIB_PATH)/petlib.a $(LIBHOBBES)/libhobbes.a -lm

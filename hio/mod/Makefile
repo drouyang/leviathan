@@ -18,7 +18,9 @@ obj-m += hio.o
 
 hio-objs :=  src/hio_main.o             \
     	     src/hio_stub.o		\
-    	     src/hio_engine.o
+    	     src/hio_engine.o           \
+    	     src/pisces_lock.o           \
+
 
 # All default targets must be invoked via a call to make 
 all: 

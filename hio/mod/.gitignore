@@ -12,4 +12,5 @@ linux_usr/test_xemem
 linux_usr/test_syscall
 linux_usr/engine
 linux_usr/engine_client
+linux_usr/socket
 tags
