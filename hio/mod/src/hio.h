@@ -22,6 +22,7 @@
 #define HIO_RB_SIZE             MAX_STUBS
 
 #include "hio_ioctl.h"
+#include "pisces_lock.h"
 
 // transferred in the ringbuffer
 struct __attribute__((__packed__)) hio_cmd_t {
@@ -52,13 +53,13 @@ struct __attribute__((__packed__)) hio_stub {
 
 
 struct __attribute__((__packed__)) hio_engine {
-    uint32_t    magic;
+    uint32_t                    magic;
     int                         rb_syscall_prod_idx;     // shared, updated by hio client
     int                         rb_ret_cons_idx;         // client private
     int                         rb_syscall_cons_idx;     // engine private
     int                         rb_ret_prod_idx;         // shared, updated by hio engine
     struct hio_cmd_t            rb[HIO_RB_SIZE];
-    spinlock_t                  lock;
+    struct pisces_spinlock      lock;
 
     // We could use hashmap here, but for now just use array
     // and use rank number as the key

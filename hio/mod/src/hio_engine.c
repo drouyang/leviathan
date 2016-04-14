@@ -72,9 +72,9 @@ static int hio_handler_worker(void *arg) {
                 spin_unlock(&stub->lock);
             }
 
-            spin_lock(&engine->lock);
+            pisces_spin_lock(&engine->lock);
             engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
-            spin_unlock(&engine->lock);
+            pisces_spin_unlock(&engine->lock);
 
             wake_up_interruptible(&stub->syscall_wq);
         } 
@@ -88,6 +88,7 @@ out:
 }
 #endif
 
+/*
 static void hio_dump_page(void *buf) {
     unsigned long long *ptr = buf;
     int i, j;
@@ -100,6 +101,7 @@ static void hio_dump_page(void *buf) {
     printk(KERN_INFO "ret prod_idx %p\n", &engine->rb_ret_prod_idx);
     printk(KERN_INFO "ret cons_idx %p\n", &engine->rb_ret_cons_idx);
 
+
     // 4KB page is 512 * 8bytes
     for (i = 0; i < 512/col_num; i++) {
         for (j = 0; j < col_num; j++) {
@@ -108,19 +110,21 @@ static void hio_dump_page(void *buf) {
         }
         printk(KERN_INFO "\n");
     }
+    return;
 }
+*/
 
 int hio_engine_event_loop(struct hio_engine *engine) {
     printk(KERN_INFO "HIO ENGINE: enter event loop...\n");
 
-    hio_dump_page((void *)engine);
+    //hio_dump_page((void *)engine);
 
     do {
         //wait_event_interruptible(engine->syscall_wq, (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
 
         // there are pending syscalls
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
-            spin_lock(&engine->lock);
+            pisces_spin_lock(&engine->lock);
 
             if (engine->rb_syscall_prod_idx == engine->rb_syscall_cons_idx) {
                 break;
@@ -167,7 +171,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
                 }
 
                 engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
-                spin_unlock(&engine->lock);
+                pisces_spin_unlock(&engine->lock);
 
                 wake_up_interruptible(&stub->syscall_wq);
             }
@@ -186,7 +190,7 @@ out:
 int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret) {
     struct hio_cmd_t *hio_cmd;
 
-    spin_lock(&engine->lock);
+    pisces_spin_lock(&engine->lock);
     if (engine->rb_ret_prod_idx == engine->rb_syscall_cons_idx) {
         printk(KERN_ERR "No pending syscall needs a return\n");
         printk(KERN_ERR "Return before handling a syscall???\n");
@@ -196,14 +200,14 @@ int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret
     hio_cmd->ret_val = ret->ret_val;
     hio_cmd->errno = ret->ret_errno;
     engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
-    spin_unlock(&engine->lock);
+    pisces_spin_unlock(&engine->lock);
     return 0;
 }
 
 // for test purpose
 void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
     // Insert syscall into hio_engine
-    spin_lock(&engine->lock);
+    pisces_spin_lock(&engine->lock);
     if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_ret_cons_idx) {
         // ringbuffer is not full
         struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_prod_idx]);
@@ -222,7 +226,7 @@ void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
     } else {
         printk(KERN_ERR "HIO ENGINE: ring buffer is full!!!\n");
     }
-    spin_unlock(&engine->lock);
+    pisces_spin_unlock(&engine->lock);
    
     //wake_up(&engine->syscall_wq);
     kfree(syscall);
@@ -241,7 +245,7 @@ int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
     }
 
     // Consume ret
-    spin_lock(&engine->lock);
+    pisces_spin_lock(&engine->lock);
     if (engine->rb_ret_cons_idx != engine->rb_ret_prod_idx) {
         struct hio_cmd_t *cmd = &engine->rb[engine->rb_ret_cons_idx];
         ret = cmd->ret_val;
@@ -251,7 +255,7 @@ int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
         printk(KERN_ERR "No pending syscall_ret found\n");
         ret = -1;
     }
-    spin_unlock(&engine->lock);
+    pisces_spin_unlock(&engine->lock);
 
     return ret;
 } 
@@ -259,7 +263,8 @@ int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
 int hio_engine_init(struct hio_engine *hio_engine) {
 
     hio_engine->magic = HIO_ENGINE_MAGIC;
-    spin_lock_init(&hio_engine->lock);
+    //spin_lock_init(&hio_engine->lock);
+    pisces_lock_init(&hio_engine->lock);
     //init_waitqueue_head(&hio_engine->syscall_wq);
 
     //printk(KERN_INFO "HIO: create hio_engine kthread\n");
