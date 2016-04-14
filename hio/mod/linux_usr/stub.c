@@ -39,7 +39,8 @@ int main(int argc, char* argv[])
 
     while (1) {
         struct stub_syscall_t syscall_ioctl;
-        printf("Poll file %s\n", stub_fname);
+
+        printf("\nPoll file %s\n", stub_fname);
 
         int ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_POLL, (void *) &syscall_ioctl);
         if (ret < 0) {
@@ -48,16 +49,8 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        printf("stub_id %d get syscall: %d (%llu, %llu, %llu, %llu, %llu)\n",
+        printf("stub_id %d get syscall: %d (%llu, %llu, %llu, %llu, %llu)",
                 syscall_ioctl.stub_id,
-                syscall_ioctl.syscall_nr,
-                syscall_ioctl.arg0,
-                syscall_ioctl.arg1,
-                syscall_ioctl.arg2,
-                syscall_ioctl.arg3,
-                syscall_ioctl.arg4);
-
-        printf("issue syscall %d (%llu, %llu, %llu, %llu, %llu)\n",
                 syscall_ioctl.syscall_nr,
                 syscall_ioctl.arg0,
                 syscall_ioctl.arg1,
@@ -72,14 +65,14 @@ int main(int argc, char* argv[])
                 syscall_ioctl.arg3, 
                 syscall_ioctl.arg4);
 
-        printf("syscall_ioctl ret %d\n", ret);
+        printf(" => ret %d\n", ret);
 
         {
             struct stub_syscall_ret_t ret_ioctl;
             ret_ioctl.ret_val = ret;
             ret_ioctl.ret_errno = errno;
             ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_RET, (void *) &ret_ioctl);
-            printf("ret_ioctl returns %d\n", ret);
+            if (ret < 0) printf("ret_ioctl returns %d\n", ret);
         }
     }
 
