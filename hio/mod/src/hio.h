@@ -24,7 +24,7 @@
 #include "hio_ioctl.h"
 
 // transferred in the ringbuffer
-struct hio_cmd_t {
+struct __attribute__((__packed__)) hio_cmd_t {
     int stub_id;
     int syscall_nr;
     uint64_t arg0;
@@ -37,7 +37,7 @@ struct hio_cmd_t {
 };
 
 
-struct hio_stub {
+struct __attribute__((__packed__)) hio_stub {
     int stub_id;
     struct hio_engine *hio_engine;
 
@@ -51,19 +51,18 @@ struct hio_stub {
 };
 
 
-struct hio_engine {
+struct __attribute__((__packed__)) hio_engine {
     uint32_t    magic;
-
-    // We could use hashmap here, but for now just use array
-    // and use rank number as the key
-    struct hio_stub *stub_lookup_table[MAX_STUBS];
-
-    spinlock_t                  lock;
-    struct hio_cmd_t            rb[HIO_RB_SIZE];
     int                         rb_syscall_prod_idx;     // shared, updated by hio client
     int                         rb_ret_cons_idx;         // client private
     int                         rb_syscall_cons_idx;     // engine private
     int                         rb_ret_prod_idx;         // shared, updated by hio engine
+    struct hio_cmd_t            rb[HIO_RB_SIZE];
+    spinlock_t                  lock;
+
+    // We could use hashmap here, but for now just use array
+    // and use rank number as the key
+    struct hio_stub *stub_lookup_table[MAX_STUBS];
 
     struct task_struct         *handler_thread;
 

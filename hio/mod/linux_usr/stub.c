@@ -15,7 +15,7 @@
 #include <hio_ioctl.h>
 #include <pet_ioctl.h>
 
-#define STUB_ID     123
+#define STUB_ID     3
 #define GETPID      39
 
 int main(int argc, char* argv[])

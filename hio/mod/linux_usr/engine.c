@@ -50,11 +50,10 @@ int main(int argc, char* argv[])
         return -1;
     }
     printf("Start engine process...\n");
-    printf("Warning: DO NOT CTRL-C this process!\n");
+    printf("TODO: find a way to correctly terminate this process\n");
     printf("    The HIO kernel module uses memory region exported by the engine process with xemem\n");
-    printf("    Terminating the engine process will destory the memory region and corrupt the hio module\n"); 
-    printf("    Currently there's no way to correctly terminate it\n"); 
-    printf("    CTRL-C will result in a infinite loop in the kernel\n"); 
+    printf("    Terminating this process will destory the memory region and corrupt the hio module\n"); 
+    printf("    Currently a infinite-loop is used to disable CTRL-C\n"); 
 
     ret = access(hio_fname, F_OK);
     if(ret != 0) {
