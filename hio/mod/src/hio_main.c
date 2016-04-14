@@ -150,6 +150,14 @@ device_ioctl(struct file  * filp,
 
                 hio_engine_event_loop(hio_engine);
 
+                /*
+                 * The destructing code below is not funtional
+                 */
+                while(1) {
+                    pr_info("hahaha");
+                    schedule();
+                }
+
                 hio_engine = NULL;
                 pr_info("Destroy hio engine...");
                 if (shared_page != NULL) {
