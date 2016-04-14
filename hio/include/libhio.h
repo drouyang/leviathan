@@ -32,6 +32,12 @@ void
 libhio_stub_deinit(void);
 
 int
+libhio_init_xemem_mappings(void);
+
+void
+libhio_deinit_xemem_mappings(void);
+
+int
 libhio_event_loop(void);
 
 int
