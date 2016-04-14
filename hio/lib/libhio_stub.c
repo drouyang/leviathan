@@ -351,8 +351,8 @@ out:
     return -1;
 }
 
-static int
-__init_xemem_mappings(void)
+int
+libhio_init_xemem_mappings(void)
 {
     assert(data.vaddr  >= (void *)LWK_BASE_ADDR);
     assert(heap.vaddr  >= (void *)LWK_BASE_ADDR);
@@ -448,8 +448,8 @@ data_get_out:
     return -1;
 }
 
-static void
-__deinit_xemem_mappings(void)
+void
+libhio_deinit_xemem_mappings(void)
 {
     xemem_detach(stack.vaddr);
     xemem_release(stack.apid);
@@ -1006,7 +1006,7 @@ __child_loop(void)
     int status;
     int to_p, from_p;
     
-    status = __init_xemem_mappings();
+    status = libhio_init_xemem_mappings();
     if (status) {
         ERROR("Failed to init xemem mappings\n");
         return status;
@@ -1073,7 +1073,7 @@ __child_loop(void)
     /* Teardown */
     pet_free_htable(cmd_htable, 0, 0);
     cmd_htable = NULL;
-    __deinit_xemem_mappings();
+    libhio_deinit_xemem_mappings();
     __free_lwk_aspace();
 
     /* Tell parent you're done */
