@@ -88,60 +88,92 @@ out:
 }
 #endif
 
+static void hio_dump_page(void *buf) {
+    unsigned long long *ptr = buf;
+    int i, j;
+    int col_num = 8;
+
+    struct hio_engine * engine = (struct hio_engine *) buf;
+    printk(KERN_INFO "magic %p\n", &engine->magic);
+    printk(KERN_INFO "prod_idx %p\n", &engine->rb_syscall_prod_idx);
+    printk(KERN_INFO "cons_idx %p\n", &engine->rb_syscall_cons_idx);
+    printk(KERN_INFO "ret prod_idx %p\n", &engine->rb_ret_prod_idx);
+    printk(KERN_INFO "ret cons_idx %p\n", &engine->rb_ret_cons_idx);
+
+    // 4KB page is 512 * 8bytes
+    for (i = 0; i < 512/col_num; i++) {
+        for (j = 0; j < col_num; j++) {
+            printk(KERN_INFO "%llx ", *ptr);
+            ptr++;
+        }
+        printk(KERN_INFO "\n");
+    }
+}
+
 int hio_engine_event_loop(struct hio_engine *engine) {
     printk(KERN_INFO "HIO ENGINE: enter event loop...\n");
+
+    hio_dump_page((void *)engine);
 
     do {
         //wait_event_interruptible(engine->syscall_wq, (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx));
 
         // there are pending syscalls
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
-            struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
-            struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
-            struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
-
-            if (syscall == NULL) {
-                printk(KERN_ERR "Failed allocate syscall memeory\n");
-                goto out;
-            }
-
-            printk(KERN_INFO "HIO ENGINE: consume syscall index %d (prod index %d)\n", 
-                    engine->rb_syscall_cons_idx,
-                    engine->rb_syscall_prod_idx);
-
-            if (stub == NULL) {
-                printk(KERN_ERR "stub_id %d does not exist\n", cmd->stub_id);
-                goto out;
-            } else if (stub->is_pending) {
-                printk(KERN_ERR "Failed to process syscall while previous one is pending\n");
-                printk(KERN_ERR "HIO currently supports ONE outstanding syscall per proc\n");
-                goto out;
-            } else {
-                syscall->stub_id = cmd->stub_id;
-                syscall->syscall_nr = cmd->syscall_nr;
-                syscall->arg0 = cmd->arg0;
-                syscall->arg1 = cmd->arg1;
-                syscall->arg2 = cmd->arg2;
-                syscall->arg3 = cmd->arg3;
-                syscall->arg4 = cmd->arg4;
-
-                printk(KERN_INFO "HIO ENGINE: dispatch syscall %d to stub %d\n",
-                        syscall->syscall_nr,
-                        syscall->stub_id);
-
-                spin_lock(&stub->lock);
-                stub->pending_syscall = syscall;
-                stub->is_pending = true;
-                spin_unlock(&stub->lock);
-            }
-
             spin_lock(&engine->lock);
-            engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
-            spin_unlock(&engine->lock);
 
-            wake_up_interruptible(&stub->syscall_wq);
+            if (engine->rb_syscall_prod_idx == engine->rb_syscall_cons_idx) {
+                break;
+            }
+
+            {
+                struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
+                struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
+                struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+
+                if (syscall == NULL) {
+                    printk(KERN_ERR "Failed allocate syscall memeory\n");
+                    goto out;
+                }
+
+                printk(KERN_INFO "HIO ENGINE: consume syscall index %d (prod index %d)\n", 
+                        engine->rb_syscall_cons_idx,
+                        engine->rb_syscall_prod_idx);
+
+                if (stub == NULL) {
+                    printk(KERN_ERR "stub_id %d does not exist\n", cmd->stub_id);
+                    goto out;
+                } else if (stub->is_pending) {
+                    printk(KERN_ERR "Failed to process syscall while previous one is pending\n");
+                    printk(KERN_ERR "HIO currently supports ONE outstanding syscall per proc\n");
+                    goto out;
+                } else {
+                    syscall->stub_id = cmd->stub_id;
+                    syscall->syscall_nr = cmd->syscall_nr;
+                    syscall->arg0 = cmd->arg0;
+                    syscall->arg1 = cmd->arg1;
+                    syscall->arg2 = cmd->arg2;
+                    syscall->arg3 = cmd->arg3;
+                    syscall->arg4 = cmd->arg4;
+
+                    printk(KERN_INFO "HIO ENGINE: dispatch syscall %d to stub %d\n",
+                            syscall->syscall_nr,
+                            syscall->stub_id);
+
+                    spin_lock(&stub->lock);
+                    stub->pending_syscall = syscall;
+                    stub->is_pending = true;
+                    spin_unlock(&stub->lock);
+                }
+
+                engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
+                spin_unlock(&engine->lock);
+
+                wake_up_interruptible(&stub->syscall_wq);
+            }
         } 
         schedule();
+    //} while (!kthread_should_stop());
     } while (1);
 
 out:
