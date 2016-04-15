@@ -27,6 +27,8 @@ SYSCALL_DEFINE4(recv, int, fd, void __user *, ubuf, size_t, size,
 
 int main(int argc, char* argv[])
 {
+
+    return 0;
     int ret;
     char sendBuff[1025];
     int listenfd = 0, connfd = 0;
@@ -49,8 +51,6 @@ int main(int argc, char* argv[])
     ret = bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
     printf("bind returns %d\n", ret);
     if (ret < 0) return -1;
-
-    return 0;
 
     ret = listen(listenfd, 10); 
     printf("listen returns %d\n", ret);
