@@ -15,5 +15,6 @@ tags
 hio/generic-io-stub/stub
 hio/io-daemon/io-daemon
 hio/test-app/app
+hio/mod/stub/stub
 gui_demo/hobbes-gui
 leviathan.pid
