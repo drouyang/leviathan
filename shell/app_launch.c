@@ -600,6 +600,9 @@ __app_stub(hobbes_id_t enclave_id)
 	}
     }
 
+    /* This is important to allow the hio app to setup first*/
+    sleep(3);
+
     /* Launch app */
     {
 	ret = hobbes_launch_app(enclave_id, app_spec);

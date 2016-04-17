@@ -6,8 +6,7 @@ CFLAGS = -static -Wall -Werror -D_GNU_SOURCE -I../include \
 CC = gcc
 AR = ar
 
-execs := 	stub \
-                engine \
+execs := 	engine \
                 engine_client \
                 test_xemem \
                 test_syscall \
