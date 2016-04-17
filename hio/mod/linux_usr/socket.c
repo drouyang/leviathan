@@ -27,13 +27,13 @@ SYSCALL_DEFINE4(recv, int, fd, void __user *, ubuf, size_t, size,
 
 int main(int argc, char* argv[])
 {
-
-    return 0;
     int ret;
     char sendBuff[1025];
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr; 
     int port = 5000;
+
+    printf("Start socket...\n");
 
     memset(&serv_addr, '0', sizeof(serv_addr));
     memset(sendBuff, '0', sizeof(sendBuff)); 
@@ -41,6 +41,7 @@ int main(int argc, char* argv[])
     ret = socket(AF_INET, SOCK_STREAM, 0);
     printf( "socket returns %d\n", ret);
     if (ret < 0) return -1;
+
 
 
     listenfd = ret;

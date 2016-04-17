@@ -1,0 +1,5 @@
+sudo ./start_leviathan.sh
+sudo shell/hobbes create_enclave examples/pisces.xml
+sudo .hio/mod/linux_usr/engine
+sudo shell/hobbes launch_app enclave-1 /home/ouyang/pisces-modules/leviathan/hio/mod/linux_usr/engine_client
+sudo shell/hobbes launch_app enclave-1 --with-hio=/home/ouyang/pisces-modules/leviathan/hio/mod/stub/stub /home/ouyang/pisces-modules/leviathan/hio/mod/linux_usr/socket

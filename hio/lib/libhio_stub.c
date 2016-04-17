@@ -231,6 +231,12 @@ __update_list(char        * id,
     /* To be filled in by children */
     hio_region->apid   = -1;
 
+    printf("[libhio_stub] Region %s segid %lld: vaddr %lld (%p), size %llu, offset %lld\n",
+            id, (long long)hio_region->segid, 
+            (unsigned long long) hio_region->vaddr, (void *)hio_region->vaddr, 
+            (unsigned long long)hio_region->size,  
+            (long long)hio_region->offset);
+
     return 0;
 }
 
@@ -351,8 +357,9 @@ out:
     return -1;
 }
 
+
 int
-libhio_init_xemem_mappings(void)
+__libhio_init_xemem_mappings(void)
 {
     assert(data.vaddr  >= (void *)LWK_BASE_ADDR);
     assert(heap.vaddr  >= (void *)LWK_BASE_ADDR);
@@ -365,18 +372,21 @@ libhio_init_xemem_mappings(void)
             printf("Cannot get data segid %li\n", data.segid);
             goto data_get_out;
         }
+        //printf("[libhio_stub] Data segid %li, apid %li\n", data.segid, data.apid);
 
         heap.apid = xemem_get(heap.segid, XEMEM_RDWR);
         if (heap.apid == -1) {
             printf("Cannot get heap segid %li\n", heap.segid);
             goto heap_get_out;
         }
+        //printf("[libhio_stub] Heap segid %li, apid %li\n", heap.segid, heap.apid);
 
         stack.apid = xemem_get(stack.segid, XEMEM_RDWR);
         if (stack.apid == -1) {
             printf("Cannot get stack segid %li\n", stack.segid);
             goto stack_get_out;
         }
+        //printf("[libhio_stub] stack segid %li, apid %li\n", stack.segid, stack.apid);
     }
 
     /* Targeted attachments */
@@ -391,7 +401,8 @@ libhio_init_xemem_mappings(void)
 
             va = xemem_attach(addr, data.size, data.vaddr);
             if (va == MAP_FAILED) {
-                printf("Could not attach to data apid\n");
+                printf("Could not attach to data apid %lld, offset %lld\n",
+                        (long long) addr.apid, (long long)addr.offset);
                 goto data_attach_out;
             }
 
@@ -405,7 +416,8 @@ libhio_init_xemem_mappings(void)
 
             va = xemem_attach(addr, heap.size, heap.vaddr);
             if (va == MAP_FAILED) {
-                printf("Could not attach to heap apid\n");
+                printf("Could not attach to head apid %lld, offset %lld\n",
+                        (long long) addr.apid, (long long)addr.offset);
                 goto heap_attach_out;
             }
 
@@ -419,7 +431,8 @@ libhio_init_xemem_mappings(void)
 
             va = xemem_attach(addr, stack.size, stack.vaddr);
             if (va == MAP_FAILED) {
-                printf("Could not attach to stack apid\n");
+                printf("Could not attach to stack apid %lld, offset %lld\n",
+                        (long long) addr.apid, (long long)addr.offset);
                 goto stack_attach_out;
             }
 
@@ -447,6 +460,14 @@ heap_get_out:
 data_get_out:
     return -1;
 }
+
+/* This is a hack of the rank_id */
+int
+libhio_init_xemem_mappings(void) {
+    rank_id = 0;
+    return __libhio_init_xemem_mappings();
+}
+
 
 void
 libhio_deinit_xemem_mappings(void)
@@ -514,9 +535,13 @@ __init_hio(char * spec_str)
         goto out;
    
     /* Parse spec */
+    printf("[libhio_stub] Spec: %s\n", spec_str);
     status = __parse_specification(spec_str);
-    if (status != 0)
+    if (status != 0) {
+        printf("Error parsing stub specification\n");
+        printf("%s\n", spec_str);
         goto out2;
+    }
 
     return 0;
 
@@ -1006,7 +1031,7 @@ __child_loop(void)
     int status;
     int to_p, from_p;
     
-    status = libhio_init_xemem_mappings();
+    status = __libhio_init_xemem_mappings();
     if (status) {
         ERROR("Failed to init xemem mappings\n");
         return status;
