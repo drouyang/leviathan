@@ -1,8 +1,15 @@
 /*
-** selectserver.c -- a cheezy multiperson chat server
-* Modified from http://beej.us/guide/bgnet/examples/selectserver.c
-* Modified by Jiannan Ouyang <ouyang@cs.pitt.edu>, 03/12/2016
-*/
+ * recv -- a single-thread blocking data recving server
+ * (c) Jiannan Ouyang <ouyang@cs.pitt.edu>, 03/12/2016
+ *
+ * Blocking on multiple incoming connections using select,
+ * recving data, then reply done.
+ *
+ * Data formet: struct incoming_data {int data_len, binary raw_data};
+ *
+ * This protocal is compatible with a modified version of mutilate to 
+ * measure tail latencies
+ */
 
 #include <stdio.h>
 #include <errno.h>
@@ -19,26 +26,6 @@
 #define PORTNUM 3369   // port we're listening on
 extern struct syscall_ops_t syscall_ops;
 struct sockaddr_in serverAddr;
-
-static int make_socket_non_blocking (int sfd)
-{
-  int flags, s;
-
-  flags = syscall_ops.fcntl3(sfd, F_GETFL, 0);
-  if (flags == -1) {
-      perror ("fcntl");
-      return -1;
-  }
-
-  flags |= O_NONBLOCK;
-  s = syscall_ops.fcntl3(sfd, F_SETFL, flags);
-  if (s == -1) {
-      perror ("fcntl");
-      return -1;
-  }
-
-  return 0;
-}
 
 static int create_and_bind (void) {
 	int fd;
@@ -170,7 +157,7 @@ int main(void)
 			// dynamic heap allocation
 			if (len > buflen) {
 				if (buf != NULL) free(buf);
-				buf == (char *)malloc(len*2);
+				buf = (char *)malloc(len*2);
 				buflen = len * 2;
 				if (buf == NULL) {
 					perror("malloc");
