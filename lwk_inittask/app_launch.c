@@ -931,35 +931,39 @@ launch_lwk_app(hobbes_id_t   hpid,
                 goto error_free_aspaces;
 	    }
 
-	    /* Setup Smartmap regions if enabled */
-	    if (flags.use_smartmap) {
-		unsigned int src = 0;
-		unsigned int dst = 0;
-
-		printf("Creating SMARTMAP mappings...\n");
-		for (dst = 0; dst < num_ranks; dst++) {
-		    for (src = 0; src < num_ranks; src++) {
-			status =
-			    aspace_smartmap(
-					    start_state[src].aspace_id,
-					    start_state[dst].aspace_id,
-					    SMARTMAP_ALIGN + (SMARTMAP_ALIGN * src),
-					    SMARTMAP_ALIGN
-					    );
-			
-			if (status) {
-			    printf("smartmap failed, status=%d\n", status);
-			    error_status = -1;
-                            goto error_free_aspaces;
-			}
-		    }
-		}
-		printf("    OK\n");
-	    }
 
 	    printf("Creating Task\n");
 	    status = task_create(&start_state[rank], NULL);
 	}
+
+
+	/* Setup Smartmap regions if enabled */
+	if (flags.use_smartmap) {
+	    unsigned int src = 0;
+	    unsigned int dst = 0;
+
+	    printf("Creating SMARTMAP mappings...\n");
+	    for (dst = 0; dst < num_ranks; dst++) {
+		for (src = 0; src < num_ranks; src++) {
+		    printf("   mapping apsace %d to %d\n", start_state[src].aspace_id, start_state[dst].aspace_id);
+		    status =
+			aspace_smartmap(
+			start_state[src].aspace_id,
+			start_state[dst].aspace_id,
+			SMARTMAP_ALIGN + (SMARTMAP_ALIGN * src),
+			SMARTMAP_ALIGN
+		    );
+			
+		    if (status) {
+			printf("smartmap failed, status=%d\n", status);
+			error_status = -1;
+			goto error_free_aspaces;
+		    }
+		}
+	    }
+	    printf("Done creating SMARTMAP mappings.\n");
+	}
+
 
         /* Stash away some info about the app that will be needed later */
         remember_app(hpid, flags, num_ranks, start_state, pmem_state);
