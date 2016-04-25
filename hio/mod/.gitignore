@@ -13,4 +13,5 @@ linux_usr/test_syscall
 linux_usr/engine
 linux_usr/engine_client
 linux_usr/socket
+linux_usr/stub_proxy
 tags

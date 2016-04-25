@@ -12,10 +12,13 @@
 #include <errno.h>
 #include <sys/syscall.h>
 
-#include <hio_ioctl.h>
 #include <pet_ioctl.h>
 #include <hobbes_util.h>
 #include <xemem.h>
+
+#include <hio_ioctl.h>
+#include <hio_engine.h>
+#include <pisces_lock.h>
 
 #include <libhio.h>
 #include <libhio_types.h>
@@ -27,11 +30,13 @@
 char stub_fname[128];
 #define OUTPUT_FILE "/tmp/stub.log"
 FILE *ofp;
+struct hio_engine *engine = NULL;
 
-static void event_loop(void) {
+/*
+static void ioctl_event_loop(void) {
 
     while (1) {
-        struct stub_syscall_t syscall_ioctl;
+        struct hio_syscall_t syscall_ioctl;
 
         printf("\nPoll file %s\n", stub_fname);
         fprintf(ofp, "\nPoll file %s\n", stub_fname);
@@ -75,7 +80,7 @@ static void event_loop(void) {
         fprintf(ofp, " => ret %d\n", ret);
 
         {
-            struct stub_syscall_ret_t ret_ioctl;
+            struct hio_syscall_ret_t ret_ioctl;
             ret_ioctl.ret_val = ret;
             ret_ioctl.ret_errno = errno;
             ret = pet_ioctl_path(stub_fname, HIO_STUB_SYSCALL_RET, (void *) &ret_ioctl);
@@ -87,11 +92,79 @@ static void event_loop(void) {
     }
 
 }
+*/
+
+static void polling_event_loop(void) {
+    int ret = 0;
+    struct hio_syscall_t syscall_ioctl;
+    struct hio_cmd_t *cmd = NULL;
+
+    while (1) {
+        if (engine->rb_syscall_prod_idx == engine->rb_syscall_cons_idx) 
+            continue;
+
+        pisces_spin_lock(&engine->lock);
+        if (engine->rb_syscall_prod_idx == engine->rb_syscall_cons_idx)
+            continue;
+
+        memset(&syscall_ioctl, 0, sizeof(struct hio_syscall_t));
+
+        cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
+        if (cmd->stub_id != STUB_ID) {
+            pisces_spin_unlock(&engine->lock);
+            continue;
+        }
+
+
+        printf("STUB %d: consume syscall index %d (prod index %d)\n", 
+                STUB_ID,
+                engine->rb_syscall_cons_idx,
+                engine->rb_syscall_prod_idx);
+
+        syscall_ioctl.stub_id = cmd->stub_id;
+        syscall_ioctl.syscall_nr = cmd->syscall_nr;
+        syscall_ioctl.arg0 = cmd->arg0;
+        syscall_ioctl.arg1 = cmd->arg1;
+        syscall_ioctl.arg2 = cmd->arg2;
+        syscall_ioctl.arg3 = cmd->arg3;
+        syscall_ioctl.arg4 = cmd->arg4;
+
+        engine->rb_syscall_cons_idx = (engine->rb_syscall_cons_idx + 1) % HIO_RB_SIZE;
+        pisces_spin_unlock(&engine->lock);
+
+        // syscall_ioctl
+        {
+            printf("stub_id %d get syscall: %d", syscall_ioctl.stub_id, syscall_ioctl.syscall_nr);
+
+            ret = syscall(syscall_ioctl.syscall_nr, 
+                    syscall_ioctl.arg0,
+                    syscall_ioctl.arg1, 
+                    syscall_ioctl.arg2, 
+                    syscall_ioctl.arg3, 
+                    syscall_ioctl.arg4);
+
+            printf(" => ret %d\n", ret);
+            fprintf(ofp, " => ret %d\n", ret);
+        }
+
+        // return
+        {
+            pisces_spin_lock(&engine->lock);
+            if (engine->rb_ret_prod_idx == engine->rb_syscall_cons_idx) {
+                printf("No pending syscall, return before syscall??\n");
+                continue;
+            }
+            cmd = &engine->rb[engine->rb_ret_prod_idx];
+            cmd->ret_val = ret;
+            cmd->ret_errno = errno;
+            engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
+            pisces_spin_unlock(&engine->lock);
+        }
+    } 
+}
 
 int main(int argc, char* argv[])
 {
-    int ret;
-    
     ofp = fopen(OUTPUT_FILE, "w");
 
     printf("Start stub process...\n");
@@ -123,6 +196,8 @@ int main(int argc, char* argv[])
         return status;
     }
     
+    // kernel based ringbuffer impelmentation
+    /*
     sprintf(stub_fname, "/dev/hio-stub%d", STUB_ID);
     ret = access(stub_fname, F_OK);
     if(ret != 0) {
@@ -136,7 +211,34 @@ int main(int argc, char* argv[])
         }
     }
     
-    event_loop();
+    ioctl_event_loop();
+    */
+    {
+        xemem_segid_t segid;
+        segid = xemem_lookup_segid(HIO_ENGINE_SEG_NAME);
+        if (segid == XEMEM_INVALID_SEGID) {
+            printf("xemem_lookup_segid failed\n");
+            return -1;
+        }
+
+        xemem_apid_t apid = xemem_get(segid, XEMEM_RDWR);
+        if (apid == -1) {
+            printf("Cannot get data segid %li\n", segid);
+            return -1;
+        }
+
+        struct xemem_addr addr;
+        addr.apid = apid;
+        addr.offset = 0;
+        int *buf;
+        buf = xemem_attach(addr, HIO_ENGINE_PAGE_SIZE, NULL);
+
+        printf("Buffer address %p, buffer content %x\n", buf, *buf);
+
+        engine = (struct hio_engine *) buf;
+
+        polling_event_loop();
+    }
 
     libhio_stub_deinit();
     return 0;

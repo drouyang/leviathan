@@ -8,6 +8,7 @@ AR = ar
 
 execs := 	engine \
                 engine_client \
+                stub_proxy \
                 test_xemem \
                 test_syscall \
                 socket \

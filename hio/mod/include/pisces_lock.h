@@ -1,10 +1,17 @@
 /* Pisces Cross OS Spinlock implementation 
- *  (c) 2013, Jiannan Ouyang
+ *  (c) 2013, Jiannan Ouyang (ouyang@cs.pitt.edu)
+ *  (c) 2013, Jack Lange (jacklange@cs.pitt.edu)
  */
 
 
-#include "pisces_lock.h"
+#ifndef __PISCES_LOCK_H__
+#define __PISCES_LOCK_H__
 
+#include <linux/types.h>
+
+struct pisces_spinlock {
+    unsigned long long raw_lock;
+} __attribute__((packed));
 
 
 /* REP NOP (PAUSE) is a good thing to insert into busy-wait loops. */
@@ -30,12 +37,12 @@ pisces_xchg8(volatile void * ptr,
 
 
 
-void pisces_lock_init(struct pisces_spinlock * lock) {
+static inline void pisces_lock_init(struct pisces_spinlock * lock) {
     lock->raw_lock = 0;
 }
 
 
-void pisces_spin_lock(struct pisces_spinlock * lock) {
+static inline void pisces_spin_lock(struct pisces_spinlock * lock) {
 
     while (1) {
 	if (pisces_xchg8(&(lock->raw_lock), 1) == 0) {
@@ -47,7 +54,10 @@ void pisces_spin_lock(struct pisces_spinlock * lock) {
 }
 
 
-void pisces_spin_unlock(struct pisces_spinlock * lock) {
+static inline void pisces_spin_unlock(struct pisces_spinlock * lock) {
     __asm__ __volatile__ ("": : :"memory");
     lock->raw_lock = 0;
 }
+
+
+#endif
