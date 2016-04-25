@@ -20,6 +20,7 @@
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/pagemap.h>
+#include <linux/sched.h>
 
 //#include <xpmem.h>
 #include "hio_ioctl.h"                /* device file ioctls*/

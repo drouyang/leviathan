@@ -27,8 +27,8 @@ int main(int argc, char* argv[])
 
     printf("getpid returns %d\n", getpid());
 
-    struct stub_syscall_t syscall_ioclt;
-    memset(&syscall_ioclt, 0, sizeof(struct stub_syscall_t));
+    struct hio_syscall_t syscall_ioclt;
+    memset(&syscall_ioclt, 0, sizeof(struct hio_syscall_t));
     syscall_ioclt.stub_id = STUB_ID;
     syscall_ioclt.syscall_nr = GETPID;
 

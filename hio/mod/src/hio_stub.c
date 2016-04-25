@@ -6,6 +6,22 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/fs.h>             /* device file */
+#include <linux/types.h>          /* dev_t */
+#include <linux/kdev_t.h>         /* MAJOR MINOR MKDEV */
+#include <linux/device.h>         /* udev */
+#include <linux/cdev.h>           /* cdev_init cdev_add */
+#include <linux/moduleparam.h>    /* module_param */
+#include <linux/stat.h>           /* perms */
+#include <asm/uaccess.h>
+#include <linux/slab.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/version.h>
+#include <linux/vmalloc.h>
+#include <linux/mm.h>
+#include <linux/pagemap.h>
+#include <linux/sched.h>
 
 #include "hio.h"
 #include "hio_ioctl.h"
@@ -50,7 +66,7 @@ stub_write(struct file        * filp,
     return 0;
 }
 
-static struct stub_syscall_t *
+static struct hio_syscall_t *
 stub_syscall_poll(struct hio_stub *stub) 
 {
     wait_event_interruptible(stub->syscall_wq, stub->is_pending);
@@ -58,7 +74,7 @@ stub_syscall_poll(struct hio_stub *stub)
 }
 
 static int
-stub_syscall_ret(struct hio_stub *stub, struct stub_syscall_ret_t *syscall_ret) 
+stub_syscall_ret(struct hio_stub *stub, struct hio_syscall_ret_t *syscall_ret) 
 {
     int ret = 0;
     struct hio_engine *engine = stub->hio_engine;
@@ -89,7 +105,7 @@ stub_ioctl(struct file  * filp,
         // Poll a syscall request
         case HIO_STUB_SYSCALL_POLL: 
             {
-                struct stub_syscall_t *syscall;
+                struct hio_syscall_t *syscall;
 
                 syscall = stub_syscall_poll(stub);
                 if (syscall == NULL) {
@@ -97,7 +113,7 @@ stub_ioctl(struct file  * filp,
                     break;
                 }
 
-                if (copy_to_user(argp, syscall, sizeof(struct stub_syscall_t))) {
+                if (copy_to_user(argp, syscall, sizeof(struct hio_syscall_t))) {
                     printk(KERN_ERR "Could not copy syscall to user space\n");
                     ret = -EFAULT;
                     break;
@@ -108,9 +124,9 @@ stub_ioctl(struct file  * filp,
         // Syscall request completed
         case HIO_STUB_SYSCALL_RET:
             {
-                struct stub_syscall_ret_t syscall_ret;
-                memset(&syscall_ret, 0, sizeof(struct stub_syscall_ret_t));
-                if (copy_from_user(&syscall_ret, argp, sizeof(struct stub_syscall_ret_t))) {
+                struct hio_syscall_ret_t syscall_ret;
+                memset(&syscall_ret, 0, sizeof(struct hio_syscall_ret_t));
+                if (copy_from_user(&syscall_ret, argp, sizeof(struct hio_syscall_ret_t))) {
                     printk(KERN_ERR "Could not copy syscall_ret from user space\n");
                     ret = -EFAULT;
                     break;
@@ -128,16 +144,16 @@ stub_ioctl(struct file  * filp,
         // Delegate a syscall, this is for test purpose
         case HIO_STUB_TEST_SYSCALL:
             {
-                struct stub_syscall_t *syscall;
-                syscall = (struct stub_syscall_t *) kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+                struct hio_syscall_t *syscall;
+                syscall = (struct hio_syscall_t *) kmalloc(sizeof(struct hio_syscall_t), GFP_KERNEL);
                 if (syscall == NULL) {
                     printk(KERN_ERR "HIO: error allocating HIO_STUB_TEST_SYSCALL memory\n");
                     ret = -1;
                     break;
                 }
 
-                memset(syscall, 0, sizeof(struct stub_syscall_t));
-                if (copy_from_user(syscall, argp, sizeof(struct stub_syscall_t))) {
+                memset(syscall, 0, sizeof(struct hio_syscall_t));
+                if (copy_from_user(syscall, argp, sizeof(struct hio_syscall_t))) {
                     printk(KERN_ERR "Could not copy syscall from user space\n");
                     ret = -EFAULT;
                     break;

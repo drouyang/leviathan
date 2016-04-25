@@ -95,8 +95,14 @@ int main(int argc, char* argv[])
     }
 
 
-    ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_START , buf);
-    printf("Return from kernel with ret %d\n", ret);
+    while (1) {
+        // process syscalls
+        ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_ENGINE_START , buf);
+        printf("Return from kernel with ret %d\n", ret);
+
+        // process returns
+    
+    }
 
     xemem_remove(segid);
     return 0;

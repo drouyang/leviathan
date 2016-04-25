@@ -35,7 +35,7 @@ static int hio_handler_worker(void *arg) {
         while (engine->rb_syscall_prod_idx != engine->rb_syscall_cons_idx) {
             struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
             struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
-            struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+            struct hio_syscall_t *syscall = kmalloc(sizeof(struct hio_syscall_t), GFP_KERNEL);
 
             if (syscall == NULL) {
                 printk(KERN_ERR "Failed allocate syscall memeory\n");
@@ -133,7 +133,7 @@ int hio_engine_event_loop(struct hio_engine *engine) {
             {
                 struct hio_cmd_t *cmd = &(engine->rb[engine->rb_syscall_cons_idx]);
                 struct hio_stub *stub = lookup_stub(engine, cmd->stub_id);
-                struct stub_syscall_t *syscall = kmalloc(sizeof(struct stub_syscall_t), GFP_KERNEL);
+                struct hio_syscall_t *syscall = kmalloc(sizeof(struct hio_syscall_t), GFP_KERNEL);
 
                 if (syscall == NULL) {
                     printk(KERN_ERR "Failed allocate syscall memeory\n");
@@ -187,7 +187,7 @@ out:
 }
 
 
-int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret) {
+int hio_engine_add_ret(struct hio_engine *engine, struct hio_syscall_ret_t *ret) {
     struct hio_cmd_t *hio_cmd;
 
     pisces_spin_lock(&engine->lock);
@@ -198,14 +198,14 @@ int hio_engine_add_ret(struct hio_engine *engine, struct stub_syscall_ret_t *ret
     }
     hio_cmd = &engine->rb[engine->rb_ret_prod_idx];
     hio_cmd->ret_val = ret->ret_val;
-    hio_cmd->errno = ret->ret_errno;
+    hio_cmd->ret_errno = ret->ret_errno;
     engine->rb_ret_prod_idx = (engine->rb_ret_prod_idx+1) % HIO_RB_SIZE;
     pisces_spin_unlock(&engine->lock);
     return 0;
 }
 
 // for test purpose
-void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
+void hio_engine_add_syscall(struct hio_engine *engine, struct hio_syscall_t *syscall) {
     // Insert syscall into hio_engine
     pisces_spin_lock(&engine->lock);
     if ((engine->rb_syscall_prod_idx + 1) % HIO_RB_SIZE != engine->rb_ret_cons_idx) {
@@ -233,7 +233,7 @@ void hio_engine_add_syscall(struct hio_engine *engine, struct stub_syscall_t *sy
 }
 
 // this is for test purpose
-int hio_engine_test_syscall(struct hio_engine *engine, struct stub_syscall_t *syscall) {
+int hio_engine_test_syscall(struct hio_engine *engine, struct hio_syscall_t *syscall) {
     int ret = 0;
 
     hio_engine_add_syscall(engine, syscall);
