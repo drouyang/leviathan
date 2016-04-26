@@ -1,22 +1,22 @@
 BASE=`pwd`
 
-#cd $BASE/petlib
-#make clean; make
-#
-#cd $BASE/petlib/petos
-#make clean; make
-#
-#cd $BASE/kitten/
-#make clean; make -j4
-#
-#cd $BASE/xpmem/mod
-#make clean; make
-#
-#cd $BASE/xpmem/lib
-#make clean; make
-#
-#cd $BASE/pisces/
-#make clean; make
+cd $BASE/petlib
+make clean; make
+
+cd $BASE/petlib/petos
+make clean; make
+
+cd $BASE/kitten/
+make clean; make -j4
+
+cd $BASE/xpmem/mod
+make clean; make
+
+cd $BASE/xpmem/lib
+make clean; make
+
+cd $BASE/pisces/
+make clean; make
 
 cd $BASE/libhobbes
 make clean; make
