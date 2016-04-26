@@ -37,7 +37,6 @@ void intHandler(int dummy) {
 
 static void dispachter_loop(void) {
     struct hio_syscall_ret_t cur_ret;
-    int ret = 0;
 
     printf("Enter HIO engine dispather loop...\n");
 
@@ -54,9 +53,11 @@ static void dispachter_loop(void) {
 
             struct hio_cmd_t *cmd = &(engine->rb[engine->rb_ret_cons_idx]);
 
+            /*
             printf("ENGINE dispatcher: consume cur_ret index %d (prod index %d)\n", 
                     engine->rb_ret_cons_idx,
                     engine->rb_ret_prod_idx);
+                    */
 
             // hio ioctl for return
             cur_ret.stub_id = cmd->stub_id;
@@ -66,8 +67,8 @@ static void dispachter_loop(void) {
             engine->rb_ret_cons_idx = (engine->rb_ret_cons_idx + 1) % HIO_RB_SIZE;
             pisces_spin_unlock(&engine->lock);
 
-            ret = pet_ioctl_path("/dev/hio", HIO_IOCTL_SYSCALL_RET, &cur_ret);
-            printf("Return from kernel with ret %d\n", ret);
+            pet_ioctl_path("/dev/hio", HIO_IOCTL_SYSCALL_RET, &cur_ret);
+            //printf("Return from kernel with ret %d\n", ret);
         } 
     }
 }

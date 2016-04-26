@@ -116,10 +116,10 @@ static void polling_event_loop(void) {
         }
 
 
-        printf("STUB %d: consume syscall index %d (prod index %d)\n", 
-                STUB_ID,
-                engine->rb_syscall_cons_idx,
-                engine->rb_syscall_prod_idx);
+        //printf("STUB %d: consume syscall index %d (prod index %d)\n", 
+        //        STUB_ID,
+        //        engine->rb_syscall_cons_idx,
+        //        engine->rb_syscall_prod_idx);
 
         syscall_ioctl.stub_id = cmd->stub_id;
         syscall_ioctl.syscall_nr = cmd->syscall_nr;
@@ -134,7 +134,7 @@ static void polling_event_loop(void) {
 
         // syscall_ioctl
         {
-            printf("stub_id %d get syscall: %d", syscall_ioctl.stub_id, syscall_ioctl.syscall_nr);
+            //printf("stub_id %d get syscall: %d", syscall_ioctl.stub_id, syscall_ioctl.syscall_nr);
 
             ret = syscall(syscall_ioctl.syscall_nr, 
                     syscall_ioctl.arg0,
@@ -143,7 +143,7 @@ static void polling_event_loop(void) {
                     syscall_ioctl.arg3, 
                     syscall_ioctl.arg4);
 
-            printf(" => ret %d\n", ret);
+            //printf(" => ret %d\n", ret);
             fprintf(ofp, " => ret %d\n", ret);
         }
 
