@@ -16,5 +16,7 @@ hio/generic-io-stub/stub
 hio/io-daemon/io-daemon
 hio/test-app/app
 hio/mod/stub/stub
+hio/benchmarks/recv/recv
+hio/benchmarks/recv/recv-lwk
 gui_demo/hobbes-gui
 leviathan.pid

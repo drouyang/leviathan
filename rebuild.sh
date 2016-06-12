@@ -6,6 +6,12 @@ make clean; make
 cd $BASE/petlib/petos
 make clean; make
 
+cd $BASE/../palacios-kitten/
+make clean; make -j4
+
+cd $BASE/palacios/
+make clean; make -j4
+
 cd $BASE/kitten/
 make clean; make -j4
 

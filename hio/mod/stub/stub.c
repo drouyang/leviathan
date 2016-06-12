@@ -31,7 +31,7 @@ char stub_fname[128];
 #define OUTPUT_FILE "/tmp/stub.log"
 struct hio_engine *engine = NULL;
 
-/*
+#if 0
 static void ioctl_event_loop(void) {
 
     while (1) {
@@ -93,7 +93,7 @@ static void ioctl_event_loop(void) {
     }
 
 }
-*/
+#endif
 
 static void polling_event_loop(void) {
     int ret = 0;
@@ -145,7 +145,7 @@ static void polling_event_loop(void) {
                     syscall_ioctl.arg4);
 
             //printf(" => ret %d\n", ret);
-            fprintf(ofp, " => ret %d\n", ret);
+            //fprintf(ofp, " => ret %d\n", ret);
         }
 
         // return
@@ -166,8 +166,6 @@ static void polling_event_loop(void) {
 
 int main(int argc, char* argv[])
 {
-    int ret;
-    
     printf("Start stub process...\n");
     //fprintf(ofp, "Start stub process...\n");
 

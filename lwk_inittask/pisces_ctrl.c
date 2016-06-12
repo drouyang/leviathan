@@ -78,6 +78,43 @@ issue_v3_cmd(u64 cmd, uintptr_t arg)
 }
 
 
+static int
+__add_v3_pci(int        pisces_fd, 
+	     uint64_t   cmd)
+{
+    struct cmd_add_pci_dev pci_cmd;
+    struct v3_hw_pci_dev   v3_pci_spec;
+    int ret = 0;
+
+    memset(&pci_cmd, 0, sizeof(struct cmd_add_pci_dev));
+
+    printf("Adding V3 PCI Device\n");
+
+    ret = read(pisces_fd, &pci_cmd, sizeof(struct cmd_add_pci_dev));
+
+    if (ret != sizeof(struct cmd_add_pci_dev)) {
+	    ERROR("Error reading pisces ADD_V3_PCI CMD (ret=%d)\n", ret);
+	    pisces_send_resp(pisces_fd, -1);
+	    return 0;
+    }
+
+    memcpy(v3_pci_spec.url, pci_cmd.spec.name, 128);
+    v3_pci_spec.bus  = pci_cmd.spec.bus;
+    v3_pci_spec.dev  = pci_cmd.spec.dev;
+    v3_pci_spec.func = pci_cmd.spec.func;
+
+
+    /* Issue Device Add operation to Palacios */
+    if (issue_v3_cmd(V3_ADD_PCI, (uintptr_t)&(v3_pci_spec)) == -1) {
+	    ERROR("Error: could not add PCI device to Palacios\n");
+	    pisces_send_resp(pisces_fd, -1);
+	    return 0;
+    }
+
+    pisces_send_resp(pisces_fd, 0);
+
+    return 0;
+}
 
 
 static int
@@ -345,6 +382,7 @@ pisces_cmd_init(int cmd_fd)
 
     register_pisces_cmd(PISCES_CMD_ADD_MEM,            __add_memory );
     register_pisces_cmd(PISCES_CMD_ADD_CPU,            __add_cpu    );
+    register_pisces_cmd(PISCES_CMD_ADD_V3_PCI,         __add_v3_pci );
     register_pisces_cmd(PISCES_CMD_REMOVE_CPU,         __remove_cpu );
     register_pisces_cmd(PISCES_CMD_LAUNCH_JOB,         __launch_job );
     register_pisces_cmd(PISCES_CMD_LOAD_FILE,          __load_file  );

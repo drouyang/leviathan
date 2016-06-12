@@ -1,18 +1,18 @@
 <pisces>
-    <kernel>/home/ouyang/pisces-modules/kitten/vmlwk.bin</kernel>
-    <init_task>/home/ouyang/pisces-modules/leviathan/lwk_inittask/lwk_init</init_task>
+    <kernel>/home/ouyang/hio/pisces-modules/kitten/vmlwk.bin</kernel>
+    <init_task>/home/ouyang/hio/pisces-modules/leviathan/lwk_inittask/lwk_init</init_task>
     <cmd_line>console=pisces</cmd_line>
 
-    <boot_env numa="0">
+    <boot_env numa="1">
        <cpu>1</cpu>
        <memory size="128"></memory>
     </boot_env>
    
-
+    <memory size="6144" block_size="128" numa="1" /> 
 
 <!--    
     <memory>
-        <blocks numa="1" contig="0">2</blocks>
+        <blocks numa="1" contig="0">10</blocks>
         <block>4</block>
         <block>2</block>
         <node>1</node>
@@ -20,18 +20,26 @@
 -->
     
     <cpus>
-        <core>2</core>
+        <core>3</core>
+        <core>5</core>
+        <core>7</core>
+        <core>9</core>
+        <core>11</core>
+        <core>13</core>
+        <core>15</core>
+        <core>17</core>
+        <core>19</core>
+        <core>21</core>
+        <core>23</core>
     </cpus>
 
-<!--
     <files>
 
     </files>
--->
 
 
     <devices>
-      <vpci name="nic_1" bus="0" dev="1" fn="0" />
+      <vpci name="nic" bus="2" dev="0" fn="1" />
 
     </devices>
 
