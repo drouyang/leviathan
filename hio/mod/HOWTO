@@ -1,3 +1,11 @@
+hstart
+enstart
+sudo insmod hio/mod/hio.ko
+sudo shell/hobbes launch_app enclave-1 /home/ouyang/hio/pisces-modules/leviathan/hio/mod/linux_usr/stub_proxy
+sudo shell/hobbes launch_app enclave-1 --with-hio=/home/ouyang/hio/pisces-modules/leviathan/hio/mod/stub/stub --with-hio-enclave=master /home/ouyang/hio/pisces-modules/leviathan/kitten/user/hio/recv
+
+
+# Old Implementation
 sudo ./start_leviathan.sh
 sudo shell/hobbes create_enclave examples/pisces.xml
 sudo .hio/mod/linux_usr/engine
